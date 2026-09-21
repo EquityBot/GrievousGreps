@@ -132,6 +132,11 @@ export function resolveEdges(
   // node ids. A Gleam package roots every module at its own `src/` (or `test/`),
   // so an `import app/thing` is exactly that suffix under some unknown root.
   const gleamFilesBySuffix = new Map<string, string[]>();
+  // Python module resolution: a file's importable path-suffix (`app/db/session.py`
+  // → `app/db/session`, `app/db/__init__.py` → `app/db`) → its file node ids. An
+  // absolute import names a module by dotted path relative to a sys.path root the
+  // repo never states, so — as for Java and PHP — the suffix is the portable key.
+  const pythonFilesByModule = new Map<string, string[]>();
   const hasGoModules = !!opts.goModules?.length;
   for (const n of nodes) {
     if (n.kind === "file") {
@@ -157,6 +162,13 @@ export function resolveEdges(
       if (n.path.endsWith(".gleam")) {
         const parts = toPosixPath(n.path).split("/");
         for (let i = 0; i < parts.length; i++) push(gleamFilesBySuffix, parts.slice(i).join("/"), n.id);
+      }
+      if (n.path.endsWith(".py")) {
+        // `pkg/__init__.py` IS the module `pkg`, so the marker is dropped before
+        // indexing — an import names the package, never the init file.
+        const module = toPosixPath(n.path).replace(/\.py$/, "").replace(/\/__init__$/, "");
+        const parts = module.split("/");
+        for (let i = 0; i < parts.length; i++) push(pythonFilesByModule, parts.slice(i).join("/"), n.id);
       }
       {
         const p = toPosixPath(n.path);
@@ -226,6 +238,8 @@ export function resolveEdges(
                   ? resolvePhpUse(e.specifier, phpFilesBySuffix)
                   : e.file.endsWith(".gleam")
                     ? resolveGleamImport(e.specifier, gleamFilesBySuffix)
+                  : e.file.endsWith(".py")
+                    ? resolvePythonImport(e.specifier, e.file, byId, pythonFilesByModule)
                     : resolveImport(e.specifier, e.file, byId);
       add(e.source, target, "imports", "extracted");
     } else if (e.relation === "extends" || e.relation === "implements") {
@@ -292,6 +306,21 @@ export function resolveEdges(
         const candidates = narrowGleamByKind(perFileName.get(targetFile)?.get(e.name!) ?? [], e.file, CALLABLE_KINDS);
         if (candidates.length === 1) add(e.source, candidates[0].id, "calls", "extracted");
         continue;
+      }
+      // A Python call through an imported module alias (`credits.reserve()`)
+      // carries the module as its specifier. That is the same two-halves evidence
+      // a named import gives — the file to look in, and the name to look for — so
+      // it resolves inside that file alone. `from a.b import c` is ambiguous in
+      // Python's grammar (submodule or symbol?); an unresolved module means it
+      // was the symbol reading, and the call falls through to the paths below
+      // rather than guessing.
+      if (e.specifier && e.name && e.file.endsWith(".py")) {
+        const moduleFile = resolvePythonImport(e.specifier, e.file, byId, pythonFilesByModule);
+        const candidates = byId.has(moduleFile) ? (perFileName.get(moduleFile)?.get(e.name) ?? []) : [];
+        if (candidates.length === 1) {
+          add(e.source, candidates[0].id, "calls", "extracted");
+          continue;
+        }
       }
       if (e.viaMember) {
         if (!e.recvType) continue;
@@ -510,6 +539,41 @@ function resolveTraitMember(
     return { id: c.id, confidence: c.path === file ? "extracted" : "inferred" };
   }
   return "ambiguous";
+}
+
+/**
+ * Resolve a Python import's dotted module path to an in-repo file node id;
+ * otherwise return the raw specifier (stdlib or third-party package).
+ *
+ * Two shapes, one answer. A RELATIVE import (`.service`, `..core.config`) states
+ * its anchor: one leading dot is the importing file's own package, each further
+ * dot climbs one level, so the path is computed, not searched. An ABSOLUTE import
+ * (`app.db.session`) names a module relative to a sys.path root the repo never
+ * writes down — it may be the repo root, a `src/` dir, or a package dir — so the
+ * dotted tail is matched against each file's importable path SUFFIX, exactly the
+ * root-agnostic key Java and PHP imports use here.
+ *
+ * A suffix shared by two files (`a/util.py` and `b/util.py` for `import util`) is
+ * left unresolved: picking one would invent an edge the source does not state.
+ */
+function resolvePythonImport(
+  spec: string,
+  file: string,
+  byId: Map<string, NodeV1>,
+  filesByModule: Map<string, string[]>,
+): string {
+  if (spec.startsWith(".")) {
+    const dots = /^\.+/.exec(spec)![0].length;
+    const tail = spec.slice(dots).replace(/\./g, "/");
+    // One dot = the importing file's own package, so the first dot costs no climb.
+    const base = posix.dirname(toPosixPath(file));
+    const anchor = posix.normalize(posix.join(base, ...Array(dots - 1).fill("..")));
+    const target = tail ? posix.join(anchor, tail) : anchor;
+    for (const c of [`${target}.py`, `${target}/__init__.py`]) if (byId.has(c)) return c;
+    return spec;
+  }
+  const hits = filesByModule.get(spec.replace(/\./g, "/"));
+  return hits?.length === 1 ? hits[0] : spec;
 }
 
 /**
