@@ -307,20 +307,45 @@ export function resolveEdges(
         if (candidates.length === 1) add(e.source, candidates[0].id, "calls", "extracted");
         continue;
       }
-      // A Python call through an imported module alias (`credits.reserve()`)
-      // carries the module as its specifier. That is the same two-halves evidence
-      // a named import gives — the file to look in, and the name to look for — so
-      // it resolves inside that file alone. `from a.b import c` is ambiguous in
-      // Python's grammar (submodule or symbol?); an unresolved module means it
-      // was the symbol reading, and the call falls through to the paths below
-      // rather than guessing.
+      // Python imports identify the target module. A named receiver can be a
+      // class or a submodule; both resolve within their explicit import path.
       if (e.specifier && e.name && e.file.endsWith(".py")) {
         const moduleFile = resolvePythonImport(e.specifier, e.file, byId, pythonFilesByModule);
-        const candidates = byId.has(moduleFile) ? (perFileName.get(moduleFile)?.get(e.name) ?? []) : [];
+        let targetFile = moduleFile;
+        let candidates: NodeV1[];
+        if (e.viaMember && e.recvType) {
+          const owners = (perFileName.get(moduleFile)?.get(e.recvType) ?? [])
+            .filter((n) => n.id.replace(/~\d+$/, "") === `${moduleFile}#${e.recvType}`);
+          if (owners.length === 1 && owners[0].kind === "class") {
+            candidates = (ownerMethod.get(`${e.recvType}.${e.name}`) ?? [])
+              .filter((n) => n.path === moduleFile && n.id.replace(/~\d+$/, "") === `${owners[0].id}.${e.name}`);
+          } else if (owners.length === 0) {
+            // `from pkg import submodule` shares the syntax of a named import. A
+            // resolved package anchors the submodule to its own directory; an
+            // ambiguous one drops the call rather than pick a sys.path root.
+            const spec = e.specifier.endsWith(".") ? `${e.specifier}${e.recvType}` : `${e.specifier}.${e.recvType}`;
+            if (byId.has(moduleFile)) {
+              const dir = moduleFile.endsWith("/__init__.py") ? posix.dirname(moduleFile) : null;
+              // Python's finder tries the package directory before the module file.
+              targetFile = (dir && [`${dir}/${e.recvType}/__init__.py`, `${dir}/${e.recvType}.py`].find((c) => byId.has(c))) || spec;
+            } else {
+              const parentHits = e.specifier.startsWith(".") ? 0 : (pythonFilesByModule.get(e.specifier.replace(/\./g, "/"))?.length ?? 0);
+              targetFile = parentHits > 1 ? spec : resolvePythonImport(spec, e.file, byId, pythonFilesByModule);
+            }
+            candidates = (perFileName.get(targetFile)?.get(e.name) ?? [])
+              .filter((n) => n.id.replace(/~\d+$/, "") === `${targetFile}#${e.name}` && (n.kind === "function" || n.kind === "class"));
+          } else {
+            candidates = [];
+          }
+        } else {
+          candidates = (perFileName.get(targetFile)?.get(e.name) ?? [])
+            .filter((n) => n.id.replace(/~\d+$/, "") === `${targetFile}#${e.name}` && (n.kind === "function" || n.kind === "class"));
+        }
         if (candidates.length === 1) {
           add(e.source, candidates[0].id, "calls", "extracted");
-          continue;
         }
+        // Explicit imports must not fall through to an unrelated global name.
+        continue;
       }
       if (e.viaMember) {
         if (!e.recvType) continue;
