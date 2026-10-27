@@ -41,7 +41,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { contextDirFor } from "../context/node-file.js";
+import { assertRealContextDir, contextDirFor } from "../context/node-file.js";
 import { isTrailMapDir } from "../context/map-dir.js";
 import { homeFolderRefusal } from "../init-guard.js";
 import { acquireLockIn, lockHeldIn, releaseLockIn } from "../util/state.js";
@@ -235,6 +235,7 @@ export async function ensureFreshGraph(root: string, opts: RefreshOptions = {}):
   try {
     const dir = resolve(root);
     const outDir = contextDirFor(dir, opts.contextDir);
+    assertRealContextDir(dir, outDir); // no lock, seed or rebuild through a symlink
     let seededFrom: string | undefined;
     let builtNote: string | undefined;
     if (!existsSync(wiringPath(outDir))) {

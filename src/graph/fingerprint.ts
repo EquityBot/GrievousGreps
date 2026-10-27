@@ -18,7 +18,7 @@
  * degrade safely: no fingerprint → "unknown, rebuild"; no parse cache → the
  * rebuild is just cold.
  */
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { CACHE_DIR } from "../context/node-file.js";
 import { contentHash } from "../util/id.js";
 import { readSourceFile } from "../util/source.js";
@@ -75,7 +75,7 @@ export function fingerprintPath(outDir: string): string {
 }
 
 export function readFingerprint(outDir: string): Fingerprint | null {
-  const f = readJson<Fingerprint>(fingerprintPath(outDir));
+  const f = readJson<Fingerprint>(fingerprintPath(outDir), dirname(outDir));
   if (!f || f.version !== FINGERPRINT_VERSION || typeof f.files !== "object" || !f.files) return null;
   if (f.extractor !== stamp()) return null; // different extractor — re-extract, don't trust these prints
   return f;
@@ -94,8 +94,8 @@ export function writeFingerprint(
   try {
     const record: Fingerprint = { version: FINGERPRINT_VERSION, extractor: stamp(), files };
     if (onlyDirs && onlyDirs.length > 0) record.onlyDirs = onlyDirs;
-    writeJsonAtomic(fingerprintPath(outDir), record, true);
-    pruneSidecars(join(outDir, CACHE_DIR), FINGERPRINT_PREFIX);
+    writeJsonAtomic(fingerprintPath(outDir), record, true, undefined, dirname(outDir));
+    pruneSidecars(outDir, FINGERPRINT_PREFIX);
     return true;
   } catch {
     return false;

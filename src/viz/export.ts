@@ -15,7 +15,8 @@
  * to the domain root, not the PR's folder) and a reader must not need a web server.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { readGraph } from "../graph/write.js";
 import { assembleContextGraph, type VizGraph } from "./assemble.js";
 
 export interface VizExportOptions {
@@ -61,7 +62,7 @@ function codeGraph(contextDir: string): unknown {
   const file = join(contextDir, ".graph", "wiring.json");
   if (!existsSync(file)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as { meta?: { version?: number } };
+    const parsed = readGraph(file, dirname(contextDir)); // never through a symlink
     return parsed?.meta?.version === 1 ? parsed : null;
   } catch {
     return null;

@@ -21,8 +21,9 @@
  * CLI print/exit wrappers and the per-child build orchestration live in
  * `workspace-cli.ts`; `mcp/tools.ts` calls the federate* functions directly.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { readFileInside, resolveInside, trustedBaseFor, writeFileInside } from "../util/safe-fs.js";
 import { contextDirFor } from "../context/node-file.js";
 import { checkGraph } from "./check.js";
 import { loadGraphCached } from "./load.js";
@@ -69,26 +70,36 @@ export function workspacePath(root: string, override?: string): string {
 }
 
 /** Read the workspace index, or null when the parent has none (not a workspace,
- * or unparseable/foreign json — treated the same as absent). */
+ * or unparseable/foreign json — treated the same as absent).
+ *
+ * The file sits in repository-controlled `graft/`, so it is read only through real
+ * directories, and every child must be what discovery itself would list: one plain
+ * name directly under `root`, never a symlink. Anything else — `..`, a nested
+ * path, a symlink — would point federated queries at another tree, so the whole
+ * index is treated as foreign. */
 export function readWorkspace(root: string, override?: string): WorkspaceV1 | null {
   const path = workspacePath(root, override);
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<WorkspaceV1>;
+    const text = readFileInside(trustedBaseFor(root, contextDirFor(root, override)), path);
+    if (text === null) return null;
+    const parsed = JSON.parse(text) as Partial<WorkspaceV1>;
     if (parsed.version !== 1 || !Array.isArray(parsed.children)) return null;
-    return { version: 1, children: parsed.children.map(String) };
+    const children = parsed.children.map(String);
+    if (!children.every(isChildName)) return null;
+    for (const c of children) resolveInside(root, c); // throws on a symlinked child; a removed one is fine
+    return { version: 1, children };
   } catch {
     return null;
   }
 }
 
+const isChildName = (c: string): boolean => c !== "" && c !== "." && c !== ".." && !/[\\/:]/.test(c);
+
 /** Write the workspace index, sorting children for a stable, minimal git diff. */
 export function writeWorkspace(root: string, ws: WorkspaceV1, override?: string): string {
   const dir = contextDirFor(root, override);
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, WORKSPACE_FILE);
-  const sorted: WorkspaceV1 = { version: 1, children: [...ws.children].sort() };
-  writeFileSync(path, JSON.stringify(sorted, null, 2) + "\n");
-  return path;
+  const sorted: WorkspaceV1 = { version: 1, children: [...ws.children].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)) };
+  return writeFileInside(trustedBaseFor(root, dir), join(dir, WORKSPACE_FILE), JSON.stringify(sorted, null, 2) + "\n");
 }
 
 /** A parent is a workspace BUILD target when it has no own `.git` and ≥2 git

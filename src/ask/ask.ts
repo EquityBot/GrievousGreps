@@ -13,10 +13,10 @@
  * v1 is deterministic and $0 (term-overlap scoring, no LLM, no embeddings). The
  * output is markdown so it drops straight into an agent's context.
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { matter } from "../util/front-matter.js";
-import { contextDirFor } from "../context/node-file.js";
+import { assertRealContextDir, contextDirFor } from "../context/node-file.js";
 import { withSavings, savingsFor, savingsTurnNudge, type Savings } from "../context/savings.js";
 import { loadGraphCached, loadAskIndexCached } from "../graph/load.js";
 import {
@@ -47,6 +47,7 @@ import {
   preparePageRankPartitions,
 } from "./graphrank.js";
 import { readSourceFile } from "../util/source.js";
+import { readFileInside, resolveInside } from "../util/safe-fs.js";
 import { counts, tokenize, type AskIndex, type AskIndexDoc } from "./index-file.js";
 import { cmd, tag } from "../brand.js";
 import { formatNoteHits, learningSavingsLine, type NoteHit } from "../notes/notes.js";
@@ -165,9 +166,12 @@ interface Corpus {
 function loadCorpus(outDir: string): Corpus {
   const concepts: Corpus["concepts"] = [];
   if (existsSync(outDir)) {
+    resolveInside(dirname(outDir), outDir); // never enumerate through a symlinked context dir
     for (const entry of readdirSync(outDir)) {
       if (!entry.endsWith(".md") || entry === "INDEX.md") continue;
-      const parsed = matter(readFileSync(join(outDir, entry), "utf8"));
+      const text = readFileInside(dirname(outDir), join(outDir, entry));
+      if (text === null) continue; // a symlinked concept node is never read through
+      const parsed = matter(text);
       const fm = parsed.data as Record<string, unknown>;
       const sources = Array.isArray(fm.sources)
         ? (fm.sources as Array<{ path: string }>).map((s) => s.path)
@@ -1250,10 +1254,14 @@ function parseSpan(pointer: string): { path: string; from: number; to: number } 
 }
 
 /** Read the source lines [from, to] (1-indexed, inclusive) of `path` under `root`,
- * capped at {@link MAX_SPAN_LINES}. Returns null if the file can't be read. */
+ * capped at {@link MAX_SPAN_LINES}. Returns null if the file can't be read — or is
+ * not a regular file inside `root`: a concept's `sources` path comes from committed
+ * frontmatter, so `../` or a symlink there must never inline a file from outside. */
 function sliceSpan(root: string, path: string, from: number, to: number): string | null {
   try {
-    const source = readSourceFile(join(root, path));
+    const abs = resolveInside(root, path);
+    if (!lstatSync(abs).isFile()) return null;
+    const source = readSourceFile(abs);
     if (source === null) return null; // unsupported encoding (e.g. UTF-16BE)
     const lines = source.split("\n");
     const start = Math.max(1, from);
@@ -1319,6 +1327,7 @@ function baselineFor(hits: AskHit[], graph: GraphV1 | null): AskResult["saved"] 
 export function ask(dir: string, query: string, opts: AskOptions = {}): AskResult {
   const root = resolve(dir);
   const outDir = contextDirFor(root, opts.contextDir);
+  assertRealContextDir(root, outDir); // never query through a symlinked context dir
   const limit = opts.limit ?? 8;
   const corpus = loadCorpus(outDir);
   const graphRank = opts.graphRank ?? true;

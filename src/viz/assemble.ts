@@ -10,8 +10,9 @@
  *  - a node file with unparseable frontmatter is skipped, never fatal
  *  - both drop counts are reported in `meta` so the UI can say so
  */
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { readFileInside, resolveInside } from "../util/safe-fs.js";
 import { matter, type FrontMatterFile } from "../util/front-matter.js";
 import type { NodeLink, SourceRef } from "../context/node-file.js";
 
@@ -135,11 +136,16 @@ export function assembleContextGraph(contextDir: string): VizGraph {
   let skippedFiles = 0;
 
   if (existsSync(contextDir)) {
+    const base = dirname(contextDir);
+    resolveInside(base, contextDir); // never enumerate through a symlinked context dir
     for (const entry of readdirSync(contextDir).sort()) {
       if (!entry.endsWith(".md")) continue;
       let parsed: FrontMatterFile;
       try {
-        parsed = matter(readFileSync(join(contextDir, entry), "utf8"));
+        // A symlinked node reads as null and is skipped, never followed.
+        const text = readFileInside(base, join(contextDir, entry));
+        if (text === null) throw new Error("not a regular file");
+        parsed = matter(text);
       } catch {
         skippedFiles++;
         continue;

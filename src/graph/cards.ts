@@ -14,10 +14,11 @@
  * `summary` when present (after `graft build --deep`), else its deterministic
  * `signature`, so cards are useful even in a $0 structure-only build.
  */
-import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { relPosix } from "../util/paths.js";
 import { matter } from "../util/front-matter.js";
+import { readFileInside, removeFileInside, resolveInside, writeFileInside } from "../util/safe-fs.js";
 import type { GraphV1, NodeV1 } from "./types.js";
 import { CACHE_DIR, readNodes } from "../context/node-file.js";
 import { GRAPH_DIR } from "./write.js";
@@ -28,10 +29,9 @@ const INDEX_FILE = "INDEX.md";
  * node (same stem as a slug — Laravel `server.php` vs a "Server" concept). */
 const ROOT_CARD_DIR = "_root";
 
-function writeIfChanged(path: string, content: string): void {
-  if (existsSync(path) && readFileSync(path, "utf8") === content) return;
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, content);
+function writeIfChanged(base: string, path: string, content: string): void {
+  if (readFileInside(base, path) === content) return;
+  writeFileInside(base, path, content);
 }
 
 export interface CardFileInfo {
@@ -49,10 +49,11 @@ export interface CardStats {
 }
 
 /** True when `path` is an existing concept node (frontmatter carries `slug`). */
-function isConceptNodeFile(path: string): boolean {
-  if (!existsSync(path)) return false;
+function isConceptNodeFile(outDir: string, path: string): boolean {
   try {
-    const fm = matter(readFileSync(path, "utf8")).data as Record<string, unknown>;
+    const text = readFileInside(dirname(outDir), path);
+    if (text === null) return false;
+    const fm = matter(text).data as Record<string, unknown>;
     return fm.slug != null && String(fm.slug).length > 0;
   } catch {
     return false;
@@ -66,7 +67,7 @@ function cardPathFor(outDir: string, sourcePath: string): string {
   const md = sourcePath.replace(/\.[^./]+$/, "") + ".md";
   const primary = join(outDir, md);
   if (sourcePath.includes("/")) return primary;
-  if (isConceptNodeFile(primary)) return join(outDir, ROOT_CARD_DIR, md);
+  if (isConceptNodeFile(outDir, primary)) return join(outDir, ROOT_CARD_DIR, md);
   return primary;
 }
 
@@ -183,6 +184,11 @@ export function writeCards(graph: GraphV1, outDir: string): CardStats {
     byPath.set(n.path, list);
   }
 
+  // Base for every write and prune below: the parent of outDir, so a symlinked
+  // `graft/`, a symlinked directory under it, or a symlinked card leaf committed
+  // to the repository is refused or replaced — never followed outside it.
+  const base = dirname(outDir);
+  resolveInside(base, outDir);
   const concepts = conceptsByPath(outDir);
   const written = new Set<string>();
   const files: CardFileInfo[] = [];
@@ -191,7 +197,7 @@ export function writeCards(graph: GraphV1, outDir: string): CardStats {
     const fileNode = group.find((n) => n.kind === "file");
     const symbols = group.filter((n) => n.kind !== "file");
     const cardPath = cardPathFor(outDir, sourcePath);
-    writeIfChanged(cardPath, renderCard(sourcePath, fileNode, symbols, concepts.get(sourcePath) ?? []));
+    writeIfChanged(base, cardPath, renderCard(sourcePath, fileNode, symbols, concepts.get(sourcePath) ?? []));
     written.add(cardPath);
     files.push({ card: relPosix(outDir, cardPath), path: sourcePath, symbols: symbols.length });
   }
@@ -199,7 +205,7 @@ export function writeCards(graph: GraphV1, outDir: string): CardStats {
   let pruned = 0;
   for (const existing of listExistingCards(outDir)) {
     if (!written.has(existing)) {
-      rmSync(existing);
+      removeFileInside(base, existing);
       pruned++;
     }
   }
@@ -254,7 +260,7 @@ export function writeIndex(outDir: string, files: CardFileInfo[]): void {
     );
   }
 
-  writeIfChanged(join(outDir, INDEX_FILE), lines.join("\n"));
+  writeIfChanged(dirname(outDir), join(outDir, INDEX_FILE), lines.join("\n"));
 }
 
 /** One symbol a concept node covers: its name, kind, and `path:span` pointer. */
@@ -281,6 +287,7 @@ export interface CoverRef {
  */
 export function writeCovers(graph: GraphV1, outDir: string): number {
   if (!existsSync(outDir)) return 0;
+  resolveInside(dirname(outDir), outDir); // never enumerate through a symlinked context dir
 
   const symbolsByPath = new Map<string, NodeV1[]>();
   for (const n of graph.nodes) {
@@ -297,7 +304,9 @@ export function writeCovers(graph: GraphV1, outDir: string): number {
   for (const entry of readdirSync(outDir)) {
     if (!entry.endsWith(".md") || entry === INDEX_FILE) continue;
     const full = join(outDir, entry);
-    const parsed = matter(readFileSync(full, "utf8"));
+    const text = readFileInside(dirname(outDir), full);
+    if (text === null) continue; // a symlinked concept node is never read or written through
+    const parsed = matter(text);
     // Root-level file cards have no concept slug; stamping `covers: []` onto
     // them made readNodes treat them as concept nodes (#261).
     if (parsed.data.slug == null || String(parsed.data.slug).length === 0) continue;
@@ -314,7 +323,7 @@ export function writeCovers(graph: GraphV1, outDir: string): number {
 
     // Re-stringify with covers appended last, so re-runs produce a stable diff.
     const { covers: _prev, ...rest } = parsed.data as Record<string, unknown>;
-    writeIfChanged(full, matter.stringify(parsed.content, { ...rest, covers }));
+    writeIfChanged(dirname(outDir), full, matter.stringify(parsed.content, { ...rest, covers }));
     enriched++;
   }
   return enriched;

@@ -24,6 +24,7 @@
  * `mcp/tools.ts` without creating an import cycle.
  */
 import { statSync } from "node:fs";
+import { dirname } from "node:path";
 import { readGraph, wiringPath } from "./write.js";
 import { readAskIndex, askIndexPath, type AskIndex } from "../ask/index-file.js";
 import type { GraphV1 } from "./types.js";
@@ -85,7 +86,7 @@ function loadCached<T>(
  * Returns a shared cached reference; callers must not mutate the returned graph. */
 export function loadGraphCached(outDir: string): GraphV1 | null {
   const path = wiringPath(outDir);
-  return loadCached(graphCache, path, () => readGraph(path), () => {
+  return loadCached(graphCache, path, () => readGraph(path, dirname(outDir)), () => {
     __parseCount.graph++;
   });
 }

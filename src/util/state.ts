@@ -11,8 +11,9 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, statSync, openSync, writeSync, closeSync, fchmodSync, constants } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { join, dirname, isAbsolute } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { mapDirFor } from '../context/map-dir.js';
+import { ensureDirInside, readFileInside, removeFileInside, resolveInside, trustedBaseFor, writeFileInside } from './safe-fs.js';
 
 export interface Stats {
   nodeCount: number; edgeCount: number; languages: string[];
@@ -45,14 +46,24 @@ const LOCK_FILE = '.sync.lock';
 export function resolveContextDir(projectDir: string): string {
   const override = process.env.GRAFT_DIR;
   if (!override) return mapDirFor(projectDir);
-  return isAbsolute(override) ? override : join(projectDir, override);
+  // Same rule as `contextDirFor`: absolute, and a repo-internal override may not
+  // pass through a symlinked directory the repository controls.
+  const dir = resolve(projectDir, override);
+  resolveInside(trustedBaseFor(projectDir, dir), dirname(dir));
+  return dir;
 }
 
 export function cacheDir(projectDir: string): string { return join(resolveContextDir(projectDir), '.cache'); }
 function statsPath(d: string): string { return join(cacheDir(d), 'stats.json'); }
 
-export function readJson<T>(p: string): T | null {
-  try { return JSON.parse(readFileSync(p, 'utf8')) as T; } catch { return null; }
+/** Parsed JSON at `p`, or null when absent or unparseable. With `base`, read only
+ * through real directories inside it and never through a symlinked leaf
+ * ({@link readFileInside}) — for anything under a repo's `graft/`. */
+export function readJson<T>(p: string, base?: string): T | null {
+  try {
+    const text = base === undefined ? readFileSync(p, 'utf8') : readFileInside(base, p);
+    return text === null ? null : (JSON.parse(text) as T);
+  } catch { return null; }
 }
 /**
  * Write JSON to `p` via a scratch file and a rename, so a concurrent reader sees
@@ -62,14 +73,18 @@ export function readJson<T>(p: string): T | null {
  * `compact` drops the indentation, for the caches only a machine ever opens —
  * it's ~30% of the bytes on a big, deep object.
  *
- * A failed write takes its scratch file with it. Every CLI invocation is a new pid,
- * so the names never collide and never get reused: leaving them behind means a repo
+ * A failed write takes its scratch file with it: leaving them behind means a repo
  * that fails this write repeatedly (ENOSPC, or a Windows indexer holding the target
  * open) accumulates one full-size file per attempt, and nothing in graft ever lists
  * `.cache/` to clean them up.
+ *
+ * `base` is the trusted directory the write must stay inside through real
+ * directories ({@link writeFileInside}); pass it for anything under a repo's
+ * `graft/`, whose components a repository can commit as symlinks. It defaults to
+ * the file's own directory, which checks nothing above it.
  */
-export function writeJsonAtomic(p: string, value: unknown, compact = false, mode?: number): void {
-  mkdirSync(dirname(p), { recursive: true });
+export function writeJsonAtomic(p: string, value: unknown, compact = false, mode?: number, base = dirname(p)): void {
+  ensureDirInside(base, dirname(p));
   // A name no one can guess, opened new-only and never through a link: a link
   // planted where the temp file goes is neither written through nor renamed
   // into place (D85).
@@ -130,7 +145,8 @@ export function buildConfigPath(d: string): string { return join(d, BUILD_CONFIG
 function ensureBuildConfigIgnored(d: string): void {
   const noGitignore = process.env.GRAFT_NO_GITIGNORE;
   if (noGitignore && noGitignore !== '0' && noGitignore !== 'false') return;
-  const path = join(d, '.gitignore');
+  let path: string;
+  try { path = resolveInside(d, '.gitignore'); } catch { return; } // a symlinked .gitignore is never followed
   let current = '';
   try { current = readFileSync(path, 'utf8'); } catch { /* no .gitignore yet */ }
   const present = current.split('\n').some((line) => {
@@ -143,10 +159,12 @@ function ensureBuildConfigIgnored(d: string): void {
   try { writeFileSync(path, current + block); } catch { /* best-effort */ }
 }
 
-export function readBuildConfig(d: string): BuildConfig | null { return readJson<BuildConfig>(buildConfigPath(d)); }
+// Based at the repo: a committed `.graft` symlink must not redirect where the brain
+// token is written, or supply a foreign config (and Trail endpoint) when read.
+export function readBuildConfig(d: string): BuildConfig | null { return readJson<BuildConfig>(buildConfigPath(d), d); }
 export function writeBuildConfig(d: string, c: BuildConfig): void {
   ensureBuildConfigIgnored(d);
-  writeJsonAtomic(buildConfigPath(d), c);
+  writeJsonAtomic(buildConfigPath(d), c, false, undefined, d);
 }
 
 /** Merge explicit CLI choices into the existing local config, so updating one
@@ -195,9 +213,12 @@ export function releaseLock(d: string): void {
  * hooks lock by project dir and the graph's auto-refresh locks by the context dir it
  * is actually writing, and the two must collide so they can't rebuild at once.
  */
-export function acquireLockIn(cache: string): boolean {
+export function acquireLockIn(dir: string): boolean {
+  const cache = resolve(dir);
   const p = join(cache, LOCK_FILE);
-  mkdirSync(cache, { recursive: true });
+  // Base: the context dir's parent, so a symlinked `graft/` or `.cache` is refused
+  // rather than locked — and stale-lock cleanup never deletes through it.
+  try { ensureDirInside(dirname(dirname(cache)), cache); } catch { return false; }
   const payload = JSON.stringify({ pid: process.pid, at: new Date().toISOString() });
   try {
     writeFileSync(p, payload, { flag: 'wx' }); // atomic exclusive create
@@ -213,7 +234,7 @@ export function acquireLockIn(cache: string): boolean {
   }
 }
 export function releaseLockIn(cache: string): void {
-  try { rmSync(join(cache, LOCK_FILE)); } catch { /* already gone */ }
+  try { removeFileInside(dirname(dirname(resolve(cache))), join(resolve(cache), LOCK_FILE)); } catch { /* already gone, or not ours */ }
 }
 /** Whether someone holds the lock in `cache`: the file is there and not yet old enough to reclaim. */
 export function lockHeldIn(cache: string): boolean {

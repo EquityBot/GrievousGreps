@@ -8,8 +8,8 @@
  * timestamps, so rebuilding an unchanged repo produces a byte-identical file and
  * git diffs stay minimal.
  */
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { readFileInside, writeFileInside } from "../util/safe-fs.js";
 import type { EdgeV1, GraphV1, NodeV1 } from "./types.js";
 
 /** Hidden subdir under the context dir that holds machine-only graph artifacts. */
@@ -25,9 +25,12 @@ export function wiringPath(outDir: string): string {
  * Read an existing wiring graph for use as the Tier-2 cache. Returns null when the
  * file is absent or unparseable (a fresh build, or a corrupt file we'll replace).
  */
-export function readGraph(path: string): GraphV1 | null {
+export function readGraph(path: string, base = dirname(path)): GraphV1 | null {
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as GraphV1;
+    // Pass `dirname(outDir)` as `base` so a symlinked `graft/` or `.graph/` is never
+    // read through; a symlinked leaf is treated as absent either way.
+    const text = readFileInside(base, path);
+    return text === null ? null : (JSON.parse(text) as GraphV1);
   } catch {
     return null;
   }
@@ -40,29 +43,18 @@ export function writeGraph(graph: GraphV1, outDir: string): string {
     edges: [...graph.edges].sort(edgeOrder),
   };
   const path = wiringPath(outDir);
-  mkdirSync(dirname(path), { recursive: true });
   // Atomic write (temp + rename): the crux pass now checkpoints wiring.json
   // periodically (#128), and a --deep run is exactly what gets killed mid-flush
   // (SIGTERM/CI timeout/laptop sleep). A partial writeFileSync would leave a
   // truncated, unparseable graph; rename swaps it in atomically on the same fs.
   //
-  // pid in the temp name, and removed when the write fails — the same discipline
+  // A unique temp name, removed when the write fails — the same discipline
   // `writeJsonAtomic` (util/state.ts) documents: a fixed name lets a concurrent
   // build (a manual `graft build` racing the refresh child) write the same scratch
   // file and hand the loser a corrupt graph, and a failed rename would otherwise
-  // leave a full-size orphan behind that nothing ever cleans up.
-  const tmp = `${path}.${process.pid}.tmp`;
-  try {
-    writeFileSync(tmp, JSON.stringify(sorted, null, 2) + "\n");
-    renameSync(tmp, path);
-  } catch (e) {
-    try {
-      rmSync(tmp, { force: true });
-    } catch {
-      /* nothing more we can do */
-    }
-    throw e;
-  }
+  // leave a full-size orphan behind that nothing ever cleans up. `dirname(outDir)`
+  // is the base so a symlinked `graft/` or `.graph/` is refused, never followed.
+  writeFileInside(dirname(outDir), path, JSON.stringify(sorted, null, 2) + "\n", { atomic: true });
   return path;
 }
 

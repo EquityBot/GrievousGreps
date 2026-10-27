@@ -19,10 +19,10 @@
  * contribution is folded into the stored `df` at query time (see `ask.ts`),
  * which is why `df` here counts symbol/file nodes only.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { GraphV1 } from "../graph/types.js";
 import { CACHE_DIR } from "../context/node-file.js";
+import { readFileInside, writeFileInside } from "../util/safe-fs.js";
 
 /** Words too common/short to carry query intent — dropped before scoring. */
 const STOP = new Set([
@@ -124,10 +124,8 @@ export function writeAskIndex(outDir: string, graph: GraphV1): string {
     docs,
   };
 
-  const outPath = askIndexPath(outDir);
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, JSON.stringify(index) + "\n");
-  return outPath;
+  // Base `dirname(outDir)`: a symlinked `graft/`, `.cache/` or leaf is never written through.
+  return writeFileInside(dirname(outDir), askIndexPath(outDir), JSON.stringify(index) + "\n");
 }
 
 /** Read the ask sidecar. Returns null on a missing file, unparseable JSON, an
@@ -136,10 +134,10 @@ export function writeAskIndex(outDir: string, graph: GraphV1): string {
  * otherwise silently skew IDF) — any of which means the caller should fall
  * back to live tokenization, never crash or trust bad data. */
 export function readAskIndex(outDir: string): AskIndex | null {
-  const path = askIndexPath(outDir);
-  if (!existsSync(path)) return null;
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8"));
+    const text = readFileInside(dirname(outDir), askIndexPath(outDir));
+    if (text === null) return null;
+    const raw = JSON.parse(text);
     if (
       !raw ||
       typeof raw !== "object" ||

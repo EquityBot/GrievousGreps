@@ -944,12 +944,13 @@ program
     const { resolve, basename } = await import("node:path");
     const { spawn } = await import("node:child_process");
     const { fileURLToPath } = await import("node:url");
-    const { contextDirFor } = await import("./context/node-file.js");
+    const { assertRealContextDir, contextDirFor } = await import("./context/node-file.js");
     const { startVizServer } = await import("./viz/serve.js");
 
     const root = resolve(dir);
     const globalOpts = program.opts<{ dir?: string }>();
     const contextDir = contextDirFor(root, globalOpts.dir);
+    assertRealContextDir(root, contextDir); // never serve or export through a symlinked context dir
     if (!existsSync(contextDir)) {
       console.error(`✗ no context graph at ${contextDir}: run \`${cmd("graft build --deep")}\` first`);
       process.exit(1);

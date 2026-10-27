@@ -13,14 +13,14 @@
  *      source files so staleness stays exact.
  *   5. Write one markdown file per node (preserving human notes) + a manifest.
  */
-import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { walkDir } from "../ingest/fs.js";
 import { filterByOnlyDirs } from "../graph/source-files.js";
 import { readFingerprint } from "../graph/fingerprint.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
+import { readFileInside, writeFileInside } from "../util/safe-fs.js";
 import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs } from "../util/state.js";
 import type { Summarizer } from "../ai/summarize.js";
 import { LlmFailureGate } from "../ai/failure.js";
@@ -28,6 +28,7 @@ import type { FileSummary, SynthNode, Synthesizer } from "../ai/synthesize.js";
 import { planSynthesis, type SynthesisBatch } from "./batches.js";
 import {
   CACHE_DIR,
+  assertRealContextDir,
   MANIFEST_VERSION,
   contextDirFor,
   deleteNode,
@@ -167,6 +168,9 @@ interface BatchOutcome {
 export async function buildContext(dir: string, opts: BuildOptions): Promise<BuildResult> {
   const root = resolve(dir);
   const outDir = contextDirFor(root, opts.contextDir);
+  // A repository can commit `graft/` as a symlink; refuse before reading or
+  // writing anything through it.
+  assertRealContextDir(root, outDir);
   const exts = opts.extensions ?? CODE_EXTENSIONS;
   // Read the same persisted walk choices as the Tier-1 wiring graph, so the
   // Tier-2 concept pipeline sees exactly the same directories and submodules.
@@ -463,26 +467,22 @@ function cachePath(outDir: string): string {
 }
 
 function loadCache(outDir: string): BuildCache {
-  const path = cachePath(outDir);
-  if (existsSync(path)) {
-    try {
-      const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<BuildCache>;
+  try {
+    const text = readFileInside(dirname(outDir), cachePath(outDir));
+    if (text !== null) {
+      const parsed = JSON.parse(text) as Partial<BuildCache>;
       return { summaries: parsed.summaries ?? {}, synth: parsed.synth ?? {} };
-    } catch {
-      /* fall through to empty */
     }
+  } catch {
+    /* fall through to empty */
   }
   return { summaries: {}, synth: {} };
 }
 
 function saveCache(outDir: string, cache: BuildCache): void {
-  const path = cachePath(outDir);
-  mkdirSync(join(outDir, CACHE_DIR), { recursive: true });
   // Atomic: a kill mid-write can't leave a truncated (unparseable) cache that
   // would throw away every prior summary on the next load.
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, JSON.stringify(cache, null, 2));
-  renameSync(tmp, path);
+  writeFileInside(dirname(outDir), cachePath(outDir), JSON.stringify(cache, null, 2), { atomic: true });
 }
 
 /** Min interval between phase-1 cache flushes. Env seam for tests. */

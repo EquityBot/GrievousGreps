@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpRepo } from "./helpers.js";
 import { mapDirFor } from "../src/context/map-dir.js";
 import { contextDirFor, ensureGitignored, ensureSearchable } from "../src/context/node-file.js";
@@ -39,7 +39,7 @@ test("the map is in graft/ for a repo not on trail, and in .trail/cache/ for one
   const plain = repo("map-plain", false);
   assert.equal(mapDirFor(plain), join(plain, "graft"));
   assert.equal(contextDirFor(plain), join(plain, "graft"));
-  assert.equal(contextDirFor(plain, "/elsewhere"), "/elsewhere", "an explicit --dir wins");
+  assert.equal(contextDirFor(plain, "/elsewhere"), resolve("/elsewhere"), "an explicit --dir wins");
 
   const onTrail = repo("map-trail", true);
   assert.equal(mapDirFor(onTrail), join(onTrail, ".trail", "cache"));

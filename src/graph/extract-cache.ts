@@ -23,11 +23,12 @@
  * extraction code itself, caught by content-hashing it — see
  * {@link extractorStamp}. Neither asks anyone to remember to bump anything.
  */
-import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, extname, join } from "node:path";
 import { CACHE_DIR } from "../context/node-file.js";
+import { resolveInside } from "../util/safe-fs.js";
 import { readJson, writeJsonAtomic } from "../util/state.js";
 import type { RawEdge } from "./extract.js";
 import type { NodeV1 } from "./types.js";
@@ -85,14 +86,17 @@ export function extractCachePath(outDir: string): string | null {
 
 /** Keep `.cache/` from growing a file per version forever: after writing, drop all
  * but the newest `keep` files sharing a prefix. Best-effort and never fatal — this
- * is a cache directory, and a failure here costs disk, not correctness. */
-export function pruneSidecars(cacheDir: string, prefix: string, keep = 2): void {
+ * is a cache directory, and a failure here costs disk, not correctness. Only real
+ * files in a real `<outDir>/.cache` are touched: a symlinked `graft/` or `.cache`
+ * from repository content is refused rather than listed and pruned through. */
+export function pruneSidecars(outDir: string, prefix: string, keep = 2): void {
   try {
-    const mine = readdirSync(cacheDir)
-      .filter((f) => f.startsWith(`${prefix}.`) && f.endsWith(".json"))
-      .map((f) => {
-        const full = join(cacheDir, f);
-        return { full, mtimeMs: statSync(full).mtimeMs };
+    const cacheDir = resolveInside(dirname(outDir), join(outDir, CACHE_DIR));
+    const mine = readdirSync(cacheDir, { withFileTypes: true })
+      .filter((d) => d.isFile() && d.name.startsWith(`${prefix}.`) && d.name.endsWith(".json"))
+      .map((d) => {
+        const full = join(cacheDir, d.name);
+        return { full, mtimeMs: lstatSync(full).mtimeMs };
       })
       .sort((a, b) => b.mtimeMs - a.mtimeMs);
     for (const f of mine.slice(keep)) rmSync(f.full, { force: true });
@@ -205,7 +209,7 @@ export function readExtractCache(outDir: string): ExtractCache {
   const path = extractCachePath(outDir);
   const stamp = extractorStamp();
   if (path === null || stamp === null) return emptyExtractCache();
-  const c = readJson<ExtractCache>(path);
+  const c = readJson<ExtractCache>(path, dirname(outDir));
   if (!c || c.version !== CACHE_VERSION || c.extractor !== stamp || typeof c.files !== "object") {
     return emptyExtractCache();
   }
@@ -220,8 +224,8 @@ export function writeExtractCache(outDir: string, cache: ExtractCache): boolean 
   const path = extractCachePath(outDir);
   if (path === null) return false;
   try {
-    writeJsonAtomic(path, cache, true);
-    pruneSidecars(join(outDir, CACHE_DIR), EXTRACT_CACHE_PREFIX);
+    writeJsonAtomic(path, cache, true, undefined, dirname(outDir));
+    pruneSidecars(outDir, EXTRACT_CACHE_PREFIX);
     return true;
   } catch {
     return false;

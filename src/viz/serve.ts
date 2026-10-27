@@ -10,7 +10,8 @@
  */
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { readFileSync, existsSync, watch, type FSWatcher } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { readGraph } from "../graph/write.js";
 import { assembleContextGraph } from "./assemble.js";
 import { cmd } from "../brand.js";
 
@@ -87,8 +88,10 @@ export async function startVizServer(opts: VizServerOptions): Promise<VizServer>
         return;
       }
       try {
-        const parsed = JSON.parse(readFileSync(file, "utf8"));
-        if (parsed?.meta?.version !== 1) {
+        // Never through a symlinked `.graph/` or leaf; null reads as unreadable.
+        const parsed = readGraph(file, dirname(opts.contextDir));
+        if (parsed === null) throw new Error("unreadable");
+        if (parsed.meta?.version !== 1) {
           sendJson(res, 404, { error: `wiring.json has an unsupported version — regenerate with \`${cmd("graft build")}\`` });
           return;
         }

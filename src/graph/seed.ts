@@ -34,19 +34,11 @@
  * was *cloned* rather than worktree'd behaves exactly as it did before: "run graft
  * build first".
  */
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { ASK_INDEX_FILE } from "../ask/index-file.js";
-import { CACHE_DIR, contextDirFor } from "../context/node-file.js";
+import { CACHE_DIR, assertRealContextDir, contextDirFor } from "../context/node-file.js";
+import { copyFileInside, ensureDirInside, resolveInside } from "../util/safe-fs.js";
 import { EXTRACT_CACHE_PREFIX } from "./extract-cache.js";
 import { FINGERPRINT_PREFIX } from "./fingerprint.js";
 import { GRAPH_DIR, wiringPath } from "./write.js";
@@ -163,17 +155,20 @@ function seedable(rel: string): boolean {
  * allowlist no longer depends on the form `cpSync` chooses to hand its callback, and
  * `rel` is posix by construction rather than by conversion. Also narrower than the old
  * copy in one way worth keeping: only real files and directories travel, never a
- * symlink, and nothing in the allowlist is one.
+ * symlink, and nothing in the allowlist is one. The destination side is a checkout
+ * whose `graft/` a repository can plant symlinks in, so every directory and file
+ * lands through the contained helpers, based at `outDir`'s parent.
  */
 function copyTree(srcDir: string, outDir: string): void {
+  const base = dirname(outDir);
   const walk = (rel: string): void => {
     const from = rel ? join(srcDir, rel) : srcDir;
-    mkdirSync(rel ? join(outDir, rel) : outDir, { recursive: true });
+    ensureDirInside(base, rel ? join(outDir, rel) : outDir);
     for (const entry of readdirSync(from, { withFileTypes: true })) {
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
       if (!seedable(childRel)) continue;
       if (entry.isDirectory()) walk(childRel);
-      else if (entry.isFile()) copyFileSync(join(from, entry.name), join(outDir, childRel));
+      else if (entry.isFile()) copyFileInside(base, join(from, entry.name), join(outDir, childRel));
     }
   };
   walk("");
@@ -187,16 +182,8 @@ function copyTree(srcDir: string, outDir: string): void {
  * rest of the copy has landed and must never appear half-written: a seed killed
  * midway then leaves no graph, and the next call simply seeds again.
  */
-function installGraph(srcGraph: string, destGraph: string): void {
-  mkdirSync(dirname(destGraph), { recursive: true });
-  const tmp = `${destGraph}.seed.${process.pid}`;
-  try {
-    copyFileSync(srcGraph, tmp);
-    renameSync(tmp, destGraph);
-  } catch (err) {
-    try { rmSync(tmp, { force: true }); } catch { /* nothing to clean up */ }
-    throw err;
-  }
+function installGraph(srcGraph: string, outDir: string): void {
+  copyFileInside(dirname(outDir), srcGraph, wiringPath(outDir));
 }
 
 /**
@@ -217,10 +204,11 @@ export function seedGraph(root: string, opts: { contextDir?: string } = {}): See
     const main = mainWorktreeRoot(dir);
     if (!main) return NOT_SEEDED;
     const srcDir = contextDirFor(main);
-    const srcGraph = wiringPath(srcDir);
+    assertRealContextDir(main, srcDir);
+    const srcGraph = resolveInside(main, wiringPath(srcDir)); // a symlinked source graph is refused
     if (!existsSync(srcGraph)) return NOT_SEEDED; // parent never built either
     copyTree(srcDir, outDir);
-    installGraph(srcGraph, wiringPath(outDir));
+    installGraph(srcGraph, outDir);
     return { seeded: true, from: main };
   } catch {
     return NOT_SEEDED;

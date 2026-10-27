@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { walkDir } from "../ingest/fs.js";
-import { contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
+import { assertRealContextDir, contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
 import { extractFile, languageLabelOf, languageOf, type Language, type RawEdge } from "./extract.js";
 import { extractGeneric, fallbackLangOf, genericLangOf, warmGenericGrammars, type GenericLang } from "./generic.js";
 import { containerLangOf, extractContainer, warmContainerGrammars, type ContainerLang } from "./container.js";
@@ -215,6 +215,9 @@ export async function buildGraph(
 ): Promise<GraphBuildResult> {
   const root = resolve(dir);
   const outDir = contextDirFor(root, opts.contextDir);
+  // A repository can commit `graft/` as a symlink; refuse before reading or
+  // writing anything through it. Every writer below re-checks its own path.
+  assertRealContextDir(root, outDir);
   // Enumerate once: source extraction, scope discovery, and Go module
   // resolution must agree on the same Git-ignore-aware working-tree view —
   // including the repo's persisted directory and submodule choices.
@@ -384,7 +387,7 @@ export async function buildGraph(
   // graph.json is its own Tier-2 cache: fold in the prior meaning layer so an
   // unchanged body is never re-summarized (and a Tier-1-only run never wipes it).
   // Read BEFORE the first checkpoint can overwrite wiring.json.
-  const prior = readGraph(wiringPath(outDir));
+  const prior = readGraph(wiringPath(outDir), dirname(outDir));
   const priorById = new Map((prior?.nodes ?? []).map((n) => [n.id, n]));
   const meaning = await enrichGraph(nodes, priorById, sources, {
     summarizer: opts.summarizer,

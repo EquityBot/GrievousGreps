@@ -22,11 +22,12 @@
  * LLM and without re-reading every node body.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { matter } from "../util/front-matter.js";
 import { contentHash, normalizeName } from "../util/id.js";
 import { relPosix, stripTrailingSlashes } from "../util/paths.js";
+import { readFileInside, removeFileInside, resolveInside, trustedBaseFor, writeFileInside } from "../util/safe-fs.js";
 // Value-only import of a constant; `write.ts` pulls in nothing from here, so no cycle.
 import { GRAPH_DIR } from "../graph/write.js";
 import { mapDirFor, isTrailMapDir } from "./map-dir.js";
@@ -111,8 +112,20 @@ export function digestSources(sources: SourceRef[]): string {
  * visible (not dot-prefixed) on purpose: default ripgrep skips hidden dirs, so
  * a grep can land on its cards; under trail the hooks name the path instead. */
 export function contextDirFor(root: string, override?: string): string {
-  if (override) return override;
-  return mapDirFor(root);
+  if (!override) return mapDirFor(root);
+  // Absolute, so every path derived from it resolves the same way in every helper.
+  // An override inside the repo crosses repository-controlled directories: refuse a
+  // symlinked one here, once, so the context dir's parent is a trustworthy base for
+  // every reader and writer below it (they check the context dir itself onwards).
+  const dir = resolve(override);
+  resolveInside(trustedBaseFor(root, dir), dirname(dir));
+  return dir;
+}
+
+/** Refuse a context dir reached through a symlink, before anything reads or writes
+ * under it, checking from {@link trustedBaseFor}. */
+export function assertRealContextDir(root: string, outDir: string): void {
+  resolveInside(trustedBaseFor(root, outDir), outDir);
 }
 
 /** `contextDir` relative to `root` as a posix path, or null when it is not strictly inside
@@ -157,7 +170,8 @@ export function ensureGitignored(root: string, contextDir: string, note = GRAPH_
   // committing the skill graft just wrote was silently dropped (#79). `rel` is always
   // repo-relative here, so a leading `/` is always safe (incl. a `--dir` subpath).
   const entry = `/${bare}/`;
-  const path = join(root, ".gitignore");
+  let path: string;
+  try { path = resolveInside(root, ".gitignore"); } catch { return; } // a symlinked .gitignore is never followed
   let current = "";
   try { current = readFileSync(path, "utf8"); } catch { /* no .gitignore yet — we create one */ }
   // Accept the anchored form AND the older unanchored `graft/` / `graft`, so existing
@@ -231,7 +245,8 @@ export function ensureSearchable(root: string, contextDir: string): void {
   if (rel === null) return; // outside the repo — nothing to re-admit
   const dir = stripTrailingSlashes(rel);
   const entry = `!${dir}/`;
-  const path = join(root, ".ignore");
+  let path: string;
+  try { path = resolveInside(root, ".ignore"); } catch { return; } // a symlinked .ignore is never followed
   let current = "";
   try { current = readFileSync(path, "utf8"); } catch { /* no .ignore yet — we create one */ }
   // Any mention of the negation means a human (or a previous build) has already
@@ -299,15 +314,16 @@ function preserveHuman(existingContent: string): string {
  * path written.
  */
 export function writeNode(dir: string, node: ContextNode): string {
-  mkdirSync(dir, { recursive: true });
   const path = join(dir, `${node.slug}.md`);
-  if (existsSync(path)) {
-    const parsed = matter(readFileSync(path, "utf8"));
+  // `dirname(dir)` as the base so a symlinked `graft/` itself is refused too.
+  const existing = readFileInside(dirname(dir), path);
+  if (existing !== null) {
+    const parsed = matter(existing);
     node = { ...node, human: preserveHuman(parsed.content) };
   } else {
     node = { ...node, human: node.human || defaultHuman() };
   }
-  writeFileSync(path, renderNodeFile(node));
+  writeFileInside(dirname(dir), path, renderNodeFile(node));
   return path;
 }
 
@@ -381,11 +397,14 @@ function isRootFileCard(
  * and root-level per-file cards). */
 export function readNodes(dir: string): ParsedNode[] {
   if (!existsSync(dir)) return [];
+  resolveInside(dirname(dir), dir); // never enumerate through a symlinked context dir
   const fileCardStems = rootFileCardStems(dir);
   const out: ParsedNode[] = [];
   for (const entry of readdirSync(dir)) {
     if (!entry.endsWith(".md") || entry === "INDEX.md") continue;
-    const parsed = matter(readFileSync(join(dir, entry), "utf8"));
+    const text = readFileInside(dirname(dir), join(dir, entry));
+    if (text === null) continue; // a symlinked node file is never read through
+    const parsed = matter(text);
     const fm = parsed.data as Record<string, unknown>;
     const fallbackSlug = entry.replace(/\.md$/, "");
     if (isRootFileCard(fallbackSlug, fm, parsed.content, fileCardStems)) continue;
@@ -413,20 +432,17 @@ export function existingNodeSlugs(dir: string): Set<string> {
 
 /** Delete a node file by slug. */
 export function deleteNode(dir: string, slug: string): void {
-  const path = join(dir, `${slug}.md`);
-  if (existsSync(path)) rmSync(path);
+  removeFileInside(dirname(dir), join(dir, `${slug}.md`));
 }
 
 export function writeManifest(dir: string, manifest: Manifest): void {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, MANIFEST_FILE), JSON.stringify(manifest, null, 2) + "\n");
+  writeFileInside(dirname(dir), join(dir, MANIFEST_FILE), JSON.stringify(manifest, null, 2) + "\n");
 }
 
 export function readManifest(dir: string): Manifest | undefined {
-  const path = join(dir, MANIFEST_FILE);
-  if (!existsSync(path)) return undefined;
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as Manifest;
+    const text = readFileInside(dirname(dir), join(dir, MANIFEST_FILE));
+    return text === null ? undefined : (JSON.parse(text) as Manifest);
   } catch {
     return undefined;
   }

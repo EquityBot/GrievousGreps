@@ -18,9 +18,9 @@
  *     leaves every label exactly as it was and never fails the caller.
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { CACHE_DIR } from "../context/node-file.js";
+import { readFileInside, writeFileInside } from "../util/safe-fs.js";
 import type { ChatModel } from "../ai/llm/types.js";
 import type { GraphV1 } from "../graph/types.js";
 import type { BlastReport, ChangedArea, ImpactedModule } from "./blast.js";
@@ -159,9 +159,15 @@ function cachePath(contextDir: string): string {
   return join(contextDir, CACHE_DIR, "areas.json");
 }
 
+// The App runs these on an untrusted pull request's checkout, where every entry
+// under `graft/` — `.cache/` and `areas.json` included — is the PR author's. Both go
+// through the contained helpers, based at the context dir's parent, so a committed
+// symlink is a cache miss and is replaced on save, never read or written through.
+
 export function loadNameCache(contextDir: string): Record<string, string> {
   try {
-    const raw = JSON.parse(readFileSync(cachePath(contextDir), "utf8")) as unknown;
+    const text = readFileInside(dirname(contextDir), cachePath(contextDir));
+    const raw = text === null ? null : (JSON.parse(text) as unknown);
     return raw && typeof raw === "object" ? (raw as Record<string, string>) : {};
   } catch {
     // A missing or corrupt cache is a cache miss, never an error: the names are
@@ -171,12 +177,10 @@ export function loadNameCache(contextDir: string): Record<string, string> {
 }
 
 export function saveNameCache(contextDir: string, names: Record<string, string>): void {
-  const path = cachePath(contextDir);
   try {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${JSON.stringify(names, null, 2)}\n`);
+    writeFileInside(dirname(contextDir), cachePath(contextDir), `${JSON.stringify(names, null, 2)}\n`, { atomic: true });
   } catch {
-    // Best-effort: an unwritable cache costs a call next time, nothing more.
+    // Best-effort: an unwritable or unsafe cache costs a call next time, nothing more.
   }
 }
 
