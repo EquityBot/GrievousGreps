@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { join, resolve, sep } from 'node:path';
+import { delimiter, join, resolve, sep } from 'node:path';
 import {
   formatVersionReport,
   formatUpgradeReport,
@@ -13,6 +13,8 @@ import {
   parseNpmError,
   clearNpmLeftover,
   noSudoFix,
+  getNpmViewVersion,
+  runUpgrade,
 } from '../src/cli-meta.js';
 
 // --- formatVersionReport: pure formatting, injected npm-view results (no network) ---
@@ -169,4 +171,54 @@ test('formatUpgradeReport: a recognised failure shows the plain fix, not npm\'s 
 test('formatUpgradeReport: an unrecognised failure keeps npm\'s own error above the failed line', () => {
   const out = formatUpgradeReport({ ran: true, ok: false, oldVersion: '0.4.4', npmError: 'npm error code E404\n' });
   assert.equal(out, 'npm error code E404\n✗ npm install -g @nanonets/graft@latest failed');
+});
+
+// --- npm launch: a fake npm first on PATH stands in for the real one ---
+//
+// On Windows `npm` is the `npm.cmd` shim, which spawnSync cannot start without a
+// shell: `graft version` said "unreachable" on every run, the update check stored
+// nothing and `graft upgrade` never ran. Ported from ansidium/trail-code-se7en
+// (4fa301e664a8, MIT).
+
+function withFakeNpm(fn: (dir: string) => void): void {
+  const dir = mkdtempSync(join(tmpdir(), 'graft-fake-npm-'));
+  const globalRoot = join(dir, 'global');
+  mkdirSync(join(globalRoot, '@nanonets', 'graft'), { recursive: true });
+  writeFileSync(join(globalRoot, '@nanonets', 'graft', 'package.json'), '{"version":"9.9.9"}');
+  const script = [
+    'const args = process.argv.slice(2);',
+    `require('fs').appendFileSync(${JSON.stringify(join(dir, 'calls.log'))}, args.join(' ') + '\\n');`,
+    "if (args[0] === 'view') console.log('9.9.9');",
+    `if (args[0] === 'root') console.log(${JSON.stringify(globalRoot)});`,
+  ];
+  writeFileSync(join(dir, 'fake-npm.cjs'), script.join('\n'));
+  if (process.platform === 'win32') {
+    writeFileSync(join(dir, 'npm.cmd'), `@"${process.execPath}" "%~dp0fake-npm.cjs" %*\r\n`);
+  } else {
+    writeFileSync(join(dir, 'npm'), `#!/bin/sh\nexec "${process.execPath}" "$(dirname "$0")/fake-npm.cjs" "$@"\n`);
+    chmodSync(join(dir, 'npm'), 0o755);
+  }
+  const path = process.env.PATH;
+  process.env.PATH = `${dir}${delimiter}${path}`;
+  try {
+    fn(dir);
+  } finally {
+    process.env.PATH = path;
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('getNpmViewVersion reads the latest version from npm on PATH', () => {
+  withFakeNpm(() => {
+    assert.deepEqual(getNpmViewVersion('@nanonets/graft', 30_000), { ok: true, version: '9.9.9' });
+  });
+});
+
+test('runUpgrade runs npm install -g and reports the installed version', () => {
+  withFakeNpm((dir) => {
+    const result = runUpgrade(pathToFileURL(resolve('src', 'cli.ts')).href);
+    assert.equal(result.ok, true, result.errorMessage);
+    assert.equal(result.newVersion, '9.9.9');
+    assert.match(readFileSync(join(dir, 'calls.log'), 'utf8'), /^install -g @nanonets\/graft@latest( @trailhq\/trail-code@latest)?$/m);
+  });
 });

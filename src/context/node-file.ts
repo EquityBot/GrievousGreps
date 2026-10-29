@@ -22,7 +22,7 @@
  * LLM and without re-reading every node body.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { matter } from "../util/front-matter.js";
 import { contentHash, normalizeName } from "../util/id.js";
@@ -115,6 +115,16 @@ export function contextDirFor(root: string, override?: string): string {
   return mapDirFor(root);
 }
 
+/** `contextDir` relative to `root` as a posix path, or null when it is not strictly inside
+ *  `root`: the root itself, above it, or elsewhere. On Windows a dir on another drive has no
+ *  relative path, so `relative` returns the absolute target (`C:/Users/x/out`), which
+ *  starts with neither `..` nor a separator and would pass a `startsWith("..")` test. */
+function repoRelativeDir(root: string, contextDir: string): string | null {
+  const rel = relPosix(root, contextDir);
+  if (rel === "" || rel === ".." || rel.startsWith("../") || isAbsolute(rel) || /^[A-Za-z]:/.test(rel)) return null;
+  return rel;
+}
+
 /**
  * Make sure the repo's root `.gitignore` ignores the graft output dir. The
  * graph is a local, regenerable cache (like `node_modules`), not a committed
@@ -139,8 +149,8 @@ export function ensureGitignored(root: string, contextDir: string, note = GRAPH_
     try { ignoreInTrailDir(root, "cache/"); } catch { /* best-effort */ }
     return;
   }
-  const rel = relPosix(root, contextDir);
-  if (rel === "" || rel.startsWith("..")) return; // dir is at/above the repo root — nothing sane to ignore
+  const rel = repoRelativeDir(root, contextDir);
+  if (rel === null) return; // dir is at/above the repo root, or outside it — nothing sane to ignore
   const bare = stripTrailingSlashes(rel); // "graft" (or a `--dir` subpath like "tools/ctx")
   // Root-ANCHORED, so it ignores exactly this repo's `graft/` and not a directory named
   // `graft` at any depth. An unanchored `graft/` also matched `.claude/skills/graft/`, so
@@ -217,8 +227,8 @@ export function ensureSearchable(root: string, contextDir: string): void {
   if (envTruthy("GRAFT_NO_IGNORE")) return;
   // trail's map is reached by the path the hooks name, not by a grep from the root: no `.ignore`.
   if (isTrailMapDir(root, contextDir)) return;
-  const rel = relPosix(root, contextDir);
-  if (rel === "" || rel.startsWith("..")) return; // outside the repo — nothing to re-admit
+  const rel = repoRelativeDir(root, contextDir);
+  if (rel === null) return; // outside the repo — nothing to re-admit
   const dir = stripTrailingSlashes(rel);
   const entry = `!${dir}/`;
   const path = join(root, ".ignore");
