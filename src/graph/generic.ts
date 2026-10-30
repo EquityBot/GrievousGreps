@@ -295,7 +295,7 @@ export function extractGeneric(rel: string, source: string, langName: string): E
     // remembers the failure instead of caching an empty result as clean.
     throw new Error(`${langName} grammar threw: ${err instanceof Error ? err.message : String(err)}`);
   }
-  if (!tree) return { nodes, rawEdges };
+  if (!tree) throw new Error(`${langName} grammar gave no tree`);
 
   const minted = new Set<string>([rel]);
   const lines = source.split("\n");

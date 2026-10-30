@@ -1019,7 +1019,8 @@ test("a throwing grammar is a per-file build error, cached as a failure (#139)",
     // incremental rebuild re-parses the unchanged file (the failure can belong to
     // the run, not the bytes; see graph/build.ts) and reports the error again.
     const second = await buildGraph(dir, { reuse: true });
-    assert.equal(second.parsed, 1, "a cached failure is re-parsed, not replayed");
+    assert.equal(second.failed, 1, "a cached failure is re-parsed, not replayed");
+    assert.equal(second.parsed, 0, "and failing again does not count as parsed");
     assert.equal(second.errors.length, 1, `error reported again (got: ${second.errors.join("; ")})`);
     assert.match(second.errors[0], /rust grammar threw/);
   } finally {

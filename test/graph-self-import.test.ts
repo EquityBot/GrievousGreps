@@ -703,3 +703,24 @@ pub fn kept() {}
   });
   assert.ok(graph.nodes.some((n) => n.id === "src/lib.rs#kept"), "the file's symbols survive");
 });
+
+test("a file whose extraction throws is reported with its reason and not counted as parsed, in every tier", async (t) => {
+  const deep = 150_000;
+  const files: Record<string, string> = {
+    "ok.ts": "export function fine() {}\n",
+    "deep.ts": `export const x = ${"[".repeat(deep)}${"]".repeat(deep)};\n`,
+    "deep.py": `x = ${"[".repeat(deep)}${"]".repeat(deep)}\n`,
+    "deep.rs": `pub fn x() { ${"(".repeat(deep)}1${")".repeat(deep)}; }\n`,
+    "deep.go": `package a\nvar x = ${"(".repeat(deep)}1${")".repeat(deep)}\n`,
+    "deep.vue": `<script>\nexport const x = ${"[".repeat(deep)}${"]".repeat(deep)};\n</script>\n`,
+  };
+  const root = mkdtempSync(join(tmpdir(), "self-import-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const [path, text] of Object.entries(files)) writeFileSync(join(root, path), text);
+  const result = await buildGraph(root);
+  const thrown = result.errors.filter((e) => e.includes("parse failed"));
+  assert.ok(thrown.length >= 1, `something must throw for this to test anything: ${result.errors.join("; ")}`);
+  for (const e of thrown) assert.match(e, /^deep\.\w+: parse failed — ./, "the file and the reason");
+  assert.equal(result.failed, thrown.length);
+  assert.equal(result.parsed + result.failed + result.reused, result.files);
+});

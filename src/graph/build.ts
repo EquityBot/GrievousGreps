@@ -180,6 +180,8 @@ export interface GraphBuildResult {
   files: number;
   /** Files re-parsed this run (the rest were replayed from the extraction cache). */
   parsed: number;
+  /** Files whose extraction threw, each with its reason in `errors`; never counted as parsed. */
+  failed: number;
   /** Files replayed from the extraction cache. */
   reused: number;
   /** The parent checkout this build copied a starting graph from, when it was run in
@@ -403,6 +405,7 @@ export async function buildGraph(
   const priorExtract = opts.reuse === false ? emptyExtractCache() : readExtractCache(outDir);
   const entries: Record<string, ExtractEntry> = {};
   let parsed = 0;
+  let failed = 0;
   let reused = 0;
 
   // Every tier's grammars are WASM and load asynchronously, so warm the ones this
@@ -483,9 +486,8 @@ export async function buildGraph(
       return;
     }
 
-    parsed++;
     try {
-      const { nodes: fileNodes, rawEdges: fileEdges } = lang
+      const { nodes: fileNodes, rawEdges: fileEdges, blockError } = lang
         ? extractFile(rel, source, lang)
         : container
           ? extractContainer(rel, source, container)
@@ -494,9 +496,19 @@ export async function buildGraph(
       rawEdges.push(...fileEdges);
       sources.set(rel, source);
       langs.add(label);
+      if (blockError) {
+        // The file's other blocks stand, and the part that threw is still a failure to report.
+        const message = `${rel}: parse failed — ${blockError}`;
+        failed++;
+        errors.push(message);
+        entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash, nodes: fileNodes, rawEdges: fileEdges, error: message, ...(via ? { via } : {}) };
+        return;
+      }
+      parsed++;
       entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash, nodes: fileNodes, rawEdges: fileEdges, ...(via ? { via } : {}) };
     } catch (err) {
       const message = `${rel}: parse failed — ${err instanceof Error ? err.message : String(err)}`;
+      failed++;
       errors.push(message);
       entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash, nodes: [], rawEdges: [], error: message, ...(via ? { via } : {}) };
     }
@@ -636,6 +648,7 @@ export async function buildGraph(
     cards: cardStats.written,
     files: files.length,
     parsed,
+    failed,
     reused,
     seededFrom: seed.from,
     nodes: nodes.length,

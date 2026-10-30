@@ -157,6 +157,7 @@ export function extractContainer(rel: string, source: string, lang: ContainerLan
 
   const language = loaded.get(lang.name);
   const root = language ? parseWasm(language, source) : null;
+  let blockError: string | undefined = language && !root ? `${lang.name} grammar gave no tree` : undefined;
 
   if (root) {
     // Ids are minted per file by the inner extractor, so two script blocks that
@@ -175,8 +176,10 @@ export function extractContainer(rel: string, source: string, lang: ContainerLan
         inner = depthReady(lang.inner)
           ? extractFile(rel, script, lang.inner)
           : extractGeneric(rel, script, fallbackLangOf(lang.inner).name);
-      } catch {
-        continue; // one bad block, not a bad build
+      } catch (err) {
+        // One bad block, not a bad build: the file's other blocks stand and this one is reported.
+        blockError = `${lang.name} block: ${err instanceof Error ? err.message : String(err)}`;
+        continue;
       }
 
       // `raw_text` starts immediately after the `>` of the opening tag, so its
@@ -210,5 +213,5 @@ export function extractContainer(rel: string, source: string, lang: ContainerLan
   // Built last so it can carry the residual, but unshifted first so the file node
   // stays at index 0 like every other tier's output.
   nodes.unshift(containerFileNode(rel, source, residuals.join("\n")));
-  return { nodes, rawEdges };
+  return { nodes, rawEdges, ...(blockError ? { blockError } : {}) };
 }

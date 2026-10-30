@@ -200,6 +200,8 @@ export interface RawEdge {
 export interface ExtractResult {
   nodes: NodeV1[];
   rawEdges: RawEdge[];
+  /** A container's block that threw whilst its other blocks stood, to report for the file. */
+  blockError?: string;
 }
 
 /** Max chars of normalized body stored per symbol for search. Large enough that
