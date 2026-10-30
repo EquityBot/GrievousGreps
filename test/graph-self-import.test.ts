@@ -269,3 +269,11 @@ test("U4: a child's `baseUrl` outranks the one it inherits", async (t) => {
   });
   assert.deepEqual(calls(graph, "a.ts#run"), ["src/lib/util.ts#f", "src/lib/util.ts#h"]);
 });
+
+test("V6: `Self::f` in a trait impl's own `f` is the type's inherent method, not a call to itself", async (t) => {
+  const graph = await build(t, {
+    "src/l.rs": "pub trait L { fn accept(&mut self); }\nimpl L for ext::U { fn accept(&mut self) { Self::accept(self); } }\npub struct A;\nimpl A { pub fn go(n: u8) { Self::go(n); } }\n",
+  });
+  assert.deepEqual(graph.edges.filter((e) => e.relation === "calls" && e.target === e.source && e.source.includes("accept")), []);
+  assert.deepEqual(calls(graph, "src/l.rs#go"), ["src/l.rs#go"], "inherent recursion stays");
+});

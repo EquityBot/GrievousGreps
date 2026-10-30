@@ -418,6 +418,21 @@ function rustRealOwner(owner: string | undefined, scopes: RustUseScope[], at: nu
   return owner;
 }
 
+/** `Self::accept(self)` inside a trait impl's own `accept`: Rust takes the type's inherent
+ * method first, and a trait method calling itself that way would never end. */
+function rustSelfCallIsInherent(path: string | undefined, name: string, from: TsNode | undefined): boolean {
+  if (path !== "Self") return false;
+  let inFn = false;
+  for (let n: TsNode | null | undefined = from; n; n = n.parent) {
+    if (n.type === "function_item" && !inFn) {
+      if (n.childForFieldName?.("name")?.text !== name) return false;
+      inFn = true;
+    }
+    if (n.type === "impl_item") return inFn && !!n.childForFieldName?.("trait");
+  }
+  return false;
+}
+
 /** Whether the name a call's path starts with could be brought in from another file: a path
  * spelling it out, a rename, a `use` naming it, or a glob that may. */
 function rustOwnerBrought(path: string | undefined, scopes: RustUseScope[], at: number, anyGlob: boolean): boolean {
@@ -957,6 +972,7 @@ function tagsExtract(
     if (defNameAt.has(c.at)) continue;
     const enc = enclosingDef(defs, c.at);
     if (langName === "rust" && c.form === "method" && rustStdReceiver(c.node)) continue;
+    if (langName === "rust" && rustSelfCallIsInherent(c.path, c.name, c.node)) continue;
     const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     rawEdges.push(
       langName === "rust"
