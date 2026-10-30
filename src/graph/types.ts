@@ -59,6 +59,8 @@ export interface NodeV1 {
   // index) key off a stored field instead of re-deriving it by slicing `id`,
   // which breaks once ids can carry a dedup ordinal (`Cache.get~2`).
   owner?: string;
+  // Rust: the return type as written, which a receiver's type is read through.
+  returns?: string;
 
   // location (Tier-1, deterministic)
   path: string; // repo-relative: "src/cache.ts"

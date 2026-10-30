@@ -122,8 +122,16 @@ export interface RawEdge {
   rustAlias?: { alias: string; target: string; start: number; end: number; root?: string };
   /** Where a Rust call sits, for the module its aliases read in. */
   rustAt?: number;
-  /** `self.field.f()`: the receiver is that field of that type. */
-  rustRecvField?: { owner: string; field: string };
+  /** A receiver read through the calls that made it: where it starts, then each method on the way. */
+  rustChain?: {
+    type?: string;
+    field?: { owner: string; field: string };
+    /** A free function, as a whole path or a bare name. */
+    fn?: string;
+    /** The crate or module its start was brought from, when a `use` or its path says. */
+    root?: string;
+    methods: string[];
+  };
   /** A struct's fields and their types, for `self.field.f()`. */
   rustFields?: { owner: string; fields: [string, string][] };
   /** The call as a whole path, with the `use` that begins it spelt out: `crate::a::f`. */

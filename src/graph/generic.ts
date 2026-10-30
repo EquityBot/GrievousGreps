@@ -317,11 +317,13 @@ export function extractGeneric(rel: string, source: string, langName: string): E
     const startRow = whole.startPosition.row, endRow = whole.endPosition.row;
     const sigLine = (lines[startRow] ?? "").trim().replace(/\s*\{?\s*$/, "");
     const owner = langName === "rust" ? rustOwnerOf(whole) : undefined;
+    const returns = langName === "rust" ? whole.childForFieldName?.("return_type")?.text : undefined;
     nodes.push({
       id, name, kind, path: rel,
       span: `L${startRow + 1}-L${endRow + 1}`,
       signature: sigLine || null, exported: true, origin: "generic",
       ...(owner ? { owner } : {}),
+      ...(returns ? { returns } : {}),
       body_hash: contentHash(source.slice(whole.startIndex, whole.endIndex)),
       body_text: source.slice(whole.startIndex, whole.endIndex).replace(/\s+/g, " ").slice(0, 5000),
       summary_state: "pending", summary: null, crux: null,
@@ -454,35 +456,57 @@ function rustTypeName(type: TsNode | null | undefined, owner: string | undefined
   return undefined;
 }
 
-/** The type a value is plainly of: `Foo { .. }`, or a constructor by its usual names on the type,
- * past `?`, `.await` and `.unwrap()`. A builder's or any other function's result needs its body read. */
-function rustValueType(value: TsNode | null | undefined, owner: string | undefined): string | undefined {
-  let n = value;
-  for (let hops = 0; n && hops < 4; hops++) {
-    if (n.type === "try_expression" || n.type === "await_expression" || n.type === "parenthesized_expression" || n.type === "reference_expression") {
-      n = n.childForFieldName?.("value") ?? n.namedChild?.(0);
-      continue;
-    }
-    if (n.type === "struct_expression") return rustTypeName(n.childForFieldName?.("name"), owner);
-    if (n.type !== "call_expression") return undefined;
-    const fn = n.childForFieldName?.("function");
-    if (fn?.type === "field_expression" && /^(unwrap|expect)$/.test(fn.childForFieldName?.("field")?.text ?? "")) {
-      n = fn.childForFieldName?.("value");
-      continue;
-    }
-    if (fn?.type !== "scoped_identifier") return undefined;
-    if (!/^(new|default|empty|from|from_\w+|with_\w+|try_new)$/.test(fn.childForFieldName?.("name")?.text ?? "")) return undefined;
-    const last = fn.childForFieldName?.("path")?.text.replace(/::<.*>$/, "").replace(/<.*>$/, "").replace(/^.*::/, "");
-    return last === "Self" ? owner : last && /^[A-Z]/.test(last) ? last : undefined;
+type RustChain = NonNullable<RawEdge["rustChain"]>;
+
+/** What an expression's value starts from and the methods called on the way, past `?`, `.await`,
+ * `.unwrap()` and `.expect()`. resolve.ts reads the signatures along it. Undefined past anything
+ * else, so a value this cannot follow stays unknown. */
+function rustValueChain(value: TsNode | null | undefined, owner: string | undefined, scopes: RustUseScope[], depth = 0): RustChain | undefined {
+  if (!value || depth > 12) return undefined;
+  const n = value;
+  if (n.type === "try_expression" || n.type === "await_expression" || n.type === "parenthesized_expression" || n.type === "reference_expression") {
+    return rustValueChain(n.childForFieldName?.("value") ?? n.namedChild?.(0), owner, scopes, depth + 1);
   }
-  return undefined;
+  if (n.type === "self") return owner ? { type: owner, methods: [] } : undefined;
+  if (n.type === "identifier") return rustLocalChain(n.text, n, owner, scopes, depth + 1);
+  if (n.type === "struct_expression") {
+    const type = rustTypeName(n.childForFieldName?.("name"), owner);
+    return type ? { type, root: rustPathRoot(undefined, scopes, n.startIndex, type), methods: [] } : undefined;
+  }
+  if (n.type === "field_expression") {
+    const field = n.childForFieldName?.("field")?.text;
+    return n.childForFieldName?.("value")?.type === "self" && owner && field ? { field: { owner, field }, methods: [] } : undefined;
+  }
+  if (n.type !== "call_expression") return undefined;
+  let fn = n.childForFieldName?.("function");
+  if (fn?.type === "generic_function") fn = fn.childForFieldName?.("function");
+  if (fn?.type === "field_expression") {
+    const method = fn.childForFieldName?.("field")?.text;
+    const inner = rustValueChain(fn.childForFieldName?.("value"), owner, scopes, depth + 1);
+    if (!inner || !method) return undefined;
+    return /^(unwrap|expect)$/.test(method) ? inner : { ...inner, methods: [...inner.methods, method] };
+  }
+  if (fn?.type === "identifier") return { fn: rustWholePath(undefined, fn.text, scopes, n.startIndex) ?? fn.text, root: rustPathRoot(undefined, scopes, n.startIndex, fn.text), methods: [] };
+  if (fn?.type !== "scoped_identifier") return undefined;
+  const path = fn.childForFieldName?.("path")?.text.replace(/::<.*>$/, "").replace(/<.*>$/, "");
+  const name = fn.childForFieldName?.("name")?.text;
+  if (!path || !name) return undefined;
+  const root = rustPathRoot(path, scopes, n.startIndex);
+  const last = path.replace(/^.*::/, "");
+  if (last === "Self" && owner) return { type: owner, methods: [name] };
+  if (/^[A-Z]/.test(last)) return { type: last, root, methods: [name] };
+  return { fn: rustWholePath(path, name, scopes, n.startIndex) ?? `${path}::${name}`, root, methods: [] };
 }
 
-/** The type of the local `name` as seen from `from`: the nearest binding before it. A binding this
- * cannot read (a pattern, a loop, a closure's argument) answers nothing, so it never reads past
- * a shadowing one to an older type. */
-function rustLocalType(name: string, from: TsNode, owner: string | undefined): string | undefined {
+/** The local `name` as seen from `from`: the nearest binding before it. A binding this cannot read
+ * (a pattern, a loop, a closure's argument) answers nothing, so it never reads past a shadowing
+ * one to an older type. */
+function rustLocalChain(name: string, from: TsNode, owner: string | undefined, scopes: RustUseScope[], depth: number): RustChain | undefined {
   const named = new RegExp(`\\b${name}\\b`);
+  const typed = (type: TsNode | null | undefined): RustChain | undefined => {
+    const t = rustTypeName(type, owner);
+    return t ? { type: t, root: rustPathRoot(undefined, scopes, from.startIndex, t), methods: [] } : undefined;
+  };
   let child: TsNode = from;
   for (let n = from.parent; n; child = n, n = n.parent) {
     if (n.type === "block") {
@@ -493,37 +517,21 @@ function rustLocalType(name: string, from: TsNode, owner: string | undefined): s
         if (!pattern || !named.test(pattern.text)) continue;
         if (pattern.text.replace(/^mut\s+/, "") !== name) return undefined;
         const declared = stmt.childForFieldName?.("type");
-        return declared ? rustTypeName(declared, owner) : rustValueType(stmt.childForFieldName?.("value"), owner);
+        return declared ? typed(declared) : rustValueChain(stmt.childForFieldName?.("value"), owner, scopes, depth + 1);
       }
     } else if (n.type === "match_arm" || n.type === "for_expression" || n.type === "if_expression" || n.type === "while_expression" || n.type === "closure_expression") {
-      const head = n.type === "match_arm" ? n.childForFieldName?.("pattern") : n.type === "for_expression" ? n.childForFieldName?.("pattern") : n.type === "closure_expression" ? n.childForFieldName?.("parameters") : n.childForFieldName?.("condition");
+      const head = n.type === "match_arm" || n.type === "for_expression" ? n.childForFieldName?.("pattern") : n.type === "closure_expression" ? n.childForFieldName?.("parameters") : n.childForFieldName?.("condition");
       if (head && child !== head && named.test(head.text)) return undefined;
     } else if (n.type === "function_item") {
       const params = n.childForFieldName?.("parameters");
       for (let i = 0; i < (params?.namedChildCount ?? 0); i++) {
         const p = params?.namedChild?.(i);
-        if (p?.type === "parameter" && p.childForFieldName?.("pattern")?.text.replace(/^mut\s+/, "") === name) return rustTypeName(p.childForFieldName?.("type"), owner);
+        if (p?.type === "parameter" && p.childForFieldName?.("pattern")?.text.replace(/^mut\s+/, "") === name) return typed(p.childForFieldName?.("type"));
       }
       return undefined;
     }
   }
   return undefined;
-}
-
-/** What a method call's receiver shows of its type. */
-function rustReceiver(call: TsNode | undefined, owner: string | undefined): { type?: string; field?: string } {
-  const member = call?.parent;
-  if (member?.type !== "field_expression") return {};
-  let value = member.childForFieldName?.("value");
-  while (value && (value.type === "parenthesized_expression" || value.type === "reference_expression")) value = value.childForFieldName?.("value") ?? value.namedChild?.(0);
-  if (!value) return {};
-  if (value.type === "self") return owner ? { type: owner } : {};
-  if (value.type === "identifier") return { type: rustLocalType(value.text, value, owner) };
-  if (value.type === "field_expression" && value.childForFieldName?.("value")?.type === "self") {
-    const field = value.childForFieldName?.("field")?.text;
-    return owner && field ? { field } : {};
-  }
-  return { type: rustValueType(value, owner) };
 }
 
 /** A call as a whole path, its first name spelt out through the `use` in scope at `at`.
@@ -1132,15 +1140,17 @@ function tagsExtract(
     const enc = enclosingDef(defs, c.at);
     if (langName === "rust" && c.form === "method" && rustStdReceiver(c.node)) continue;
     if (langName === "rust" && rustSelfCallIsInherent(c.path, c.name, c.node)) continue;
-    const seen = langName === "rust" && c.form === "method" ? rustReceiver(c.node, enc?.owner) : {};
-    const owner = langName === "rust" ? rustRealOwner(seen.type ?? rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
-    if (seen.field && enc?.owner) {
-      rawEdges.push({ source: enc.id, relation: "calls", file: rel, name: c.name, viaMember: true, rustForm: "method", rustRecvField: { owner: enc.owner, field: seen.field }, rustAt: c.at });
+    const chain = langName === "rust" && c.form === "method" && c.node?.parent?.type === "field_expression"
+      ? rustValueChain(c.node.parent.childForFieldName?.("value"), enc?.owner, rustScopes)
+      : undefined;
+    const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
+    if (chain) {
+      rawEdges.push({ source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name, viaMember: true, rustForm: "method", rustChain: chain, rustAt: c.at, rustOwnerBrought: true });
       continue;
     }
     rawEdges.push(
       langName === "rust"
-        ? { ...rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? seen.type : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob)), ...(c.form === "method" ? (owner ? { rustForm: "method" as const } : {}) : withRustPath(rustWholePath(c.path, c.name, rustScopes, c.at))) }
+        ? { ...rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob)), ...(c.form === "method" ? {} : withRustPath(rustWholePath(c.path, c.name, rustScopes, c.at))) }
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }

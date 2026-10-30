@@ -261,6 +261,33 @@ export function resolveEdges(
     return list?.find((f) => f.file === file)?.type ?? (list?.length === 1 ? list[0].type : undefined);
   };
   const rustPathCtx: RustPathCtx = { crates: opts.rustCrateDirs ?? new Map(), byId, perFileName, pubUses: rustPubUses };
+  // The type a receiver is by the end of its chain, each step read off a signature. Undefined
+  // when a step's signature does not say, and the method falls back on its name.
+  const rustChainType = (chain: NonNullable<RawEdge["rustChain"]>, e: RawEdge): string | undefined => {
+    let type = chain.field ? rustFieldType(chain.field, e.file) : chain.type;
+    // A generic parameter's name says nothing of its type; `C` is whatever its bound allows.
+    if (type && /^[A-Z]\d?$/.test(type)) type = undefined;
+    if (chain.fn) {
+      const reached = chain.fn.includes("::") ? rustFollowPath(chain.fn, e.file, rustPathCtx) : undefined;
+      const found = reached ?? (() => {
+        const local = (perFileName.get(e.file)?.get(chain.fn!) ?? []).filter((n) => n.kind === "function" && !n.owner);
+        if (local.length === 1) return local[0];
+        const all = (globalName.get(chain.fn!) ?? []).filter((n) => n.kind === "function" && !n.owner && reachable(e.file, n.path));
+        return all.length === 1 ? all[0] : undefined;
+      })();
+      type = found ? rustReturnType(found, undefined) : undefined;
+    }
+    for (const method of chain.methods) {
+      if (!type) return undefined;
+      const real = rustRealType(type, e.file, e.rustAt ?? 0, true).type;
+      const hit = resolveTypedMember(real, method, e.file, ownerMethod, classParents, classTraits, undefined);
+      if (hit === "ambiguous") return undefined;
+      const node = hit ? byId.get(hit.id) : undefined;
+      // A constructor the index does not hold (`derive(Default)`, a macro's) is taken at its word.
+      type = node ? rustReturnType(node, real) : /^(new|default|empty|from|from_\w+|with_\w+|try_new)$/.test(method) ? type : undefined;
+    }
+    return type;
+  };
 
   const tsModules = new Map<string, TsModule>();
   for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
@@ -397,9 +424,10 @@ export function resolveEdges(
         continue;
       }
       if (e.viaMember) {
-        const recv = e.rustRecvField ? rustFieldType(e.rustRecvField, e.file) : e.recvType;
+        if (e.rustChain?.root && (RUST_STD_CRATES.has(e.rustChain.root) || opts.rustExternalCrates?.has(e.rustChain.root))) continue;
+        const recv = e.rustChain ? rustChainType(e.rustChain, e) : e.recvType;
         if (!recv && !e.rustForm) continue;
-        const real = !recv ? { type: "" } : e.file.endsWith(".rs") ? rustRealType(recv, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true || !!e.rustRecvField) : { type: recv };
+        const real = !recv ? { type: "" } : e.file.endsWith(".rs") ? rustRealType(recv, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true) : { type: recv };
         if (real.root && opts.rustExternalCrates?.has(real.root)) continue; // an alias of a dependency's type
         const recvType = real.type;
         // An alias names its crate, which picks between the repo's types of that name.
@@ -699,6 +727,24 @@ const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "tr
  * there is neither. `external`: bound from outside the repo, so no in-repo node is its
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */
 type PythonName = NodeV1 | { module: string } | "external" | "undecided";
+
+/** The type a Rust function's signature says it returns, past references, `Result`, `Option` and
+ * smart pointers. `Self` is `self`, the type it was called on. */
+function rustReturnType(node: NodeV1, self: string | undefined): string | undefined {
+  if (!node.returns) return undefined;
+  let text = node.returns;
+  for (let hops = 0; hops < 5; hops++) {
+    text = text.replace(/^&\s*('\w+\s+)?(mut\s+)?/, "").replace(/^(impl|dyn)\s+/, "").trim();
+    const wrapped = /^(?:[\w:]*::)?(Result|Option|Box|Arc|Rc)<\s*(.+)>$/s.exec(text);
+    if (!wrapped) break;
+    text = wrapped[2]!.split(/,(?![^<]*>)/)[0]!.trim();
+  }
+  // `Self::Iter` and `<T as Tr>::Out` are whatever the impl says, not a type of that name.
+  if (/^(Self::|<)/.test(text)) return undefined;
+  const name = text.replace(/<.*$/s, "").replace(/^.*::/, "");
+  if (name === "Self") return self ?? node.owner;
+  return /^[A-Z]\w+$/.test(name) ? name : undefined;
+}
 
 interface RustPathCtx {
   crates: ReadonlyMap<string, string>;

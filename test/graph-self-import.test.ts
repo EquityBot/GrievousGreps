@@ -390,3 +390,32 @@ pub fn in_loop(x: One) { for x in items() { x.go(); } }
   assert.deepEqual(calls(graph, "src/use_it.rs#std_value"), [], "not the repo's push");
   assert.deepEqual(calls(graph, "src/use_it.rs#in_loop"), [], "a loop variable is not the parameter");
 });
+
+test("Rust: a receiver reads through the signatures of the calls that made it, and stops where they stop", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n`,
+    "src/lib.rs": "pub mod mock;\npub mod t;\n",
+    "src/mock.rs": `pub struct Mock;
+impl Mock { pub fn enter(self) -> Self { self } pub fn run(self) -> Handle { Handle } pub fn opaque(self) -> u8 { 0 } }
+pub struct Handle;
+impl Handle { pub fn run(&self) {} pub fn finish(&self) -> Result<Other, String> { Ok(Other) } }
+pub struct Other;
+impl Other { pub fn run(&self) {} }
+pub trait Lone { fn only(&self); }
+pub fn mock() -> Mock { Mock }
+`,
+    "src/t.rs": `use crate::mock::mock;
+pub fn chain() { mock().enter().run().run(); }
+pub fn bound() { let h = mock().enter().run(); h.run(); }
+pub fn through_try() -> Result<(), String> { let o = mock().run().finish()?; o.run(); Ok(()) }
+pub fn stops() { mock().opaque().run(); }
+pub fn generic<C: crate::mock::Lone>(c: C) { c.only(); }
+`,
+  });
+  const has = (source: string, needle: string) => calls(graph, source).filter((x) => x.includes(needle));
+  assert.equal(has("src/t.rs#chain", "#run").length, 2, "Mock's run, then Handle's");
+  assert.deepEqual(has("src/t.rs#bound", "#run").sort(), ["src/mock.rs#run", "src/mock.rs#run~2"]);
+  assert.equal(has("src/t.rs#through_try", "#run").length, 2, "Mock's run, then Other's");
+  assert.deepEqual(has("src/t.rs#stops", "#run"), [], "a u8 has no run of the repo's");
+  assert.deepEqual(has("src/t.rs#generic", "#only"), ["src/mock.rs#only"], "a generic parameter falls back on the name");
+});
