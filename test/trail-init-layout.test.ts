@@ -18,6 +18,8 @@ import { setupCommitLine } from "../src/notes/notes.js";
 import { ensureRepoTrail, REPO_TRAIL_README } from "../src/notes/repo-trail.js";
 import { hooksShim } from "../src/claude/shim-template.js";
 import { CI_ENV_VARS } from "../src/telemetry/gate.js";
+// This file sets HOME for each case, so the runner's values would point past it.
+delete process.env.CLAUDE_CONFIG_DIR;
 
 const git = (cwd: string, ...args: string[]) =>
   spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "user.name=T", "-c", "user.email=t@t.test", ...args], { cwd, encoding: "utf8" });

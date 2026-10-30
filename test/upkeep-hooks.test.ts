@@ -11,6 +11,9 @@ import { main } from '../src/claude/hooks.js';
 import { readStamp, runningVersion, updateCachePath } from '../src/upkeep.js';
 import { tmpRepo } from './helpers.js';
 import { timeBar } from './machine-speed.js';
+// This file sets HOME for each case, so the runner's values would point past it.
+delete process.env.TRAIL_HOME;
+delete process.env.CLAUDE_CONFIG_DIR;
 
 /** A repo that looks like a previous `graft init` ran here, with no stamp — i.e.
  * wired by a graft old enough not to have written one. */
