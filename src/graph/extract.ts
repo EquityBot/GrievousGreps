@@ -122,6 +122,8 @@ export interface RawEdge {
   rustAlias?: { alias: string; target: string; start: number; end: number; root?: string };
   /** Where a Rust call sits, for the module its aliases read in. */
   rustAt?: number;
+  /** The call's type name could have come from another file, by a `use`, a glob or its path. */
+  rustOwnerBrought?: boolean;
   /** calls, with a free rustForm: beyond its own file, the name can only come from these
    * glob-imported modules. Absent when a `use` names it or a path qualifies it. */
   onlyModules?: string[];

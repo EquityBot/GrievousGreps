@@ -245,3 +245,16 @@ test("V4: an `exports` wildcard substitutes by prefix and suffix", async (t) => 
   });
   assert.deepEqual(edge(graph, "apps/a.ts#go").sort(), [["packages/core/src/impl/two.ts#f", "extracted"], ["packages/core/src/vers/three.ts#g", "extracted"]]);
 });
+
+test("V5: an alias reaches another Rust module only through a `use`", async (t) => {
+  const graph = await build(t, {
+    "src/t.rs": "pub struct Match;\nimpl Match { pub fn run() {} }\n",
+    "src/a.rs": "use crate::t::Match;\npub type Range = Match;\n",
+    "src/sibling.rs": "fn f() { Range::run(); }\n",
+    "src/user.rs": "use crate::a::Range;\nfn g() { Range::run(); }\n",
+    "src/globbed.rs": "use crate::a::*;\nfn h() { Range::run(); }\n",
+  });
+  assert.deepEqual(calls(graph, "src/sibling.rs#f"), [], "nothing brings it in");
+  assert.equal(calls(graph, "src/user.rs#g").length, 1, "a `use` does");
+  assert.equal(calls(graph, "src/globbed.rs#h").length, 1, "a glob may");
+});

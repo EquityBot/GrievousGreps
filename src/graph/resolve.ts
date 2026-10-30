@@ -222,7 +222,8 @@ export function resolveEdges(
     out.push({ source, target, relation, confidence });
   };
 
-  // A Rust alias reads in its own module, or by a name only one alias and no type holds.
+  // A Rust alias reads in its own module, or where something brings it in, by a name only
+  // one alias and no type holds. Each hop then reads from the alias's own place.
   const rustAliases = new Map<string, (NonNullable<RawEdge["rustAlias"]> & { file: string })[]>();
   for (const e of rawEdges) {
     if (!e.rustAlias) continue;
@@ -230,14 +231,16 @@ export function resolveEdges(
     list.push({ ...e.rustAlias, file: e.file });
     rustAliases.set(e.rustAlias.alias, list);
   }
-  const rustRealType = (type: string, file: string, at: number): { type: string; root?: string } => {
+  const rustRealType = (type: string, from: string, fromAt: number, brought: boolean): { type: string; root?: string } => {
     let real: { type: string; root?: string } = { type };
+    let [file, at, open] = [from, fromAt, brought];
     for (let hops = 0; hops < 4; hops++) {
       const list = rustAliases.get(real.type);
       const here = list?.filter((a) => a.file === file && a.start <= at && at < a.end).sort((x, y) => (x.end - x.start) - (y.end - y.start))[0];
-      const next = here ?? (list?.length === 1 && !(globalName.get(real.type) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind) && n.path !== list[0].file) ? list[0] : undefined);
+      const next = here ?? (open && list?.length === 1 && !(globalName.get(real.type) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind) && n.path !== list[0].file) ? list[0] : undefined);
       if (!next) return real;
       real = { type: next.target, root: next.root };
+      [file, at, open] = [next.file, next.start, false];
     }
     return real;
   };
@@ -378,7 +381,7 @@ export function resolveEdges(
       }
       if (e.viaMember) {
         if (!e.recvType) continue;
-        const real = e.file.endsWith(".rs") ? rustRealType(e.recvType, e.file, e.rustAt ?? 0) : { type: e.recvType };
+        const real = e.file.endsWith(".rs") ? rustRealType(e.recvType, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true) : { type: e.recvType };
         if (real.root && opts.rustExternalCrates?.has(real.root)) continue; // an alias of a dependency's type
         const recvType = real.type;
         // An alias names its crate, which picks between the repo's types of that name.

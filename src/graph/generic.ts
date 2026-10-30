@@ -418,6 +418,13 @@ function rustRealOwner(owner: string | undefined, scopes: RustUseScope[], at: nu
   return owner;
 }
 
+/** Whether the name a call's path starts with could be brought in from another file: a path
+ * spelling it out, a rename, a `use` naming it, or a glob that may. */
+function rustOwnerBrought(path: string | undefined, scopes: RustUseScope[], at: number, anyGlob: boolean): boolean {
+  const first = path?.split("::")[0];
+  return anyGlob || !!path?.includes("::") || (!!first && rustUsedAt(scopes, first, at) !== undefined);
+}
+
 /** The traits a generic parameter is bound by where `from` sits: `T: Job + Clone` or a
  * `where T: Job`, on the enclosing functions and impls. */
 function rustBounds(owner: string | undefined, from: TsNode | undefined): string[] {
@@ -473,10 +480,11 @@ function rustCallEdge(
   form: "free" | "method" | "macro",
   bounds: string[],
   at: number,
+  brought: boolean,
 ): RawEdge {
   return {
     source, relation: "calls", file: rel, name,
-    ...(owner ? { viaMember: true, recvType: owner, rustAt: at } : { rustForm: form }),
+    ...(owner ? { viaMember: true, recvType: owner, rustAt: at, ...(brought ? { rustOwnerBrought: true } : {}) } : { rustForm: form }),
     ...(root ? { rustRoot: root } : {}),
     ...(bounds.length ? { rustBounds: bounds } : {}),
   };
@@ -530,13 +538,15 @@ interface RustUseScope {
   renames: Map<string, string>;
 }
 
-function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; globs: string[] } {
+function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; globs: string[]; anyGlob: boolean } {
   const scopes: RustUseScope[] = [];
   const names = new Set<string>();
   const globs: string[] = [];
+  let anyGlob = false;
   const visit = (n: TsNode, scope: RustUseScope): void => {
     if (n.type === "use_declaration") {
       const glob = /(\w+)::\*/.exec(n.text)?.[1];
+      if (/\*/.test(n.text)) anyGlob = true;
       if (glob === "super") scope.closed = false;
       // `super::*` and `self::*` in a `mod tests` name this same file.
       if (glob && glob !== "super" && glob !== "self") globs.push(glob);
@@ -560,7 +570,7 @@ function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; g
   const top: RustUseScope = { start: 0, end: Number.POSITIVE_INFINITY, closed: true, names: new Map(), renames: new Map() };
   scopes.push(top);
   visit(root, top);
-  return { scopes, names, globs };
+  return { scopes, names, globs, anyGlob };
 }
 
 /** What `name` means at `at`: the innermost `use` that binds it, walking out through
@@ -605,7 +615,7 @@ function extractRustAliases(root: TsNode, rel: string, rawEdges: RawEdge[]): voi
  * function, and bare `f(…)` on one this file defines or a `use` or glob brings in. `x.f(…)` has
  * no receiver type here, and a `cfg!` predicate is not a call at all. */
 function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges: RawEdge[]): void {
-  const { scopes, names: usedNames, globs } = rustUses(root);
+  const { scopes, names: usedNames, globs, anyGlob } = rustUses(root);
   const scan = (tree: TsNode): void => {
     const count = tree.childCount ?? 0;
     for (let i = 0; i < count; i++) {
@@ -633,7 +643,7 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const source = enc ? enc.id : rel;
       const pathRoot = rustPathRoot(path, scopes, c.startIndex);
       rawEdges.push({
-        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c), c.startIndex),
+        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c), c.startIndex, rustOwnerBrought(path, scopes, c.startIndex, anyGlob)),
         ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}),
       });
     }
@@ -910,7 +920,8 @@ function tagsExtract(
   // producing bogus self-loops (foo→foo). Skip any call at a definition's name token.
   const defNameAt = new Set<number>();
   const calls: Array<{ name: string; at: number; path?: string; form?: "free" | "method" | "macro"; node?: TsNode }> = [];
-  const rustScopes = langName === "rust" ? rustUses(root).scopes : [];
+  const rustUsed = langName === "rust" ? rustUses(root) : undefined;
+  const rustScopes = rustUsed?.scopes ?? [];
   const refs: Array<{ name: string; at: number }> = [];
   for (const m of matches) {
     const cap: Record<string, TsNode> = {};
@@ -949,7 +960,7 @@ function tagsExtract(
     const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at)
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob))
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }
