@@ -35,6 +35,7 @@ import {
 import { writeFingerprint } from "./fingerprint.js";
 import { seedGraph, type SeedResult } from "./seed.js";
 import { filterByOnlyDirs, listSourceStats } from "./source-files.js";
+import { readPythonRoots } from "./python-roots.js";
 import { resolveEdges, type GoModule } from "./resolve.js";
 import { enrichGraph, type EnrichStats } from "./enrich.js";
 import { readGraph, writeGraph, wiringPath } from "./write.js";
@@ -363,7 +364,11 @@ export async function buildGraph(
   });
 
   const unresolvedCalls: UnresolvedCallV1[] = [];
-  const edges = resolveEdges(nodes, rawEdges, { goModules: readGoModules(root, repoFiles), unresolvedCalls });
+  const edges = resolveEdges(nodes, rawEdges, {
+    goModules: readGoModules(root, repoFiles),
+    pythonRoots: readPythonRoots(root, repoFiles),
+    unresolvedCalls,
+  });
 
   // Guard 5 (minimum-substance): node counts aren't known until nodes are
   // assembled, so the merge-tiny-scopes-into-root guard runs here.

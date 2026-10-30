@@ -298,7 +298,10 @@ async function callSingleTool(
         if (!w) return { text: noGraph(), isError: true };
         const inOpt = typeof args.in === 'string' && args.in ? { in: args.in } : {};
         const matches = resolveSymbol(w, symbol, inOpt);
-        if (matches.length === 0) return { text: unknownSymbolText(symbol), isError: true };
+        if (matches.length === 0) {
+          const unresolved = unresolvedNoteFor(w, 'in', symbol);
+          return { text: unresolved ? `${unresolved.trim()}\n${unknownSymbolText(symbol)}` : unknownSymbolText(symbol), isError: true };
+        }
         const direction: Direction = args.direction === 'out' ? 'out' : 'in';
         // `depth: "all"` (or a huge number) walks the full transitive closure —
         // every connected source — terminating when no new node is reached.

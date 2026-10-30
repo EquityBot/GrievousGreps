@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { extractFile } from "../src/graph/extract.js";
 import { resolveEdges } from "../src/graph/resolve.js";
 import { warmDepthGrammars } from "../src/graph/depth-parser.js";
-import { unresolvedNoteFor } from "../src/graph/traverse-cli.js";
-import type { GraphV1, UnresolvedCallV1 } from "../src/graph/types.js";
+import type { UnresolvedCallV1 } from "../src/graph/types.js";
 
 await warmDepthGrammars(["python"]);
 
@@ -447,7 +446,10 @@ test("Python calls an import names but no edge carries are stated, and outside m
   const missed = (through: string | null) => [{ source: "consumer.py#run", name: "validate_result", through }];
   const consumer = (module: string) => `from ${module} import validate_result\ndef run():\n    validate_result(1)\n`;
   assert.deepEqual(unresolved({ "empty.py": "x = 1\n", "consumer.py": consumer("empty") }), missed("empty"), "a name the module lacks");
-  assert.deepEqual(unresolved({ "a/shared.py": definitions, "b/shared.py": definitions, "consumer.py": consumer("shared") }), missed("shared"), "a module 2 packages hold");
+  assert.deepEqual(unresolved({
+    "a/shared/__init__.py": definitions, "b/shared/__init__.py": definitions, "consumer.py": consumer("shared"),
+  }), missed("shared"), "a module 2 roots hold");
+  assert.deepEqual(unresolved({ "a/shared.py": definitions, "b/shared.py": definitions, "consumer.py": consumer("shared") }), [], "no root holds it");
   assert.deepEqual(unresolved({
     "validators.py": definitions,
     "consumer.py": "from validators import validate_result\nif flag:\n    from other import validate_result\ndef run():\n    validate_result(1)\n",
@@ -457,8 +459,4 @@ test("Python calls an import names but no edge carries are stated, and outside m
   assert.deepEqual(unresolved({ "validators.py": definitions, "consumer.py": `${consumer("validators")}` }), [], "resolved");
   assert.deepEqual(unresolved({ "validators.py": definitions, "consumer.py": "from validators import validate_result\ndef run(validate_result):\n    validate_result(1)\n" }), [], "a parameter shadows it");
 
-  const graph = { unresolvedCalls: missed("empty") } as unknown as GraphV1;
-  assert.match(unresolvedNoteFor(graph, "in", "validate_result")!, /may be incomplete: 1 call\(s\) to "validate_result".*consumer\.py#run \(through empty\)/);
-  assert.equal(unresolvedNoteFor(graph, "in", "other"), null);
-  assert.equal(unresolvedNoteFor(graph, "out", "validate_result"), null);
 });

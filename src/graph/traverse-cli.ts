@@ -197,6 +197,8 @@ export function runCallersCommand(query: string, dir: string, opts: CallersCliOp
     return;
   }
   if (matches.length === 0) {
+    const unresolved = unresolvedNoteFor(graph, "in", query);
+    if (unresolved) console.error(unresolved.trim());
     console.error(`✗ no symbol "${query}" in the graph — check spelling or run ${cmd("graft build")}`);
     process.exit(1);
   }

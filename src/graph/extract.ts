@@ -75,8 +75,8 @@ export function languageLabelOf(path: string): string | null {
   return entryFor(path)?.label ?? null;
 }
 
-/** What a Python module binds through imports. `all` is `__all__` when it is a plain
- * literal, null when it is absent or computed. */
+/** What a Python module binds through imports. An import with no `name` binds the module
+ * itself. `all` is `__all__` when it is a plain literal, null when absent or computed. */
 export interface PythonExports {
   imports: { local: string; name: string; specifier: string }[];
   stars: string[];
@@ -101,8 +101,12 @@ export interface RawEdge {
   /** calls, with freeFunction: beyond its own file, the name can only come from these
    * glob-imported modules. Absent when a `use` names it or a path qualifies it. */
   onlyModules?: string[];
-  /** calls: a bare Python name a conditional import rebinds, so it has no single binding. */
-  pythonRebound?: boolean;
+  /** calls: the dotted path below `specifier` a Python call reaches its target by:
+   * `from m import f; f()` is ["f"] on m, `import m as a; a.b.f()` is ["b", "f"] on m. */
+  pythonChain?: string[];
+  /** calls: the Python name, first in a dotted call, that a conditional import rebinds,
+   * so it has no single binding. */
+  pythonRebound?: string;
   name?: string; // symbol name to resolve (extends/implements/calls)
   viaMember?: boolean; // calls: was it `obj.foo()` (→ prefer method targets)?
   /** calls with viaMember: the receiver's resolved type name (from bindings /
@@ -819,38 +823,27 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
           implicitSelf: true,
         });
       } else {
-        // Python `mod.fn()` where `mod` is an imported module alias: the import
-        // states the file and the attribute states the symbol, which is the same
-        // two-halves evidence a named import gives a `references` edge. Carry the
-        // module as the specifier so resolve.ts can look the name up in that file
-        // alone — no bare-name guessing, and no receiver type to infer.
-        const importedName = callee.viaMember ? callee.receiver : callee.name;
-        const imported = ctx.lang === "python" && importedName
-          ? ctx.pythonNamedImports.get(importedName)
-          : undefined;
-        const moduleSpec =
-          ctx.lang === "python" && callee.viaMember && callee.receiver
-            ? ctx.importedModules.get(callee.receiver)
-            : undefined;
+        // A Python call whose first name an import binds: the import states the module
+        // and the rest of the dotted name is the path from there, so resolve.ts walks it
+        // with no bare-name guessing and no receiver type to infer.
+        const parts = ctx.lang === "python" ? pythonCalleeParts(node) : null;
+        const head = parts?.[0];
+        const imported = head ? ctx.pythonNamedImports.get(head) : undefined;
+        const moduleSpec = head && parts!.length > 1 && !imported ? ctx.importedModules.get(head) : undefined;
         // A name an import binds resolves through that import or not at all: shadowed
         // here, or bound by an import neither map keeps, it must not fall through to
         // receiver typing or global name lookup.
-        const shadowed = ctx.lang === "python" && !!importedName && ctx.pythonImportedNames.has(importedName)
-          && (!(imported || moduleSpec) || pythonCallHasLocalBinding(node, importedName));
-        const recvType = moduleSpec ? undefined : resolveRecvType(callee.receiver, ctx);
+        const shadowed = !!head && ctx.pythonImportedNames.has(head)
+          && (!(imported || moduleSpec) || pythonCallHasLocalBinding(node, head));
         if (imported && !shadowed) {
-          edges.push({
-            ...callEdge,
-            name: callee.viaMember ? callee.name : imported.name,
-            specifier: imported.specifier,
-            ...(callee.viaMember ? { recvType: imported.name } : {}),
-          });
+          edges.push({ ...callEdge, specifier: imported.specifier, pythonChain: [imported.name, ...parts!.slice(1)] });
+        } else if (moduleSpec && !shadowed) {
+          edges.push({ ...callEdge, specifier: moduleSpec, pythonChain: parts!.slice(1) });
         } else if (!shadowed) {
-          // A shadowed bare import must not reconnect through global name lookup.
-          if (moduleSpec) edges.push({ ...callEdge, specifier: moduleSpec });
-          else edges.push(recvType ? { ...callEdge, recvType } : callEdge);
-        } else if (!callee.viaMember && ctx.pythonReboundNames.has(importedName!) && !pythonCallHasLocalBinding(node, importedName!)) {
-          edges.push({ ...callEdge, pythonRebound: true });
+          const recvType = resolveRecvType(callee.receiver, ctx);
+          edges.push(recvType ? { ...callEdge, recvType } : callEdge);
+        } else if (ctx.pythonReboundNames.has(head!) && !pythonCallHasLocalBinding(node, head!)) {
+          edges.push({ ...callEdge, pythonRebound: head });
         }
       }
     }
@@ -934,18 +927,9 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
 }
 
 /**
- * Python import bindings, as MODULE paths: local name → the dotted path that
- * name may denote. `import a.b as x` and `from a.b import c as x` both bind one
- * name to one dotted path (`a.b`, `a.b.c`); a relative import keeps its leading
- * dots (`from . import c` → `.c`) for resolve.ts to anchor against the importing
- * file's directory.
- *
- * `from a.b import c` is ambiguous in Python's own grammar — `c` is a submodule
- * or an exported symbol, and only the file tree can say which. That is resolve.ts's
- * job: the path is offered as a candidate here, and a call through it resolves only
- * if the module file actually exists. A plain `import a.b` (no alias) binds the
- * TOP package name, so the call site reads `a.b.f()` — a two-hop receiver Python's
- * callee reader does not report — and is therefore left out rather than guessed at.
+ * The module-level `import` bindings of a Python file: local name → module. `import a.b`
+ * binds the top package `a`, `import a.b as c` binds `c` to `a.b`. `from` imports go in
+ * `symbols`, and every name an import binds goes in `importNames`.
  */
 function collectPythonImportedModules(
   root: SyntaxNode,
@@ -953,20 +937,6 @@ function collectPythonImportedModules(
   importNames: Set<string>,
 ): Map<string, string> {
   const out = new Map<string, string>();
-  const bind = (aliasNode: SyntaxNode, path: string): void => {
-    const names = aliasNode.namedChildren;
-    if (aliasNode.type === "aliased_import") {
-      const target = aliasNode.childForFieldName("name") ?? names[0];
-      const alias = aliasNode.childForFieldName("alias") ?? names[1];
-      if (target && alias) out.set(alias.text, joinModulePath(path, target.text));
-      return;
-    }
-    // `from a.b import c` binds `c`; a plain `import a.b` binds the top package,
-    // which the header explains is deliberately left alone.
-    if (aliasNode.type === "dotted_name" && path) {
-      out.set(aliasNode.text, joinModulePath(path, aliasNode.text));
-    }
-  };
   const visit = (node: SyntaxNode, inDefinition: boolean): void => {
     if (node.type === "import_statement" || node.type === "import_from_statement") {
       const moduleNode = node.type === "import_from_statement"
@@ -987,12 +957,8 @@ function collectPythonImportedModules(
         const local = child.childForFieldName("alias")?.text ?? (moduleNode ? name : name.split(".")[0]);
         if (!inDefinition) importNames.add(local);
         if (!moduleLevel) continue;
-        if (moduleNode) {
-          bind(child, moduleNode.text);
-          symbols.set(local, { name, specifier: moduleNode.text });
-        } else if (child.type === "aliased_import") {
-          bind(child, "");
-        }
+        if (moduleNode) symbols.set(local, { name, specifier: moduleNode.text });
+        else out.set(local, child.childForFieldName("alias") ? name : local); // `import a.b` binds the top package, `a`
       }
       return;
     }
@@ -1022,6 +988,15 @@ function collectPythonExports(root: SyntaxNode): PythonExports | null {
   const visit = (node: SyntaxNode): void => {
     const type = node.type;
     if (type === "function_definition" || type === "class_definition") return;
+    if (type === "import_statement") {
+      for (const child of node.namedChildren) {
+        const alias = child.childForFieldName("alias")?.text;
+        const module = child.childForFieldName("name")?.text ?? child.text;
+        const top = module.split(".")[0];
+        out.imports.push({ local: alias ?? top, name: "", specifier: alias ? module : top });
+      }
+      return;
+    }
     if (type === "import_from_statement") {
       const moduleNode = node.childForFieldName("module_name");
       if (!moduleNode) return;
@@ -1110,12 +1085,12 @@ function pythonLocalImports(definition: SyntaxNode): {
           const local = alias ?? name;
           claim(local, `${moduleNode.text} ${name}`, seen);
           symbols.set(local, { name, specifier: moduleNode.text });
-          modules.set(local, joinModulePath(moduleNode.text, name));
         } else {
-          // `import a.b` binds the top package, left alone as at module level.
+          // `import a.b` binds the top package, as at module level.
           const local = alias ?? name.split(".")[0];
-          claim(local, name, seen);
-          if (alias) modules.set(alias, name);
+          const module = alias ? name : local;
+          claim(local, module, seen);
+          modules.set(local, module);
         }
       }
       return;
@@ -1144,12 +1119,6 @@ function withPythonLocalImports<T>(
     else out.set(name, value);
   }
   return out;
-}
-
-/** `a.b` + `c` → `a.b.c`; a relative prefix keeps its dots (`.` + `c` → `.c`). */
-function joinModulePath(prefix: string, tail: string): string {
-  if (!prefix) return tail;
-  return prefix.endsWith(".") ? `${prefix}${tail}` : `${prefix}.${tail}`;
 }
 
 /** Binding patterns exclude type annotations, default values and attribute names. */
@@ -2857,6 +2826,22 @@ function pyReceiver(fn: SyntaxNode): string | undefined {
     if (innerObj?.type === "identifier" && innerObj.text === "self" && innerAttr) return `self.${innerAttr.text}`;
   }
   return undefined;
+}
+
+/** A Python callee as a dotted name, `a.b.f()` as [a, b, f]; null for anything else,
+ * such as a call on a call's result. */
+function pythonCalleeParts(call: SyntaxNode): string[] | null {
+  const parts: string[] = [];
+  let n = call.childForFieldName("function");
+  while (n?.type === "attribute") {
+    const attr = n.childForFieldName("attribute");
+    if (!attr) return null;
+    parts.unshift(attr.text);
+    n = n.childForFieldName("object");
+  }
+  if (n?.type !== "identifier") return null;
+  parts.unshift(n.text);
+  return parts;
 }
 
 /**
