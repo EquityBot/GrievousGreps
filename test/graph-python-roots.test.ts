@@ -167,8 +167,6 @@ test("a name with one in-repo target keeps its edge, however the import is wrapp
   const files = { "pkg/__init__.py": "", "pkg/impl.py": "def f():\n    pass\nclass C:\n    def m(self):\n        pass\n", "pkg/other.py": "def f():\n    pass\n" };
   const keeps: [string, string[]][] = [
     ["try:\n    from pkg.impl import f\nexcept ImportError:\n    f = None\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
-    ["try:\n    from pkg.impl import f\nexcept ImportError:\n    from thirdparty import f\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
-    ["try:\n    from thirdparty import f\nexcept ImportError:\n    from pkg.impl import f\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
     ["try:\n    import pkg.impl as m\nexcept ImportError:\n    m = None\ndef run():\n    m.f()\n", ["pkg/impl.py#f"]],
     ["try:\n    from pkg.impl import C\nexcept ImportError:\n    C = None\ndef run():\n    C.m()\n", ["pkg/impl.py#C.m"]],
     ["from pkg.impl import f\ndef run():\n    f()\ndel f\n", ["pkg/impl.py#f"]],
@@ -213,5 +211,61 @@ test("a package that binds its own submodule still leads to it", () => {
     calls({ "pkg/__init__.py": "from pkg import mod\ndef run():\n    mod.f()\n", "pkg/mod.py": mod }, "pkg/__init__.py#run"),
     ["pkg/mod.py#f"],
     "an absolute self-import, called from the package itself",
+  );
+});
+
+test("a module with only a literal __all__ still limits what its star import exports", () => {
+  const mod = "__all__ = ['_listed']\ndef public_excluded():\n    pass\ndef _listed():\n    pass\n";
+  const files = { "pkg/__init__.py": "from .mod import *\n", "pkg/mod.py": mod };
+  const consumer = (name: string) => `from pkg import ${name}\ndef run():\n    ${name}()\n`;
+  assert.deepEqual(calls({ ...files, "consumer.py": consumer("public_excluded") }, "consumer.py#run"), [], "left out of __all__");
+  assert.deepEqual(calls({ ...files, "consumer.py": consumer("_listed") }, "consumer.py#run"), ["pkg/mod.py#_listed"], "listed in __all__");
+});
+
+test("conditional bindings must agree: one in-repo import and an outside one is not a target", () => {
+  const files = { "pkg/__init__.py": "", "pkg/impl.py": "def f():\n    pass\n" };
+  for (const consumer of [
+    "try:\n    from pkg.impl import f\nexcept ImportError:\n    from thirdparty import f\ndef run():\n    f()\n",
+    "try:\n    from thirdparty import f\nexcept ImportError:\n    from pkg.impl import f\ndef run():\n    f()\n",
+  ]) {
+    assert.deepEqual(calls({ ...files, "consumer.py": consumer }, "consumer.py#run"), [], consumer);
+    assert.deepEqual(unresolvedNames({ ...files, "consumer.py": consumer }), ["f"], "and it is said");
+  }
+  for (const fallback of ["pass", "f = None", "raise"]) {
+    const consumer = `try:\n    from pkg.impl import f\nexcept ImportError:\n    ${fallback}\ndef run():\n    f()\n`;
+    assert.deepEqual(calls({ ...files, "consumer.py": consumer }, "consumer.py#run"), ["pkg/impl.py#f"], `a fallback that binds nothing new: ${fallback}`);
+  }
+  // The same rule through a re-export.
+  const reexport = { "pkg/__init__.py": "try:\n    from .impl import f\nexcept ImportError:\n    from thirdparty import f\n", "pkg/impl.py": "def f():\n    pass\n" };
+  assert.deepEqual(calls({ ...reexport, "consumer.py": "from pkg import f\ndef run():\n    f()\n" }, "consumer.py#run"), []);
+});
+
+function unresolvedNames(files: Record<string, string>): string[] {
+  const extracted = Object.entries(files).map(([path, text]) => extractFile(path, text, "python"));
+  const out: { name: string }[] = [];
+  resolveEdges(extracted.flatMap((x) => x.nodes), extracted.flatMap((x) => x.rawEdges), { pythonRoots: ["", "src"], unresolvedCalls: out as never });
+  return out.map((c) => c.name);
+}
+
+test("a re-exporting module's later binding wins over its earlier one", () => {
+  const other = "def f():\n    pass\n";
+  const consumer = "from pkg import f\ndef run():\n    f()\n";
+  const edge = (init: string) => calls({ "pkg/__init__.py": init, "pkg/other.py": other, "consumer.py": consumer }, "consumer.py#run");
+  assert.deepEqual(edge("def f():\n    pass\nfrom .other import f\n"), ["pkg/other.py#f"], "an import after the def");
+  assert.deepEqual(edge("from .other import f\ndef f():\n    pass\n"), ["pkg/__init__.py#f"], "a def after the import");
+  assert.deepEqual(edge("def f():\n    pass\ntry:\n    from .other import f\nexcept ImportError:\n    pass\n"), [], "a conditional import over a def");
+  assert.deepEqual(edge("try:\n    from .other import f\nexcept ImportError:\n    def f():\n        pass\n"), [], "a fallback def");
+});
+
+test("a local import an assignment also binds is stated with the name, not dropped silently", () => {
+  const files = { "m.py": "def f():\n    pass\n" };
+  const consumer = "def run():\n    x = 1\n    from m import f as x\n    x()\n";
+  assert.deepEqual(unresolvedNames({ ...files, "consumer.py": consumer }), ["x"]);
+  assert.deepEqual(unresolvedNames({ ...files, "consumer.py": "def run():\n    x = 1\n    from thirdparty import f as x\n    x()\n" }), [], "not for an outside module");
+  assert.deepEqual(unresolvedNames({ ...files, "consumer.py": "def run(x):\n    x()\n" }), [], "not for a plain parameter");
+  assert.deepEqual(
+    unresolvedNames({ ...files, "consumer.py": "def run():\n    x = 1\n    from m import f as x\n    def g(x):\n        x()\n" }),
+    [],
+    "not for a nested def's own parameter",
   );
 });

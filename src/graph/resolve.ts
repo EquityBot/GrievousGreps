@@ -315,9 +315,10 @@ export function resolveEdges(
       // class or a submodule; both resolve within their explicit import path.
       if (e.rustRoot && (RUST_STD_CRATES.has(e.rustRoot) || opts.rustExternalCrates?.has(e.rustRoot))) continue;
       if (e.pythonRebound && e.name) {
-        const start = followPythonName(e.pythonRebound, toPosixPath(e.file), pythonCtx);
+        const file = toPosixPath(e.file);
+        const start = e.pythonReboundModule ? pythonModuleName(e.pythonReboundModule, file, pythonCtx) : followPythonName(e.pythonRebound, file, pythonCtx);
         const hit = e.pythonChain ? walkPythonChain(start, e.pythonChain, pythonCtx) : start === "external" ? "external" : "undecided";
-        if (hit === "undecided") opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: null });
+        if (hit === "undecided") opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: e.pythonReboundModule ?? null });
         else if (hit !== "external") add(e.source, hit.id, "calls", "extracted");
         continue;
       }
@@ -623,18 +624,26 @@ function followPythonName(name: string, file: string, ctx: PythonCtx, seen = new
   seen.add(key);
   const own = (ctx.perFileName.get(file)?.get(name) ?? [])
     .filter((n) => n.id.replace(/~\d+$/, "") === `${file}#${name}` && (n.kind === "function" || n.kind === "class"));
-  if (own.length === 1) return own[0];
   if (own.length > 1) return "undecided";
   const table = ctx.exports.get(file);
-  // `try: from .a import f` / `except: from .b import f` binds one name twice.
-  const bound = (table?.imports ?? []).filter((i) => i.local === name).map((i) => {
+  const imports = (table?.imports ?? []).filter((i) => i.local === name);
+  if (own.length === 1) {
+    if (imports.length === 0) return own[0];
+    // A def and an import of one name: the later binding wins, if both surely run.
+    if (imports.some((i) => i.conditional) || table?.conditionalDefs.includes(name)) return "undecided";
+    const defLine = Number(/^L(\d+)/.exec(own[0].span ?? "")?.[1] ?? 0);
+    if (defLine > Math.max(...imports.map((i) => i.line))) return own[0];
+  }
+  // `try: from .a import f` / `except: from .b import f` binds one name twice, and all
+  // the targets must agree: one in the repo and one outside is not a target.
+  const bound = imports.map((i) => {
     const target = pythonModuleName(i.specifier, file, ctx);
     if (!i.name || typeof target === "string" || !("module" in target)) return target;
-    return followPythonName(i.name, target.module, ctx, seen);
+    return followPythonName(i.name, target.module, ctx, new Set(seen));
   });
   const found = new Map(bound.filter((b) => typeof b !== "string").map((b) => [("id" in b ? b.id : b.module), b]));
+  if (bound.includes("undecided") || found.size > 1 || (found.size === 1 && bound.includes("external"))) return "undecided";
   if (found.size === 1) return [...found.values()][0];
-  if (found.size > 1 || bound.includes("undecided")) return "undecided";
   if (bound.length) return "external";
   const sub = ctx.modules.submodule(file, name);
   if (sub) return { module: sub };

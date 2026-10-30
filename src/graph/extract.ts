@@ -78,9 +78,11 @@ export function languageLabelOf(path: string): string | null {
 /** What a Python module binds through imports. An import with no `name` binds the module
  * itself. `all` is `__all__` when it is a plain literal, null when absent or computed. */
 export interface PythonExports {
-  imports: { local: string; name: string; specifier: string }[];
+  imports: { local: string; name: string; specifier: string; line: number; conditional: boolean }[];
   stars: string[];
   all: string[] | null;
+  /** Names defined under an `if` or `try`, so a run of the module may not bind them. */
+  conditionalDefs: string[];
 }
 
 /**
@@ -111,6 +113,8 @@ export interface RawEdge {
    * `pythonChain`, resolve.ts walks it from this module's export table; without, an
    * assignment rebinds it and there is no target to walk to. */
   pythonRebound?: string;
+  /** With pythonRebound: the module a def's own import of that name reads from. */
+  pythonReboundModule?: string;
   name?: string; // symbol name to resolve (extends/implements/calls)
   viaMember?: boolean; // calls: was it `obj.foo()` (→ prefer method targets)?
   /** calls with viaMember: the receiver's resolved type name (from bindings /
@@ -352,6 +356,9 @@ export interface WalkCtx {
    * local name → imported name and module. Kept apart from importedSymbols so they
    * feed call resolution only, not identifier references. */
   pythonNamedImports: ReadonlyMap<string, { name: string; specifier: string }>;
+  /** Names a def's own import binds that something else in the def also binds → that
+   * import's module. Python's answer depends on order, which the call does not read. */
+  pythonLocalRebound: ReadonlyMap<string, string>;
   /** Names a module-level import binds outside the plain one-import case → whether an
    * assignment also rebinds them, which leaves no single target to look for. */
   pythonReboundNames: ReadonlyMap<string, boolean>;
@@ -461,6 +468,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
     pythonNamedImports,
     pythonImportedNames,
     pythonReboundNames,
+    pythonLocalRebound: new Map(),
     rR6Access: null,
     rGenerics,
     rSuperClass: null,
@@ -694,6 +702,10 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
         ctx.lang === "python" && (desc.kind === "function" || desc.kind === "method")
           ? withPythonLocalImportNames(ctx.pythonImportedNames, node)
           : ctx.pythonImportedNames,
+      pythonLocalRebound:
+        ctx.lang === "python" && (desc.kind === "function" || desc.kind === "method")
+          ? withPythonLocalRebound(ctx.pythonLocalRebound, node)
+          : ctx.pythonLocalRebound,
       // Reset on every new definition — this is a purely local marker for "we're
       // still inside THIS class-defining call's own public=/private=/active=
       // argument chain," not something that should leak into a nested definition
@@ -724,6 +736,7 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
         pythonNamedImports: ctx.pythonNamedImports,
         pythonImportedNames: ctx.pythonImportedNames,
         pythonReboundNames: ctx.pythonReboundNames,
+        pythonLocalRebound: ctx.pythonLocalRebound,
       };
       walkNamedChildren(node.namedChildren.filter(inHeader), headerCtx, out, edges, minted);
       walkNamedChildren(node.namedChildren.filter((c) => !inHeader(c)), childCtx, out, edges, minted);
@@ -851,6 +864,8 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
         } else if (!shadowed) {
           const recvType = resolveRecvType(callee.receiver, ctx);
           edges.push(recvType ? { ...callEdge, recvType } : callEdge);
+        } else if (ctx.pythonLocalRebound.has(head!)) {
+          edges.push({ ...callEdge, pythonRebound: head, pythonReboundModule: ctx.pythonLocalRebound.get(head!) });
         } else if (ctx.pythonReboundNames.has(head!) && !pythonCallHasLocalBinding(node, head!)) {
           edges.push({
             ...callEdge,
@@ -993,7 +1008,7 @@ function collectPythonImportedModules(
  * or `if` count: `try: from .a import f` is how packages re-export optional parts, and
  * a reader of the module sees `f` either way. Null when the file binds nothing. */
 function collectPythonExports(root: SyntaxNode): PythonExports | null {
-  const out: PythonExports = { imports: [], stars: [], all: null };
+  const out: PythonExports = { imports: [], stars: [], all: null, conditionalDefs: [] };
   let allComputed = false;
   const stringsOf = (list: SyntaxNode): string[] | null => {
     const items: string[] = [];
@@ -1005,15 +1020,20 @@ function collectPythonExports(root: SyntaxNode): PythonExports | null {
     }
     return items;
   };
-  const visit = (node: SyntaxNode): void => {
+  const visit = (node: SyntaxNode, conditional: boolean): void => {
     const type = node.type;
-    if (type === "function_definition" || type === "class_definition") return;
+    if (type === "function_definition" || type === "class_definition") {
+      const name = node.childForFieldName("name")?.text;
+      if (conditional && name) out.conditionalDefs.push(name);
+      return;
+    }
+    const at = { line: node.startPosition.row + 1, conditional };
     if (type === "import_statement") {
       for (const child of node.namedChildren) {
         const alias = child.childForFieldName("alias")?.text;
         const module = child.childForFieldName("name")?.text ?? child.text;
         const top = module.split(".")[0];
-        out.imports.push({ local: alias ?? top, name: "", specifier: alias ? module : top });
+        out.imports.push({ local: alias ?? top, name: "", specifier: alias ? module : top, ...at });
       }
       return;
     }
@@ -1025,7 +1045,7 @@ function collectPythonExports(root: SyntaxNode): PythonExports | null {
         if (child.type === "wildcard_import") out.stars.push(moduleNode.text);
         else if (child.type === "aliased_import" || child.type === "dotted_name") {
           const name = child.childForFieldName("name")?.text ?? child.text;
-          out.imports.push({ local: child.childForFieldName("alias")?.text ?? name, name, specifier: moduleNode.text });
+          out.imports.push({ local: child.childForFieldName("alias")?.text ?? name, name, specifier: moduleNode.text, ...at });
         }
       }
       return;
@@ -1039,11 +1059,12 @@ function collectPythonExports(root: SyntaxNode): PythonExports | null {
       return;
     }
     if (type === "call" && node.childForFieldName("function")?.text.startsWith("__all__.")) allComputed = true;
-    for (const child of node.namedChildren) visit(child);
+    const branches = type === "if_statement" || type === "try_statement" || type === "match_statement";
+    for (const child of node.namedChildren) visit(child, conditional || branches);
   };
-  visit(root);
+  visit(root, false);
   if (allComputed) out.all = null;
-  return out.imports.length || out.stars.length ? out : null;
+  return out.imports.length || out.stars.length || out.all ? out : null;
 }
 
 /** Names a def's own imports bind, visible in its body and nested defs. */
@@ -1122,6 +1143,20 @@ function pythonLocalImports(definition: SyntaxNode): {
   if (params) collectPythonBindingNames(params, ambiguous);
   collectPythonScopeBindings(body, ambiguous, false);
   return { symbols, modules, ambiguous };
+}
+
+/** `outer` plus the names `definition` both imports and binds some other way, less
+ * those it binds without importing, which hide the enclosing def's. */
+function withPythonLocalRebound(outer: ReadonlyMap<string, string>, definition: SyntaxNode): ReadonlyMap<string, string> {
+  const local = pythonLocalImports(definition);
+  if (local.ambiguous.size === 0) return outer;
+  const out = new Map(outer);
+  for (const name of local.ambiguous) {
+    const module = local.symbols.get(name)?.specifier ?? local.modules.get(name);
+    if (module) out.set(name, module);
+    else out.delete(name);
+  }
+  return out;
 }
 
 /** `outer` plus what `definition`'s own imports add to `which`. */
