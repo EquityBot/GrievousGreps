@@ -78,6 +78,13 @@ export function setInputRate(usdPerMtok: number | null): void {
       : null;
 }
 
+/** `TRAIL_NO_SAVINGS_TALLY`: keep the `tokens saved` line, drop the request to
+ * report a total to the user. */
+export function savingsTallyOff(): boolean {
+  const v = process.env.TRAIL_NO_SAVINGS_TALLY;
+  return v !== undefined && v !== '' && v !== '0' && v !== 'false';
+}
+
 /** Appended to every retrieval footer so the agent reports the turn's running
  * total even when SKILL.md isn't loaded — the instruction rides along in the
  * tool output itself. Deliberately free of the `[graft] tokens saved ≈ <n>`
@@ -90,6 +97,7 @@ export function setInputRate(usdPerMtok: number | null): void {
  * `hasSavingsTally` (claude/tally.ts) recognises, so adding money here does not
  * quietly zero the reported-turns metric. */
 export function savingsTurnNudge(savedTokens: number): string {
+  if (savingsTallyOff()) return '';
   const b = brand();
   const sum = ` — sum each such line across your ${b} calls — e.g. `;
   if (inputRateUsdPerMtok === null || savedTokens <= 0) {

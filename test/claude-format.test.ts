@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { savingsLine } from '../src/context/savings.js';
 import { renderStatusline, incomingEdges, formatBlastRadius, formatRetrieval, formatOrientation, renderSubagent, relevantRetrieval, INJECT_MIN_COVERAGE, NUDGE_CAP } from '../src/claude/format.js';
 import { emptyStats } from '../src/claude/state.js';
 
@@ -90,6 +91,23 @@ test('formatRetrieval appends a tokens-saved line when ask reports a baseline', 
   ] } as any;
   const txt = strip(formatRetrieval(ask)!);
   assert.match(txt, /tokens saved ≈ [\d,]+ \(\d+%\)/);
+});
+
+test('TRAIL_NO_SAVINGS_TALLY drops the request to report a total from tool output and session text', () => {
+  const saved = { files: 1, baselineChars: 8000 };
+  assert.match(savingsLine('body', saved), /At the end of your reply/);
+  assert.match(formatOrientation('# repo map'), /one-line tally/);
+  process.env.TRAIL_NO_SAVINGS_TALLY = '1';
+  try {
+    const line = savingsLine('body', saved);
+    assert.match(line, /tokens saved ≈ [\d,]+/);
+    assert.doesNotMatch(line, /At the end of your reply|tell the user/);
+    const session = formatOrientation('# repo map');
+    assert.doesNotMatch(session, /tally|tokens saved/);
+    assert.match(session, /repo map/);
+  } finally {
+    delete process.env.TRAIL_NO_SAVINGS_TALLY;
+  }
 });
 
 test('formatRetrieval returns null for no hits', () => {
