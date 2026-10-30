@@ -707,7 +707,7 @@ function tsRepoPaths(byId: Map<string, NodeV1>): Set<string> {
 function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "outside" | "unmapped" {
   const target = resolveImport(specifier, file, ctx.byId);
   if (ctx.byId.has(target)) return { module: target };
-  if (specifier.startsWith(".")) return "outside";
+  if (specifier.startsWith(".")) return "unmapped"; // in the repo by its path, but no file the graph holds
   let inRepo = false;
   // The nearest configs above the file first, and each one's longest matching pattern.
   const configs = ctx.paths

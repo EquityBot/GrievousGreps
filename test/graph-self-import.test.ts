@@ -177,3 +177,12 @@ test("Rust: an alias of a dependency's type stops there, and a type only a macro
   const stated = (graph.unresolvedCalls ?? []).filter((u) => u.source.startsWith("src/a.rs")).map((u) => [u.source, u.name, u.through]);
   assert.deepEqual(stated, [["src/a.rs#made", "from_err", "MadeByMacro"]]);
 });
+
+test("a relative import of a file the graph lacks, such as a build's, is reported with no guess", async (t) => {
+  const graph = await build(t, {
+    "src/effect.ts": "export function effect() {}\n",
+    "bench/a.ts": `import { effect } from "../dist/reactivity";\nexport function run() { effect(); }\n`,
+  });
+  assert.deepEqual(calls(graph, "bench/a.ts#run"), []);
+  assert.deepEqual((graph.unresolvedCalls ?? []).map((u) => [u.name, u.through]), [["effect", "../dist/reactivity"]]);
+});
