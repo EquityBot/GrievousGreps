@@ -10,8 +10,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Pin the MCP launch command to the npx form, whatever this machine has installed.
-process.env.GRAFT_MCP_NPX = '1';
 process.env.TRAIL_NO_FETCH = '1';
 delete process.env.GRAFT_NO_TRAIL_SWITCH;
 
@@ -108,14 +106,14 @@ test('trail init for every agent: trail-named files, trail commands, a trail ser
   assert.match(readFileSync(join(repo, '.adal', 'skills', 'trail', 'SKILL.md'), 'utf8'), /^---\nname: trail\n/);
 
   // The MCP server is trail's, under trail's name, in every config.
-  const npx = { command: 'npx', args: ['-y', '@trailhq/trail-code', 'mcp'] };
+  const launch = { command: 'trail', args: ['mcp'] };
   for (const rel of [join('.cursor', 'mcp.json'), join('.gemini', 'settings.json'), join('.kiro', 'settings', 'mcp.json')]) {
-    assert.deepEqual(JSON.parse(readFileSync(join(repo, rel), 'utf8')).mcpServers, { trail: npx }, rel);
+    assert.deepEqual(JSON.parse(readFileSync(join(repo, rel), 'utf8')).mcpServers, { trail: launch }, rel);
   }
-  assert.deepEqual(JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8')).mcp, { trail: { type: 'local', command: ['npx', '-y', '@trailhq/trail-code', 'mcp'], enabled: true } });
-  assert.deepEqual(JSON.parse(readFileSync(join(home, '.gemini', 'config', 'mcp_config.json'), 'utf8')).mcpServers, { trail: npx });
+  assert.deepEqual(JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8')).mcp, { trail: { type: 'local', command: ['trail', 'mcp'], enabled: true } });
+  assert.deepEqual(JSON.parse(readFileSync(join(home, '.gemini', 'config', 'mcp_config.json'), 'utf8')).mcpServers, { trail: launch });
   for (const toml of [join(repo, '.grok', 'config.toml'), join(home, '.codex', 'config.toml')]) {
-    assert.equal(readFileSync(toml, 'utf8'), '[mcp_servers.trail]\ncommand = "npx"\nargs = ["-y", "@trailhq/trail-code", "mcp"]\n', toml);
+    assert.equal(readFileSync(toml, 'utf8'), '[mcp_servers.trail]\ncommand = "trail"\nargs = ["mcp"]\n', toml);
   }
   assert.ok(existsSync(join(home, '.gemini', 'skills', 'trail', 'SKILL.md')));
   assert.ok(!existsSync(join(home, '.gemini', 'skills', 'graft')));
@@ -270,7 +268,7 @@ test('CLI: trail init --dry-run names trail\'s files', () => {
   assert.deepEqual(readdirSync(repo), [], 'a dry run writes nothing');
 });
 
-test("trail run through npx isn't installed: npx's own bin folder doesn't count, so agents get the npx launch", () => {
+test("trail run through npx isn't installed: npx's own bin folder doesn't count", () => {
   const root = mkdtempSync(join(tmpdir(), 'trail-npx-path-'));
   const npxBin = join(root, '.npm', '_npx', 'a1b2c3', 'node_modules', '.bin');
   const projectBin = join(root, 'repo', 'node_modules', '.bin');
@@ -283,17 +281,4 @@ test("trail run through npx isn't installed: npx's own bin folder doesn't count,
   // `npx -y @trailhq/trail-code login`: npx puts its temporary copy first on PATH; the agents never see it.
   assert.equal(commandOnPath('trail', { PATH: [npxBin, projectBin].join(delimiter) }), false);
   assert.equal(commandOnPath('trail', { PATH: [npxBin, installed].join(delimiter) }), true);
-
-  const before = process.env.PATH;
-  const forced = process.env.GRAFT_MCP_NPX;
-  try {
-    delete process.env.GRAFT_MCP_NPX;
-    process.env.PATH = npxBin;
-    assert.equal(serverEntry({ brand: 'trail' }).command, 'npx');
-    process.env.PATH = installed;
-    assert.equal(serverEntry({ brand: 'trail' }).command, 'trail');
-  } finally {
-    process.env.PATH = before;
-    if (forced !== undefined) process.env.GRAFT_MCP_NPX = forced;
-  }
 });

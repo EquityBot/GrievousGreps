@@ -467,49 +467,43 @@ test("Cursor's and Codex's hooks speak trail in a repo whose only trail wiring i
 test("trail init moves a graft-wired repo to trail's names, and uninstall takes either set out", () => {
   const home = mkdtempSync(join(tmpdir(), "notes-home-"));
   const d = repoWithCode();
-  const env = { GRAFT_MCP_NPX: "1" };
-  Object.assign(process.env, env);
-  try {
-    assert.equal(run("graft", ["init", d, "--agents", "claude", "--yes", "--no-global"], home).status, 0);
-    assert.ok(existsSync(join(d, ".claude", "helpers", "graft-hooks.cjs")));
-    assert.ok(existsSync(join(d, ".claude", "skills", "graft", "SKILL.md")));
+  assert.equal(run("graft", ["init", d, "--agents", "claude", "--yes", "--no-global"], home).status, 0);
+  assert.ok(existsSync(join(d, ".claude", "helpers", "graft-hooks.cjs")));
+  assert.ok(existsSync(join(d, ".claude", "skills", "graft", "SKILL.md")));
 
-    const t = run("trail", ["init", d, "--agents", "claude", "--yes", "--no-global"], home);
-    assert.equal(t.status, 0, t.err);
-    // Shared: the hook in .trail/ and one SessionStart entry. The old layout is gone.
-    for (const f of [".trail/hook.cjs", ".trail/statusline.cjs"]) assert.ok(existsSync(join(d, f)), f);
-    for (const f of ["helpers", "skills/graft", "skills/trail"]) assert.equal(existsSync(join(d, ".claude", f)), false, f);
-    const settings = JSON.parse(readFileSync(join(d, ".claude", "settings.json"), "utf8"));
-    assert.deepEqual(Object.keys(settings.hooks), ["SessionStart"]);
-    assert.match(JSON.stringify(settings.hooks.SessionStart), /\/\.trail\/hook\.cjs\\" session-start/);
-    for (const k of ["statusLine", "permissions", "footerLinksRegexes"]) assert.equal(settings[k], undefined, k);
-    // Personal: status line, allowlist, and under --no-global every other hook, never session start.
-    const local = JSON.parse(readFileSync(join(d, ".claude", "settings.local.json"), "utf8"));
-    assert.match(local.statusLine.command, /\.trail\/statusline\.cjs/);
-    assert.ok(local.permissions.allow.includes("Bash(trail:*)"));
-    assert.equal(local.hooks.SessionStart, undefined);
-    assert.match(JSON.stringify(local.hooks.UserPromptSubmit), /\.trail\/hook\.cjs\\" prompt/);
-    assert.match(JSON.stringify(local.hooks.SessionEnd), /\.trail\/hook\.cjs\\" session-end/);
-    // No MCP server for Claude Code: graft's .mcp.json had only graft's, so it goes.
-    assert.equal(existsSync(join(d, ".mcp.json")), false);
-    // Nothing personal shows in git, and .gitignore is untouched by the setup.
-    assert.match(readFileSync(join(d, ".trail", ".gitignore"), "utf8"), /^statusline\.cjs$/m);
-    for (const f of [".claude/settings.local.json", ".trail/statusline.cjs"]) assert.equal(spawnSync("git", ["check-ignore", "-q", f], { cwd: d }).status, 0, f);
+  const t = run("trail", ["init", d, "--agents", "claude", "--yes", "--no-global"], home);
+  assert.equal(t.status, 0, t.err);
+  // Shared: the hook in .trail/ and one SessionStart entry. The old layout is gone.
+  for (const f of [".trail/hook.cjs", ".trail/statusline.cjs"]) assert.ok(existsSync(join(d, f)), f);
+  for (const f of ["helpers", "skills/graft", "skills/trail"]) assert.equal(existsSync(join(d, ".claude", f)), false, f);
+  const settings = JSON.parse(readFileSync(join(d, ".claude", "settings.json"), "utf8"));
+  assert.deepEqual(Object.keys(settings.hooks), ["SessionStart"]);
+  assert.match(JSON.stringify(settings.hooks.SessionStart), /\/\.trail\/hook\.cjs\\" session-start/);
+  for (const k of ["statusLine", "permissions", "footerLinksRegexes"]) assert.equal(settings[k], undefined, k);
+  // Personal: status line, allowlist, and under --no-global every other hook, never session start.
+  const local = JSON.parse(readFileSync(join(d, ".claude", "settings.local.json"), "utf8"));
+  assert.match(local.statusLine.command, /\.trail\/statusline\.cjs/);
+  assert.ok(local.permissions.allow.includes("Bash(trail:*)"));
+  assert.equal(local.hooks.SessionStart, undefined);
+  assert.match(JSON.stringify(local.hooks.UserPromptSubmit), /\.trail\/hook\.cjs\\" prompt/);
+  assert.match(JSON.stringify(local.hooks.SessionEnd), /\.trail\/hook\.cjs\\" session-end/);
+  // No MCP server for Claude Code: graft's .mcp.json had only graft's, so it goes.
+  assert.equal(existsSync(join(d, ".mcp.json")), false);
+  // Nothing personal shows in git, and .gitignore is untouched by the setup.
+  assert.match(readFileSync(join(d, ".trail", ".gitignore"), "utf8"), /^statusline\.cjs$/m);
+  for (const f of [".claude/settings.local.json", ".trail/statusline.cjs"]) assert.equal(spawnSync("git", ["check-ignore", "-q", f], { cwd: d }).status, 0, f);
 
-    // Running it again changes nothing.
-    const before = [".claude/settings.json", ".claude/settings.local.json"].map((f) => readFileSync(join(d, f), "utf8"));
-    const again = run("trail", ["init", d, "--agents", "claude", "--yes", "--no-global"], home);
-    assert.equal(again.status, 0, again.err);
-    assert.deepEqual([".claude/settings.json", ".claude/settings.local.json"].map((f) => readFileSync(join(d, f), "utf8")), before);
+  // Running it again changes nothing.
+  const before = [".claude/settings.json", ".claude/settings.local.json"].map((f) => readFileSync(join(d, f), "utf8"));
+  const again = run("trail", ["init", d, "--agents", "claude", "--yes", "--no-global"], home);
+  assert.equal(again.status, 0, again.err);
+  assert.deepEqual([".claude/settings.json", ".claude/settings.local.json"].map((f) => readFileSync(join(d, f), "utf8")), before);
 
-    const un = run("trail", ["uninstall", d, "-y", "--no-global"], home);
-    assert.equal(un.status, 0, un.err);
-    for (const f of [".trail/hook.cjs", ".trail/statusline.cjs"]) assert.equal(existsSync(join(d, f)), false, f);
-    // Both held only what init wrote, so they go with it.
-    for (const f of ["settings.json", "settings.local.json"]) assert.equal(existsSync(join(d, ".claude", f)), false, f);
-  } finally {
-    delete process.env.GRAFT_MCP_NPX;
-  }
+  const un = run("trail", ["uninstall", d, "-y", "--no-global"], home);
+  assert.equal(un.status, 0, un.err);
+  for (const f of [".trail/hook.cjs", ".trail/statusline.cjs"]) assert.equal(existsSync(join(d, f)), false, f);
+  // Both held only what init wrote, so they go with it.
+  for (const f of ["settings.json", "settings.local.json"]) assert.equal(existsSync(join(d, ".claude", f)), false, f);
 });
 
 // After a check conflict the agent says why; it saves a learning about it

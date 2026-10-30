@@ -42,7 +42,7 @@ async function init(dir: string, home: string, server: string, args: string[]): 
   const env: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env)) if (!AGENT_VARS.test(k)) env[k] = v;
   const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts", "init", dir, "--no-build", ...args, "--pair", CODE, "--server", server], {
-    env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", TRAIL_NO_LOOK_BACK: "1", TRAIL_NO_FETCH: "1", CLAUDECODE: "1" },
+    env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", TRAIL_NO_LOOK_BACK: "1", TRAIL_NO_FETCH: "1", CLAUDECODE: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let err = "";
@@ -126,7 +126,7 @@ test("killed part way (an agent's tool timeout): the run says it stopped before 
     const env: NodeJS.ProcessEnv = {};
     for (const [k, v] of Object.entries(process.env)) if (!AGENT_VARS.test(k)) env[k] = v;
     const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts", "init", repo, "--agents", "auto", "--pair", CODE, "--server", trail.url], {
-      env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", TRAIL_NO_LOOK_BACK: "1", TRAIL_NO_FETCH: "1", CLAUDECODE: "1" },
+      env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", TRAIL_NO_LOOK_BACK: "1", TRAIL_NO_FETCH: "1", CLAUDECODE: "1" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let err = "";

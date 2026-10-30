@@ -26,7 +26,7 @@ import { codexStatusLines, codexTrustLine } from "./hosts/codex-trust.js";
 import { hostIds } from "./hosts/registry.js";
 import { agentList, autoSelection, autoSummary } from "./hosts/auto.js";
 import { checkoutRoot, ensureRepoHome, keepsNotes, noteCount, rememberRepo, repoName, repoPlace, shownPath } from "./notes/home.js";
-import { asksForTrail, brand, cmd, graftNotice, PACKAGE_FOR, setBrand, strandedRepoNotice, tag, trailOnPath } from "./brand.js";
+import { asksForTrail, brand, cmd, graftNotice, setBrand, strandedRepoNotice, tag, trailOnPath } from "./brand.js";
 import { branchDiff } from "./cloud/diff.js";
 import { openBrowser } from "./util/browser.js";
 import { committedAtBase, learningsAtBase, teammateEdits, withBaseLearnings } from "./check/learning-edits.js";
@@ -54,7 +54,7 @@ import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { installBrainsServer, installCursorBrainsServer, removeBrainsServer, removeCursorBrainsServer } from "./hosts/claude-global.js";
 import { upsertCodexToml } from "./hosts/mcp-config.js";
 import { homedir } from "node:os";
-import { UPGRADE_UNAVAILABLE, formatVersionReport, readCurrentVersion, readPackageName } from "./cli-meta.js";
+import { UPGRADE_UNAVAILABLE, formatVersionReport, readCurrentVersion } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
 import { patchBuildConfig, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
@@ -627,7 +627,6 @@ grouped(program.command("build"), GROUP.setup)
         includeDirs: opts.includeDir,
         followSubmodules: followSubmodulesWasExplicit ? opts.followSubmodules : undefined,
         followNestedRepos: followNestedReposWasExplicit ? opts.followNestedRepos : undefined,
-        packageName: readPackageName(import.meta.url),
       });
       return;
     }
@@ -699,7 +698,7 @@ grouped(program.command("build"), GROUP.setup)
     for (const e of g.errors) console.error(`✗ ${e}`);
     // A language whose depth grammar didn't load was parsed by its breadth stand-in:
     // say which, and the install that fixes it. Nothing when everything loaded.
-    const fallbackNotice = nativeFallbackNotice(g.nativeFallback, readPackageName(import.meta.url));
+    const fallbackNotice = nativeFallbackNotice(g.nativeFallback);
     if (fallbackNotice) console.error(fallbackNotice);
 
     const rel = relative(process.cwd(), g.contextDir) || "graft";
@@ -1613,9 +1612,9 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
         });
         console.error(`· Trail's page is following along · ${started.url}`);
       }
-      // Started as graft or by an old shim (asksForTrail): the repo is set up for trail, whose commands its agents get told to run.
-      if (!trailOnPath()) console.error(`⚠ the trail command isn't installed here · npm install -g ${PACKAGE_FOR.trail} so your agents can run it`);
     }
+    // Including when started as graft or by an old shim (asksForTrail): the repo is set up for trail, whose commands its agents get told to run.
+    if (TRAIL && !trailOnPath()) console.error("⚠ the trail command isn't on your PATH, so your agents can't run it · run npm link in your GrievousGreps folder");
 
     const wantClaude = ids.includes("claude");
     const cliPath = fileURLToPath(import.meta.url);

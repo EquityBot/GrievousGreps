@@ -169,12 +169,12 @@ export interface NativeFallback {
  * With no packages to allow, the grammar that didn't load is one of the package's
  * own WASM files, so reinstalling it is the fix.
  */
-export function nativeFallbackNotice(fallback: NativeFallback | undefined, packageName: string): string | null {
+export function nativeFallbackNotice(fallback: NativeFallback | undefined): string | null {
   if (!fallback || fallback.languages.length === 0) return null;
   const langs = fallback.languages.join(", ");
   const what = fallback.languages.length === 1 ? "its parser didn't load" : "their parsers didn't load";
-  const allow = fallback.packages.length > 0 ? `--allow-scripts=${fallback.packages.join(",")} ` : "";
-  return `⚠ ${langs}: basic parsing only, ${what}. To fix: npm install -g ${allow}${packageName}`;
+  const allow = fallback.packages.length > 0 ? ` --allow-scripts=${fallback.packages.join(",")}` : "";
+  return `⚠ ${langs}: basic parsing only, ${what}. To fix: run npm ci${allow} in your GrievousGreps folder`;
 }
 
 /** Test seam: replace how native modules are required (null restores the real

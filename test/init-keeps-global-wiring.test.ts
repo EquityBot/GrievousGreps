@@ -15,7 +15,6 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import { runCli, tmpRepo } from "./helpers.js";
 
-process.env.GRAFT_MCP_NPX = "1";
 
 function repoWithSource(tag: string): string {
   const repo = tmpRepo(tag);

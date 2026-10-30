@@ -13,7 +13,6 @@ import { runHostsInit } from "../src/hosts/init.js";
 import { hostIds } from "../src/hosts/registry.js";
 import { tmpRepo } from "./helpers.js";
 
-process.env.GRAFT_MCP_NPX = "1";
 
 test("the agent running init is read from the variables each one sets", () => {
   assert.equal(callingAgent({ CLAUDECODE: "1" }), "claude");

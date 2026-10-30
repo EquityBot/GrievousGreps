@@ -8,7 +8,7 @@
 import { Graft } from "../engine.js";
 import { contextDirFor, ensureGitignored } from "../context/node-file.js";
 import { patchBuildConfig, type BuildConfig } from "../util/state.js";
-import { brand, cmd, PACKAGE_FOR } from "../brand.js";
+import { cmd } from "../brand.js";
 import { nativeFallbackNotice } from "./native.js";
 import type { EngineConfig } from "../ai/providers.js";
 import { formatAsk } from "../ask/ask.js";
@@ -44,8 +44,6 @@ export interface WorkspaceBuildOptions {
   followSubmodules?: boolean;
   /** An explicit CLI nested-clone choice to persist into every child repo. */
   followNestedRepos?: boolean;
-  /** The npm package this runs from, for the fix in the native-parser notice. */
-  packageName?: string;
 }
 
 /** Build every git child into its own committable `graft/`, then replace the
@@ -94,10 +92,7 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
   ensureGitignored(root, contextDirFor(root, opts.override));
   console.log(`✓ workspace: ${children.length} repos federated → graft/workspace.json`);
   console.log(`  graft/ is git-ignored — each teammate runs \`${cmd("graft build")}\` to regenerate it locally.`);
-  const notice = nativeFallbackNotice(
-    { languages: [...fellBack.languages].sort(), packages: [...fellBack.packages].sort() },
-    opts.packageName ?? PACKAGE_FOR[brand()],
-  );
+  const notice = nativeFallbackNotice({ languages: [...fellBack.languages].sort(), packages: [...fellBack.packages].sort() });
   if (notice) console.error(notice);
 }
 

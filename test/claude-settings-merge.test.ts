@@ -173,15 +173,8 @@ test("trail init writes PostToolUseFailure once, in ~/.claude, keeps the person'
   mkdirP(joinP(home, '.claude'), { recursive: true });
   writeF(joinP(repo, '.claude', 'settings.json'), JSON.stringify({ hooks: { PostToolUseFailure: [THEIRS_FAIL] } }));
   writeF(joinP(home, '.claude', 'settings.json'), JSON.stringify({ hooks: { PostToolUseFailure: [THEIRS_FAIL] } }));
-  const prev = process.env.GRAFT_MCP_NPX;
-  process.env.GRAFT_MCP_NPX = '1';
-  try {
-    runInit(repo, { global: true, build: false, home, brand: 'trail' });
-    runInit(repo, { global: true, build: false, home, brand: 'trail' });
-  } finally {
-    if (prev === undefined) delete process.env.GRAFT_MCP_NPX;
-    else process.env.GRAFT_MCP_NPX = prev;
-  }
+  runInit(repo, { global: true, build: false, home, brand: 'trail' });
+  runInit(repo, { global: true, build: false, home, brand: 'trail' });
   const read = (p: string) => JSON.parse(readF(p, 'utf8')).hooks;
   // #619: the shared settings.json runs only session start; ~/.claude carries every other event.
   assert.deepEqual(read(joinP(repo, '.claude', 'settings.json')).PostToolUseFailure, [THEIRS_FAIL], 'none of ours in the shared file');

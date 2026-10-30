@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 // The MCP launch command is resolved from PATH at init time; pin it to the npx
 // form so these expectations are the same on every machine.
-process.env.GRAFT_MCP_NPX = '1';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +15,7 @@ test('cursor/gemini/kiro get repo-local JSON entries', () => {
   const w = registerMcpConfigs(repo, ['cursor', 'gemini', 'kiro'], { global: true, home });
   assert.deepEqual(w.map((x) => x.action), ['created', 'created', 'created']);
   const cursor = JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'));
-  assert.deepEqual(cursor.mcpServers.graft, { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
+  assert.deepEqual(cursor.mcpServers.graft, { command: 'graft', args: ['mcp'] });
   assert.ok(existsSync(join(repo, '.gemini', 'settings.json')));
   assert.ok(existsSync(join(repo, '.kiro', 'settings', 'mcp.json')));
 });
@@ -51,7 +50,7 @@ test('agents id: codex TOML + opencode JSON, gated on home dirs', () => {
   assert.equal(w.length, 2);
   const toml = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
-  assert.match(toml, /"@nanonets\/graft"/);
+  assert.match(toml, /command = "graft"/);
   const oc = JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8'));
   assert.equal(oc.mcp.graft.type, 'local');
   const again = registerMcpConfigs(repo, ['agents'], { global: true, home });
@@ -75,7 +74,7 @@ test('grok gets a repo-local TOML MCP section', () => {
   assert.deepEqual(w.map((x) => x.action), ['created']);
   const toml = readFileSync(join(repo, '.grok', 'config.toml'), 'utf8');
   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
-  assert.match(toml, /"@nanonets\/graft"/);
+  assert.match(toml, /command = "graft"/);
   const again = registerMcpConfigs(repo, ['grok'], { global: true, home });
   assert.deepEqual(again.map((x) => x.action), ['unchanged']);
 });
@@ -90,23 +89,9 @@ test('JSON with non-object mcpServers value is skipped', () => {
   assert.equal(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'), badJson);
 });
 
-// The launch command: bare binary when graft is installed, npx otherwise. Never an
-// absolute path — these files are committed and shared between machines.
-test('serverEntry prefers the installed binary and falls back to npx', () => {
-  const saved = process.env.GRAFT_MCP_NPX;
-  delete process.env.GRAFT_MCP_NPX;
-  try {
-    assert.deepEqual(serverEntry({ onPath: true }), { command: 'graft', args: ['mcp'] });
-    assert.deepEqual(serverEntry({ onPath: false }), { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
-    for (const e of [serverEntry({ onPath: true }), serverEntry({ onPath: false })]) {
-      assert.ok(!e.command.startsWith('/'), 'never an absolute path — configs get shared');
-    }
-  } finally {
-    if (saved !== undefined) process.env.GRAFT_MCP_NPX = saved;
-  }
-});
-
-test('GRAFT_MCP_NPX overrides an installed binary', () => {
-  process.env.GRAFT_MCP_NPX = '1';
-  assert.equal(serverEntry({ onPath: true }).command, 'npx', 'the escape hatch wins');
+// The launch command: always the bare command, so nothing fetches upstream's package.
+// Never an absolute path: these files are committed and shared between machines.
+test('serverEntry is the command, never npx, whichever name the repo uses', () => {
+  assert.deepEqual(serverEntry(), { command: 'graft', args: ['mcp'] });
+  assert.deepEqual(serverEntry({ brand: 'trail' }), { command: 'trail', args: ['mcp'] });
 });

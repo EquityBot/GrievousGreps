@@ -124,7 +124,7 @@ async function agentInit(repo: string, home: string, bin: string, args: string[]
   const env: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env)) if (!AGENT_VARS.test(k)) env[k] = v;
   const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts", "init", repo, "--no-build", "--agents", "auto", ...args], {
-    env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", PATH: `${bin}${delimiter}${process.env.PATH}` },
+    env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", PATH: `${bin}${delimiter}${process.env.PATH}` },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let err = "";
@@ -234,7 +234,7 @@ for (const [how, entry] of [["graft", join("src", "bin", "graft.ts")], ["no name
       const env: NodeJS.ProcessEnv = {};
       for (const [k, v] of Object.entries(process.env)) if (!AGENT_VARS.test(k) && k !== "TRAIL_INVOKED_AS") env[k] = v;
       const child = spawn(process.execPath, ["--import", "tsx", entry, "init", repo, "--no-build", "--agents", "claude", "--pair", "X4GM5OQU4NIA65ZR", "--server", trail.url], {
-        env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", PATH: `${bin}${delimiter}${gitOnly()}` },
+        env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), DO_NOT_TRACK: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", PATH: `${bin}${delimiter}${gitOnly()}` },
         stdio: ["ignore", "pipe", "pipe"],
       });
       let err = "";
@@ -245,7 +245,7 @@ for (const [how, entry] of [["graft", join("src", "bin", "graft.ts")], ["no name
       const found = trail.progress().flatMap((p) => (p.found as Found[] | undefined) ?? []);
       assert.deepEqual(found.filter((f) => f.kind === "decision").map((f) => f.title), ["API handlers report database failures instead of hiding them"], err);
       // This machine has no `trail` command (PATH holds only the stand-ins and git): say how to get it.
-      assert.match(err, /the trail command isn't installed here · npm install -g @trailhq\/trail-code/);
+      assert.match(err, /the trail command isn't on your PATH, so your agents can't run it · run npm link in your GrievousGreps folder/);
     } finally {
       trail.close();
     }

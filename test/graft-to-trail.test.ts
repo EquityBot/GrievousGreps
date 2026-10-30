@@ -17,7 +17,6 @@ import { BRAND_ENV, repoWiredForTrail } from '../src/brand.js';
 import { runInit } from '../src/claude/init.js';
 import { tmpRepo } from './helpers.js';
 
-process.env.GRAFT_MCP_NPX = '1';
 process.env.TRAIL_NO_FETCH = '1';
 delete process.env.GRAFT_NO_TRAIL_SWITCH;
 

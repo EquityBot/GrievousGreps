@@ -218,12 +218,12 @@ test("connected with Claude Code wired, Claude Code gets one user-level trail en
   trail ??= await startFakeTrail();
   const repo = repoWithTeam();
   await buildGraph(repo);
-  const env = { ...envFor(trail.url), GRAFT_MCP_NPX: "1" };
+  const env = { ...envFor(trail.url) };
   const r = await run(["init", repo, "--connect", GOOD_CODE, "--agents", "claude"], env);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stderr, /✓ Claude Code gets your team's learnings and skills in every project · restart it to pick them up$/m);
   const claudeJson = join(env.HOME!, ".claude.json");
-  assert.deepEqual(JSON.parse(readFileSync(claudeJson, "utf8")).mcpServers.trail, { command: "npx", args: ["-y", "@trailhq/trail-code", "mcp", "--brains"] });
+  assert.deepEqual(JSON.parse(readFileSync(claudeJson, "utf8")).mcpServers.trail, { command: "trail", args: ["mcp", "--brains"] });
 
   // A plain init later keeps it: it isn't the repo-tools server trail stopped giving Claude Code.
   const again = await run(["init", repo, "--agents", "claude", "--no-build"], env);

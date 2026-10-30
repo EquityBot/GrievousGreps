@@ -3,7 +3,7 @@
 // The Node check runs before the rest loads (node-version.ts says why).
 import { nodeTooOld } from "../node-version.js";
 
-const tooOld = nodeTooOld("trail", "@trailhq/trail-code");
+const tooOld = nodeTooOld("trail");
 if (tooOld) {
   console.error(tooOld);
   process.exit(1);

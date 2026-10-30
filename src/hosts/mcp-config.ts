@@ -8,12 +8,11 @@
  * `registerMcpConfigs()` walks that same list to do the writing.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import type { PlannedWrite } from './plan.js';
 import { readJsonObject, type ConfigWrite } from './config-write.js';
-import { trailOnPath, type Brand } from '../brand.js';
+import type { Brand } from '../brand.js';
 
 /** MCP registration reports the same write-result record every installer does. */
 export type McpWrite = ConfigWrite;
@@ -46,32 +45,18 @@ export interface McpTarget extends PlannedWrite {
  * bare `graft` works on any machine that has it installed; `npx` remains the
  * fallback for machines that don't.
  */
-const NPX_LAUNCH = { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] };
 const BIN_LAUNCH = { command: 'graft', args: ['mcp'] };
 // The same server under trail's name, for a repo that uses trail: its tools are
 // `trail_*` (and it still answers `graft_*`).
-const TRAIL_NPX_LAUNCH = { command: 'npx', args: ['-y', '@trailhq/trail-code', 'mcp'] };
 const TRAIL_BIN_LAUNCH = { command: 'trail', args: ['mcp'] };
 
-function graftOnPath(): boolean {
-  const r = spawnSync('graft', ['--version'], { stdio: 'ignore', timeout: 5000 });
-  return r.status === 0;
-}
-
 /**
- * JSON hosts: `{ command, args }`.
- *
- * `GRAFT_MCP_NPX=1` forces the `npx` form — the escape hatch for a machine whose
- * global install is stale or shadowed, and what the tests set so their expectations
- * don't depend on whether the machine running them happens to have graft installed.
- * `opts.onPath` is the same override for direct unit tests of both branches.
+ * JSON hosts: `{ command, args }`. Always the command: this distribution has no
+ * package for `npx` to fetch, and `npx` of upstream's would replace this build.
+ * `trail init` warns when the command isn't on PATH.
  */
-export function serverEntry(opts: { onPath?: boolean; brand?: 'graft' | 'trail' } = {}): { command: string; args: string[] } {
-  const trail = opts.brand === 'trail';
-  const forced = process.env.GRAFT_MCP_NPX;
-  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return trail ? TRAIL_NPX_LAUNCH : NPX_LAUNCH;
-  if (trail) return (opts.onPath ?? trailOnPath()) ? TRAIL_BIN_LAUNCH : TRAIL_NPX_LAUNCH;
-  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : NPX_LAUNCH;
+export function serverEntry(opts: { brand?: 'graft' | 'trail' } = {}): { command: string; args: string[] } {
+  return opts.brand === 'trail' ? TRAIL_BIN_LAUNCH : BIN_LAUNCH;
 }
 
 
@@ -187,7 +172,7 @@ function jsonTarget(
  * 'global': registering there affects every project on the machine.
  *
  * `name` is the repo's name for the tool: under trail the server is `trail`,
- * launched as `trail mcp` (or `npx -y @trailhq/trail-code mcp`). The files
+ * launched as `trail mcp`. The files
  * are the same either way.
  */
 export function mcpTargets(

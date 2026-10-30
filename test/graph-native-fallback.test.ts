@@ -87,7 +87,7 @@ test("every grammar loads: depth parse everywhere, and no notice", async () => {
   const r = await buildGraph(repo());
   assert.deepEqual(r.errors, []);
   assert.equal(r.nativeFallback, undefined);
-  assert.equal(nativeFallbackNotice(r.nativeFallback, "@trailhq/trail"), null);
+  assert.equal(nativeFallbackNotice(r.nativeFallback), null);
   assert.deepEqual(r.languages, ["kotlin", "python", "typescript"]);
   assert.ok(graphOf(r.contextDir).nodes.filter((n) => n.kind !== "file").every((n) => n.origin === "ast"));
 });
@@ -124,10 +124,9 @@ test("the notice names only the grammar that failed, and reinstalling fixes it",
   setDepthParsersForTest({ readWasm: wasmFailing(["kotlin"]) });
   const r = await buildGraph(repo());
   assert.equal(
-    nativeFallbackNotice(r.nativeFallback, "@trailhq/trail"),
-    "⚠ kotlin: basic parsing only, its parser didn't load. To fix: npm install -g @trailhq/trail",
+    nativeFallbackNotice(r.nativeFallback),
+    "⚠ kotlin: basic parsing only, its parser didn't load. To fix: run npm ci in your GrievousGreps folder",
   );
-  assert.match(nativeFallbackNotice(r.nativeFallback, "@nanonets/graft")!, / @nanonets\/graft$/);
 });
 
 test("a repo without kotlin never reads its grammar", async () => {
@@ -149,8 +148,8 @@ test("no depth grammar loads at all: every depth language falls back, nothing cr
   // The bundle's own tags queries stand in for typescript and python.
   for (const want of ["add", "twice", "Store", "load", "fetch", "helper"]) assert.ok(names.has(want), `${want} missing`);
   assert.equal(
-    nativeFallbackNotice(r.nativeFallback, "@trailhq/trail"),
-    "⚠ kotlin, python, typescript: basic parsing only, their parsers didn't load. To fix: npm install -g @trailhq/trail",
+    nativeFallbackNotice(r.nativeFallback),
+    "⚠ kotlin, python, typescript: basic parsing only, their parsers didn't load. To fix: run npm ci in your GrievousGreps folder",
   );
 });
 
@@ -189,8 +188,8 @@ test("on the native backend, a missing addon names the package whose install scr
   assert.deepEqual(r.errors, []);
   assert.deepEqual(r.nativeFallback, { languages: ["kotlin"], packages: ["tree-sitter-kotlin"] });
   assert.equal(
-    nativeFallbackNotice(r.nativeFallback, "@trailhq/trail"),
-    "⚠ kotlin: basic parsing only, its parser didn't load. To fix: npm install -g --allow-scripts=tree-sitter-kotlin @trailhq/trail",
+    nativeFallbackNotice(r.nativeFallback),
+    "⚠ kotlin: basic parsing only, its parser didn't load. To fix: run npm ci --allow-scripts=tree-sitter-kotlin in your GrievousGreps folder",
   );
   const py = graphOf(r.contextDir).nodes.filter((n) => n.path === "src/store.py" && n.kind !== "file");
   assert.ok(py.length > 0 && py.every((n) => n.origin === "ast"), "python stays on its addon");

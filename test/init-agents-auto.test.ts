@@ -25,7 +25,6 @@ function env(home: string, extra: Record<string, string> = {}): NodeJS.ProcessEn
     USERPROFILE: home,
     TRAIL_INVOKED_AS: "trail",
     DO_NOT_TRACK: "1",
-    GRAFT_MCP_NPX: "1",
     TRAIL_NO_LOOK_BACK: "1",
     TRAIL_NO_FETCH: "1",
     ...extra,

@@ -4,7 +4,7 @@
 // is still graft. The Node check runs before the rest loads (node-version.ts).
 import { nodeTooOld } from "../node-version.js";
 
-const tooOld = nodeTooOld("graft", "@nanonets/graft");
+const tooOld = nodeTooOld("graft");
 if (tooOld) {
   console.error(tooOld);
   process.exit(1);

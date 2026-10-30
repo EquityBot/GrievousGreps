@@ -15,10 +15,10 @@ export function nodeSupported(version: string = process.versions.node): boolean 
 }
 
 /** The plain message for an unsupported Node, or null when this one is fine. */
-export function nodeTooOld(command: string, pkg: string, version: string = process.versions.node): string | null {
+export function nodeTooOld(command: string, version: string = process.versions.node): string | null {
   if (nodeSupported(version)) return null;
   return (
     `✗ ${command} needs Node 22.3 or newer (20.16 works too); this is Node ${version}.\n` +
-    `  Update Node (https://nodejs.org, or \`nvm install 22\` if you use nvm), then run \`npm i -g ${pkg}\` again.`
+    `  Update Node (https://nodejs.org, or \`nvm install 22\` if you use nvm), then run \`npm ci\` in your GrievousGreps folder again.`
   );
 }

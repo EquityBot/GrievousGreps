@@ -9,8 +9,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Pin the MCP launch command to the npx form so init never probes the machine's own install.
-process.env.GRAFT_MCP_NPX = '1';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mergeGraftHooks, mergeGraftSettings, mergeTrailLocal, mergeTrailShared } from '../src/claude/settings-merge.js';

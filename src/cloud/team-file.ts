@@ -14,7 +14,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { readJson, writeJsonAtomic } from "../util/state.js";
-import { trailOnPath } from "../brand.js";
 import { repoPlace } from "../notes/home.js";
 import { readClouds, serverUrl, trailUrl, type Cloud } from "./workspace.js";
 
@@ -67,9 +66,8 @@ export function writeTeamFile(checkout: string, cloud: Pick<Cloud, "url" | "work
 }
 
 /** Said in a repo whose team uses a Trail workspace, on a laptop not signed in to it. */
-export function teamLine(name: string, slug: string, installed = trailOnPath()): string {
-  // Without trail on this laptop, npx runs the same sign-in, and it sets up the agents after.
-  const login = `${installed ? "trail" : "npx -y @trailhq/trail-code@latest"} login --workspace ${slug}`;
+export function teamLine(name: string, slug: string): string {
+  const login = `trail login --workspace ${slug}`;
   return `This repo's team uses Trail: their workspace ${name} has the team's brand, skills and learnings, and this laptop isn't signed in to it. Once, at the end of your first reply, or when the user asks for something those would help with (a deck, a doc in the team's voice), run \`${login}\` and give the user the link it prints. One click in their browser signs this laptop in; then the workspace's tools show up here.`;
 }
 
