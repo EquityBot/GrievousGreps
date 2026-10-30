@@ -54,7 +54,7 @@ import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { installBrainsServer, installCursorBrainsServer, removeBrainsServer, removeCursorBrainsServer } from "./hosts/claude-global.js";
 import { upsertCodexToml } from "./hosts/mcp-config.js";
 import { homedir } from "node:os";
-import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, readPackageName, runUpgrade } from "./cli-meta.js";
+import { UPGRADE_UNAVAILABLE, formatVersionReport, getNpmViewVersion, readCurrentVersion, readPackageName } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
 import { patchBuildConfig, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
@@ -436,12 +436,12 @@ program
   });
 
 grouped(program.command("upgrade"), GROUP.setup)
-  .description(`Upgrade the globally installed ${brand()} to the latest version on npm`)
+  .description(`Not available for this distribution: see the repository's install instructions`)
   .action(() => {
-    const result = runUpgrade(import.meta.url);
-    console.log(formatUpgradeReport(result));
-    if (result.ran && !result.ok) process.exit(1);
-    if (!TRAIL && result.ok && result.trailVersion) moveHereToTrail(process.cwd());
+    // shortcut: npm's package is upstream's, and installing it would replace this fork. Once a
+    // package is published under the fork, restore `runUpgrade` and `moveHereToTrail` here.
+    console.error(UPGRADE_UNAVAILABLE);
+    process.exit(1);
   });
 
 /**
@@ -2835,7 +2835,7 @@ if (TRAIL) {
     init: "wire trail into your agents",
     build: "rebuild the code map · --check fails if it's stale",
     status: "code map, learnings and tokens saved",
-    upgrade: "install the latest trail",
+    upgrade: "not available for this distribution",
     uninstall: "remove everything trail or graft wrote to this repo",
     telemetry: "show or turn off the anonymous usage stats",
     check: "check your diff against this repo's learnings and yours",

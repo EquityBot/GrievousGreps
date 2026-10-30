@@ -3,10 +3,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", ...args], { cwd, encoding: "utf8" });
 
@@ -66,4 +66,19 @@ test("a person running `team` asked, so its background read fetches", async (t) 
     }
   });
   for (let i = 0; i < 160 && running(); i++) await new Promise((r) => setTimeout(r, 250));
+});
+
+test("`upgrade` says it is not available here, and never reaches for npm", () => {
+  const bin = mkdtempSync(join(tmpdir(), "no-upgrade-"));
+  const log = join(bin, "npm-ran");
+  const shim = `#!/bin/sh\necho ran > "${log.replace(/\\/g, "/")}"\n`;
+  writeFileSync(join(bin, "npm"), shim, { mode: 0o755 });
+  writeFileSync(join(bin, "npm.cmd"), `@echo ran > "${log}"\r\n`);
+  const r = spawnSync(process.execPath, ["--import", "tsx", "src/cli.ts", "upgrade"], { env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, DO_NOT_TRACK: "1" }, encoding: "utf8" });
+  const ran = existsSync(log);
+  rmSync(bin, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  assert.match(r.stderr, /not available for this distribution/);
+  assert.match(r.stderr, /README/);
+  assert.equal(r.status, 1);
+  assert.equal(ran, false, "npm was not started");
 });

@@ -279,3 +279,7 @@ export function runUpgrade(moduleUrl: string): UpgradeResult {
   const trailVersion = alongside.length ? (readGlobalInstalledVersion(PACKAGE_FOR.trail) ?? undefined) : undefined;
   return { ran: true, ok: true, oldVersion, newVersion, trailVersion };
 }
+
+/** `upgrade` on this fork: no package is published under it, and npm's would replace it. */
+export const UPGRADE_UNAVAILABLE =
+  "✗ upgrade is not available for this distribution: the package on npm is upstream's, and installing it would replace this one. See the install instructions in this repository's README.";
