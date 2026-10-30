@@ -214,3 +214,12 @@ test('graft callers: quotes the call site, and only where it is the right line',
   const json = JSON.parse(runCli(['callers', 'add', d, '--json']).stdout);
   assert.ok(!JSON.stringify(json).includes('return add(a, -b)'));
 });
+
+test('an imported call to a shared name reaches only the definition it imports', () => {
+  const d = ambiguousRepo();
+  writeFileSync(join(d, 'src', 'user.ts'), 'import { shared } from "./a.js";\nexport function use(): number {\n  return shared();\n}\n');
+  execFileSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'build', d], { stdio: 'pipe' });
+  const parsed = JSON.parse(runCli(['callers', 'shared', d, '--json']).stdout);
+  const hits = Object.fromEntries(parsed.matches.map((m: { symbol: { path: string }; hits: unknown[] }) => [m.symbol.path, m.hits.length]));
+  assert.deepEqual(hits, { 'src/a.ts': 1, 'src/b.ts': 0 });
+});

@@ -320,11 +320,11 @@ export function resolveEdges(
         continue;
       }
       // A TS or JS import names the module, so the name's own definition is found through
-      // it. An import from outside the repo, or an alias this cannot read, keeps the
-      // name lookup below.
+      // it, and an import from outside the repo binds the name to something the graph does
+      // not hold. A dotted call that is not a walk through modules is left to receiver typing.
       if (e.tsPath) {
         const hit = followTsCall(e.tsPath, e.name!, toPosixPath(e.file), tsCtx);
-        if (hit === "undecided") continue;
+        if (hit === "undecided" || (hit === "outside" && e.tsPath.length === 0)) continue;
         if (hit !== "outside") {
           if (hit.id !== e.source) add(e.source, hit.id, "calls", "extracted");
           continue;
@@ -337,7 +337,7 @@ export function resolveEdges(
         const file = toPosixPath(e.file);
         const start = e.pythonReboundModule ? pythonModuleName(e.pythonReboundModule, file, pythonCtx) : followPythonName(e.pythonRebound, file, pythonCtx);
         const hit = e.pythonChain ? walkPythonChain(start, e.pythonChain, pythonCtx) : start === "external" ? "external" : "undecided";
-        if (hit === "undecided") opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: e.pythonReboundModule ?? null });
+        if (hit === "undecided") opts.unresolvedCalls?.push({ source: e.source, name: e.pythonReboundName ?? e.name, through: e.pythonReboundModule ?? null });
         else if (hit !== "external") add(e.source, hit.id, "calls", "extracted");
         continue;
       }
@@ -618,10 +618,10 @@ const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "tr
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */
 type PythonName = NodeV1 | { module: string } | "external" | "undecided";
 
-/** One tsconfig's `paths`, relative to the repo root's `dir`. */
+/** Path aliases for the files under `dir`, whose targets read from `base`. */
 export interface TsPaths {
   dir: string;
-  baseUrl: string;
+  base: string;
   paths: Record<string, string[]>;
 }
 
@@ -638,21 +638,20 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
   const target = resolveImport(specifier, file, ctx.byId);
   if (ctx.byId.has(target)) return { module: target };
   if (specifier.startsWith(".")) return "outside";
-  // The nearest tsconfig above the file with paths, and its longest matching pattern.
-  const config = ctx.paths
+  // The nearest configs above the file first, and each one's longest matching pattern.
+  const configs = ctx.paths
     .filter((c) => c.dir === "" || file.startsWith(`${c.dir}/`))
-    .sort((a, b) => b.dir.length - a.dir.length)[0];
-  if (!config) return "outside";
-  const patterns = Object.keys(config.paths)
-    .filter((p) => (p.endsWith("*") ? specifier.startsWith(p.slice(0, -1)) : p === specifier))
-    .sort((a, b) => b.length - a.length);
-  const pattern = patterns[0];
-  if (pattern === undefined) return "outside";
-  const rest = pattern.endsWith("*") ? specifier.slice(pattern.length - 1) : "";
-  for (const mapped of config.paths[pattern] ?? []) {
-    const relative = posix.normalize(posix.join(config.dir, config.baseUrl, mapped.replace("*", rest)));
-    const found = resolveImport(`./${relative}`, "repo-root", ctx.byId);
-    if (ctx.byId.has(found)) return { module: found };
+    .sort((a, b) => b.dir.length - a.dir.length);
+  for (const config of configs) {
+    const pattern = Object.keys(config.paths)
+      .filter((p) => (p.endsWith("*") ? specifier.startsWith(p.slice(0, -1)) : p === specifier))
+      .sort((a, b) => b.length - a.length)[0];
+    if (pattern === undefined) continue;
+    const rest = pattern.endsWith("*") ? specifier.slice(pattern.length - 1) : "";
+    for (const mapped of config.paths[pattern] ?? []) {
+      const found = resolveImport(`./${posix.normalize(posix.join(config.base, mapped.replace("*", rest)))}`, "repo-root", ctx.byId);
+      if (ctx.byId.has(found)) return { module: found };
+    }
   }
   return "outside";
 }

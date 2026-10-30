@@ -14,7 +14,7 @@
  * one — the invariant `test/graph-incremental.test.ts` pins down.
  */
 import { readFileSync } from "node:fs";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, join, posix, resolve } from "node:path";
 import { walkDir } from "../ingest/fs.js";
 import { assertRealContextDir, contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
 import { extractFile, languageLabelOf, languageOf, type Language, type RawEdge } from "./extract.js";
@@ -214,28 +214,58 @@ function readGoModules(root: string, repoFiles: string[]): GoModule[] {
 /** The crates Cargo.toml files depend on from outside the repo, `-` as `_`: every
  * dependency, less the repo's own packages and anything named by a `path`. */
 /**
- * The `paths` each tsconfig.json in the repo states, so an import written through an alias
- * (`jotai/vanilla/internals`) still names an in-repo file.
+ * The path aliases the repo states, so an import written through one
+ * (`jotai/vanilla/internals`) still names an in-repo file: each tsconfig's `paths`,
+ * through `extends`, and each workspace package's name.
  *
- * shortcut: reads each tsconfig on its own and does not follow `extends`, so paths inherited
- * from a shared config are not seen and those imports keep the name lookup. The upgrade is
- * walking `extends`, as tsc does.
+ * shortcut: a package's name maps to `src/` or its root and its `exports` map is not read,
+ * and an `extends` naming an npm package is not followed. An import those would have
+ * connected has no edge. The upgrade is reading `exports` and node_modules-style `extends`.
  */
 function readTsPaths(root: string, repoFiles: string[]): TsPaths[] {
   const out: TsPaths[] = [];
-  for (const f of repoFiles) {
-    if (basename(f) !== "tsconfig.json") continue;
+  const present = new Set(repoFiles.map((f) => relPosix(root, f)));
+  const parse = (rel: string): Record<string, unknown> | null => {
     try {
-      const text = readFileInside(root, f) ?? "";
-      const plain = text
+      const text = readFileInside(root, join(root, rel)) ?? "";
+      return JSON.parse(text
         .replace(/"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|\/\/.*$/gm, (m) => (m.startsWith('"') ? m : ""))
-        .replace(/,(\s*[}\]])/g, "$1");
-      const options = JSON.parse(plain).compilerOptions;
-      if (!options?.paths) continue;
-      const dir = relPosix(root, dirname(f));
-      out.push({ dir: dir === "." ? "" : dir, baseUrl: typeof options.baseUrl === "string" ? options.baseUrl : ".", paths: options.paths });
+        .replace(/,(\s*[}\]])/g, "$1"));
     } catch {
-      /* a link out of the repo or an unreadable tsconfig states nothing */
+      return null; // a link out of the repo or an unreadable config states nothing
+    }
+  };
+  /** `paths` and the folder they read from, through `extends`; the config's own wins. */
+  const effective = (rel: string, seen: Set<string>): { base: string; paths: Record<string, string[]> } | null => {
+    if (seen.has(rel)) return null;
+    seen.add(rel);
+    const config = parse(rel);
+    if (!config) return null;
+    const dir = posix.dirname(rel);
+    const options = config.compilerOptions as { paths?: Record<string, string[]>; baseUrl?: unknown } | undefined;
+    if (options?.paths) {
+      const baseUrl = typeof options.baseUrl === "string" ? options.baseUrl : ".";
+      return { base: posix.normalize(posix.join(dir, baseUrl)), paths: options.paths };
+    }
+    const parents = [config.extends].flat().filter((p): p is string => typeof p === "string" && p.startsWith("."));
+    for (const parent of parents.reverse()) {
+      const target = posix.normalize(posix.join(dir, parent));
+      const found = effective(present.has(target) ? target : `${target}.json`, seen);
+      if (found) return found;
+    }
+    return null;
+  };
+  for (const rel of [...present].sort((a, b) => posix.basename(a).length - posix.basename(b).length)) {
+    const name = posix.basename(rel);
+    if (name === "package.json") {
+      const pkg = parse(rel)?.name;
+      if (typeof pkg !== "string" || !pkg) continue;
+      const dir = posix.dirname(rel);
+      out.push({ dir: "", base: dir, paths: { [pkg]: ["src/index", "index"], [`${pkg}/*`]: ["src/*", "*"] } });
+    } else if (name === "tsconfig.json" || name === "tsconfig.base.json") {
+      const found = effective(rel, new Set());
+      const dir = posix.dirname(rel);
+      if (found) out.push({ dir: dir === "." ? "" : dir, ...found });
     }
   }
   return out;

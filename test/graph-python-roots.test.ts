@@ -260,7 +260,7 @@ test("a re-exporting module's later binding wins over its earlier one", () => {
 test("a local import an assignment also binds is stated with the name, not dropped silently", () => {
   const files = { "m.py": "def f():\n    pass\n" };
   const consumer = "def run():\n    x = 1\n    from m import f as x\n    x()\n";
-  assert.deepEqual(unresolvedNames({ ...files, "consumer.py": consumer }), ["x"]);
+  assert.deepEqual(unresolvedNames({ ...files, "consumer.py": consumer }), ["f"]);
   assert.deepEqual(unresolvedNames({ ...files, "consumer.py": "def run():\n    x = 1\n    from thirdparty import f as x\n    x()\n" }), [], "not for an outside module");
   assert.deepEqual(unresolvedNames({ ...files, "consumer.py": "def run(x):\n    x()\n" }), [], "not for a plain parameter");
   assert.deepEqual(
@@ -268,4 +268,25 @@ test("a local import an assignment also binds is stated with the name, not dropp
     [],
     "not for a nested def's own parameter",
   );
+});
+
+test("an import from outside the repo binds its name: no repo definition takes the call", () => {
+  const files = { "pkg/__init__.py": "", "pkg/impl.py": "def f():\n    pass\ndef g():\n    pass\n" };
+  for (const consumer of [
+    "from thirdparty import f\ndef run():\n    f()\n",
+    "from thirdparty import g as f\ndef run():\n    f()\n",
+    "import thirdparty as f\ndef run():\n    f.g()\n",
+    "import thirdparty\ndef run():\n    thirdparty.f()\n",
+    "def run():\n    from thirdparty import f\n    f()\n",
+    "from .nowhere import f\ndef run():\n    f()\n",
+  ]) {
+    assert.deepEqual(calls({ ...files, "consumer.py": consumer }, "consumer.py#run"), [], consumer);
+  }
+});
+
+test("a statement about a renamed local import names what the module exports", () => {
+  const extracted = [extractFile("m.py", "def f():\n    pass\n", "python"), extractFile("consumer.py", "def run():\n    x = 1\n    from m import f as x\n    x()\n", "python")];
+  const out: { name: string; through: string | null }[] = [];
+  resolveEdges(extracted.flatMap((x) => x.nodes), extracted.flatMap((x) => x.rawEdges), { pythonRoots: [""], unresolvedCalls: out as never });
+  assert.deepEqual(out.map((c) => [c.name, c.through]), [["f", "m"]]);
 });

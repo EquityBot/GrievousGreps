@@ -55,10 +55,9 @@ test("an export cycle or a star conflict states no target", () => {
   assert.deepEqual(calls(stardefault, "c/use.ts#run"), [], "export * carries no default");
 });
 
-test("no applicable import keeps today's name lookup", () => {
+test("no import that binds the name keeps today's name lookup", () => {
   const one = { "a/only.ts": "export function solo() {}\n" };
   assert.deepEqual(calls({ ...one, "c/use.ts": `export function run() { solo(); }\n` }, "c/use.ts#run"), ["a/only.ts#solo"], "no import");
-  assert.deepEqual(calls({ ...one, "c/use.ts": `import { solo } from "@acme/alias";\nexport function run() { solo(); }\n` }, "c/use.ts#run"), ["a/only.ts#solo"], "an alias this cannot read");
   assert.deepEqual(calls({ ...one, "c/use.ts": `import { solo } from "./x";\nexport function run(solo: () => void) { solo(); }\n`, "c/x.ts": "export function solo() {}\n" }, "c/use.ts#run"), [], "a parameter that shadows it, with the name ambiguous");
   const shadow = { ...defs, "c/use.ts": `import { f } from "../a/impl";\nexport function run() { const f = () => 1; f(); }\n` };
   assert.deepEqual(calls(shadow, "c/use.ts#run"), ["c/use.ts#run.f"], "a local that shadows it");
@@ -137,4 +136,90 @@ test("an import through a tsconfig path alias reaches the in-repo export", async
   const from = (source: string) => graph.edges.filter((e: { relation: string; source: string }) => e.relation === "calls" && e.source === source).map((e: { target: string }) => e.target);
   assert.deepEqual(from("tests/a.test.ts#run"), ["src/internals.ts#build"]);
   assert.deepEqual(from("tests/b.test.ts#go"), ["src/index.ts#top"]);
+});
+
+test("an import names the target: outside the repo or unreadable, no name lookup guesses one", () => {
+  const one = { "a/only.ts": "export function solo() {}\n" };
+  for (const spec of ["pkg", "@acme/alias", "./missing"]) {
+    assert.deepEqual(calls({ ...one, "c/use.ts": `import { solo } from "${spec}";\nexport function run() { solo(); }\n` }, "c/use.ts#run"), [], spec);
+    assert.deepEqual(calls({ ...one, "c/use.ts": `import solo from "${spec}";\nexport function run() { solo(); }\n` }, "c/use.ts#run"), [], `default from ${spec}`);
+  }
+  assert.deepEqual(calls({ ...one, "c/use.ts": `import { other } from "pkg";\nexport function run() { solo(); other(); }\n` }, "c/use.ts#run"), ["a/only.ts#solo"], "a name no import binds keeps the lookup");
+});
+
+test("a dotted JSX element resolves through its import; hosts and closing tags add nothing", () => {
+  const widgets = { "a/k.tsx": "export function Card() { return null; }\nexport function Row() { return null; }\n", "z/k.tsx": "export function Card() { return null; }\n", "b/i.ts": `export * as K from "../a/k";\n` };
+  const page = (head: string, body: string) => ({ ...widgets, "c/p.tsx": `${head}\nexport function Page(props: any) { return ${body}; }\n` });
+  assert.deepEqual(calls(page(`import * as K from "../a/k";`, "<K.Card />"), "c/p.tsx#Page"), ["a/k.tsx#Card"], "a namespace, self-closing");
+  assert.deepEqual(calls(page(`import * as K from "../a/k";`, "<K.Card>x</K.Card>"), "c/p.tsx#Page"), ["a/k.tsx#Card"], "open and close make one edge");
+  assert.deepEqual(calls(page(`import { K } from "../b/i";`, "<K.Row />"), "c/p.tsx#Page"), ["a/k.tsx#Row"], "through export * as");
+  assert.deepEqual(calls(page(`import { Card } from "../a/k";`, "<Card />"), "c/p.tsx#Page"), ["a/k.tsx#Card"], "direct");
+  assert.deepEqual(calls(page("", "<div />"), "c/p.tsx#Page"), [], "intrinsic");
+  assert.deepEqual(calls(page("", "<K.Card />"), "c/p.tsx#Page"), [], "a dotted name no import binds");
+  assert.deepEqual(calls(page(`import * as K from "pkg";`, "<K.Card />"), "c/p.tsx#Page"), [], "a namespace from outside");
+});
+
+test("only a binding position shadows an import", () => {
+  const widgets = { "a/w.tsx": "export function Widget() { return null; }\n", "z/w.tsx": "export function Widget() { return null; }\n" };
+  const page = (fn: string) => ({ ...widgets, "c/p.tsx": `import { Widget } from "../a/w";\nexport const Page = ${fn};\n` });
+  const target = ["a/w.tsx#Widget"];
+  assert.deepEqual(calls(page("({ x = Widget }) => <Widget />"), "c/p.tsx#Page"), target, "a destructuring default's value");
+  assert.deepEqual(calls(page("(x = Widget) => <Widget />"), "c/p.tsx#Page"), target, "a parameter default's value");
+  assert.deepEqual(calls(page("({ a: { b = Widget } }) => <Widget />"), "c/p.tsx#Page"), target, "a nested default's value");
+  for (const shadow of ["({ Widget }) =>", "({ a: Widget }) =>", "([Widget]) =>", "(Widget = 1) =>", "(...Widget) =>", "({ Widget = 1 }) =>", "Widget =>"]) {
+    assert.deepEqual(calls(page(`${shadow} <Widget />`), "c/p.tsx#Page"), [], shadow);
+  }
+});
+
+test("a const that wraps a function is indexed as one; other consts are not", () => {
+  const out = (text: string) => extractFile("c/x.tsx", text, "tsx").nodes.map((n) => `${n.id}:${n.kind}`).filter((n) => !n.startsWith("c/x.tsx:"));
+  const ok = (name: string) => [`c/x.tsx#${name}:function`];
+  assert.deepEqual(out(`export const A = React.forwardRef<H, P>((props, ref) => null);\n`), ok("A"));
+  assert.deepEqual(out(`const A = forwardRef(function A(props, ref) { return null; });\n`), ok("A"));
+  assert.deepEqual(out(`export const A = memo(forwardRef((props, ref) => null));\n`), ok("A"));
+  assert.deepEqual(out(`export const A = React.memo(function Inner() { return null; });\n`), ok("A"));
+  assert.deepEqual(out(`export const A = observer(() => null);\n`), ok("A"));
+  assert.deepEqual(out(`export const A = 1;\nexport const B = make();\nexport const C = make(1, 2);\nexport const D = items.map((x) => x);\nexport const E = { f: () => 1 };\n`).filter((n) => !/#(E|f|E\.f)/.test(n)), []);
+  // Calls inside the wrapped body belong to the const, and an import reaches it.
+  const files = { "a/w.tsx": `import { forwardRef } from "react";\nfunction helper() {}\nexport const Card = forwardRef((p, r) => { helper(); return null; });\n`, "c/p.tsx": `import { Card } from "../a/w";\nexport function Page() { return <Card />; }\n` };
+  assert.deepEqual(calls(files, "a/w.tsx#Card"), ["a/w.tsx#helper"]);
+  assert.deepEqual(calls(files, "c/p.tsx#Page"), ["a/w.tsx#Card"]);
+});
+
+async function buildCalls(t: { after: (f: () => void) => void }, files: Record<string, string>, source: string): Promise<string[]> {
+  const root = mkdtempSync(join(tmpdir(), "ts-paths-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  await buildGraph(root);
+  const graph = JSON.parse(readFileSync(join(root, "graft", ".graph", "wiring.json"), "utf8"));
+  return graph.edges.filter((e: { relation: string; source: string }) => e.relation === "calls" && e.source === source).map((e: { target: string }) => e.target);
+}
+
+test("tsconfig paths arrive through extends and tsconfig.base.json", async (t) => {
+  const code = {
+    "libs/core/src/index.ts": "export function make() {}\n",
+    "libs/other/src/index.ts": "export function make() {}\n",
+    "apps/web/src/a.ts": `import { make } from "@acme/core";\nexport function run() { make(); }\n`,
+  };
+  const base = `{ "compilerOptions": { "paths": { "@acme/core": ["libs/core/src/index.ts"] } } }\n`;
+  const want = ["libs/core/src/index.ts#make"];
+  assert.deepEqual(await buildCalls(t, { ...code, "tsconfig.base.json": base }, "apps/web/src/a.ts#run"), want, "tsconfig.base.json alone");
+  assert.deepEqual(await buildCalls(t, { ...code, "tsconfig.base.json": base, "apps/web/tsconfig.json": `{ "extends": "../../tsconfig.base.json" }\n` }, "apps/web/src/a.ts#run"), want, "extends");
+  assert.deepEqual(await buildCalls(t, { ...code, "tsconfig.base.json": base, "apps/web/tsconfig.json": `{ "extends": ["../../tsconfig.base"] }\n` }, "apps/web/src/a.ts#run"), want, "an array, no extension");
+  const cycle = { ...code, "apps/web/tsconfig.json": `{ "extends": "./b.json" }\n`, "apps/web/b.json": `{ "extends": "./tsconfig.json" }\n` };
+  assert.deepEqual(await buildCalls(t, cycle, "apps/web/src/a.ts#run"), [], "a cycle ends, and maps nothing");
+});
+
+test("a workspace package's name reaches its source", async (t) => {
+  const code = {
+    "packages/core/package.json": `{ "name": "@acme/core" }\n`,
+    "packages/core/src/index.ts": "export function make() {}\n",
+    "packages/core/src/deep.ts": "export function dig() {}\n",
+    "packages/other/src/index.ts": "export function make() {}\nexport function dig() {}\n",
+    "apps/a.ts": `import { make } from "@acme/core";\nimport { dig } from "@acme/core/deep";\nexport function run() { make(); dig(); }\n`,
+  };
+  assert.deepEqual((await buildCalls(t, code, "apps/a.ts#run")).sort(), ["packages/core/src/deep.ts#dig", "packages/core/src/index.ts#make"]);
 });

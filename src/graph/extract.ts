@@ -135,6 +135,8 @@ export interface RawEdge {
   tsModule?: TsModule;
   /** With pythonRebound: the module a def's own import of that name reads from. */
   pythonReboundModule?: string;
+  /** With pythonReboundModule: the name that module exports, under an `as`. */
+  pythonReboundName?: string;
   name?: string; // symbol name to resolve (extends/implements/calls)
   viaMember?: boolean; // calls: was it `obj.foo()` (→ prefer method targets)?
   /** calls with viaMember: the receiver's resolved type name (from bindings /
@@ -396,7 +398,7 @@ export interface WalkCtx {
   pythonNamedImports: ReadonlyMap<string, { name: string; specifier: string }>;
   /** Names a def's own import binds that something else in the def also binds → that
    * import's module. Python's answer depends on order, which the call does not read. */
-  pythonLocalRebound: ReadonlyMap<string, string>;
+  pythonLocalRebound: ReadonlyMap<string, { module: string; name?: string }>;
   /** Names a module-level import binds outside the plain one-import case → whether an
    * assignment also rebinds them, which leaves no single target to look for. */
   pythonReboundNames: ReadonlyMap<string, boolean>;
@@ -871,7 +873,7 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
         ctx.lang === "java" ? javaArgCount(node) : ctx.lang === "swift" ? swiftArgCount(node) : undefined;
       if (argCount !== undefined) callEdge.argCount = argCount;
       if (ctx.tsImported.size) {
-        const path = callee.viaMember ? tsMemberPath(node.childForFieldName("function")) : [];
+        const path = callee.viaMember ? tsMemberPath(node.childForFieldName("function") ?? node.childForFieldName("name")) : [];
         const head = path ? (path[0] ?? callee.name) : undefined;
         if (head && ctx.tsImported.has(head) && !tsCallHasLocalBinding(node, head)) callEdge.tsPath = path!;
       }
@@ -925,7 +927,8 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
           const recvType = resolveRecvType(callee.receiver, ctx);
           edges.push(recvType ? { ...callEdge, recvType } : callEdge);
         } else if (ctx.pythonLocalRebound.has(head!)) {
-          edges.push({ ...callEdge, pythonRebound: head, pythonReboundModule: ctx.pythonLocalRebound.get(head!) });
+          const bound = ctx.pythonLocalRebound.get(head!)!;
+          edges.push({ ...callEdge, pythonRebound: head, pythonReboundModule: bound.module, pythonReboundName: bound.name });
         } else if (ctx.pythonReboundNames.has(head!) && !pythonCallHasLocalBinding(node, head!)) {
           edges.push({
             ...callEdge,
@@ -1270,13 +1273,31 @@ function tsMemberPath(fn: SyntaxNode | null): string[] | null {
   return null;
 }
 
-/** Does a scope between the call and the module bind `name`? Reads patterns whole, so a
- * name that only appears in a default value counts: that keeps today's reading. */
+/** Does a scope between the call and the module bind `name`? A default's value and an
+ * object pattern's key use a name rather than bind it. */
 function tsCallHasLocalBinding(call: SyntaxNode, name: string): boolean {
   const mentions = (node: SyntaxNode | null | undefined): boolean => {
     if (!node) return false;
-    if (node.type === "identifier" || node.type === "shorthand_property_identifier_pattern") return node.text === name;
-    return node.namedChildren.some(mentions);
+    switch (node.type) {
+      case "identifier":
+      case "shorthand_property_identifier_pattern":
+        return node.text === name;
+      case "required_parameter":
+      case "optional_parameter":
+        return mentions(node.childForFieldName("pattern"));
+      case "assignment_pattern":
+      case "object_assignment_pattern":
+        return mentions(node.childForFieldName("left"));
+      case "pair_pattern":
+        return mentions(node.childForFieldName("value"));
+      case "formal_parameters":
+      case "object_pattern":
+      case "array_pattern":
+      case "rest_pattern":
+        return node.namedChildren.some(mentions);
+      default:
+        return false;
+    }
   };
   for (let scope = call.parent; scope && scope.type !== "program"; scope = scope.parent) {
     if (mentions(scope.childForFieldName("parameters")) || mentions(scope.childForFieldName("parameter"))) return true;
@@ -1296,13 +1317,17 @@ function tsCallHasLocalBinding(call: SyntaxNode, name: string): boolean {
 
 /** `outer` plus the names `definition` both imports and binds some other way, less
  * those it binds without importing, which hide the enclosing def's. */
-function withPythonLocalRebound(outer: ReadonlyMap<string, string>, definition: SyntaxNode): ReadonlyMap<string, string> {
+function withPythonLocalRebound(
+  outer: ReadonlyMap<string, { module: string; name?: string }>,
+  definition: SyntaxNode,
+): ReadonlyMap<string, { module: string; name?: string }> {
   const local = pythonLocalImports(definition);
   if (local.ambiguous.size === 0) return outer;
   const out = new Map(outer);
   for (const name of local.ambiguous) {
-    const module = local.symbols.get(name)?.specifier ?? local.modules.get(name);
-    if (module) out.set(name, module);
+    const symbol = local.symbols.get(name);
+    const module = symbol?.specifier ?? local.modules.get(name);
+    if (module) out.set(name, { module, name: symbol?.name });
     else out.delete(name);
   }
   return out;
@@ -1797,8 +1822,9 @@ function describe(node: SyntaxNode, ctx: WalkCtx): DefDescriptor | null {
 
   // TS: `const foo = (…) => …` / `const foo = function () {}`
   if ((ctx.lang === "typescript" || ctx.lang === "tsx") && node.type === "variable_declarator") {
-    const value = node.childForFieldName("value");
-    if (value && FUNCTION_VALUE_TYPES.has(value.type)) {
+    const init = node.childForFieldName("value");
+    const value = init && FUNCTION_VALUE_TYPES.has(init.type) ? init : tsWrappedFunction(node);
+    if (value) {
       const name = node.childForFieldName("name")?.text;
       if (!name) return null;
       const vbody = value.childForFieldName("body");
@@ -1811,6 +1837,25 @@ function describe(node: SyntaxNode, ctx: WalkCtx): DefDescriptor | null {
     }
   }
   return null;
+}
+
+/** The function a module-level `const A = forwardRef((props, ref) => ...)` wraps: a call
+ * to a plain name or a capitalised namespace's member, like `React.memo`, whose first
+ * argument is a function or another such call. `items.map(fn)` makes data, and a wrapper
+ * inside a function (`useCallback`) is not a symbol of the module. */
+function tsWrappedFunction(declarator: SyntaxNode): SyntaxNode | null {
+  const statement = declarator.parent;
+  const holder = statement?.parent;
+  if (holder?.type !== "program" && holder?.type !== "export_statement") return null;
+  let value = declarator.childForFieldName("value");
+  while (value?.type === "call_expression") {
+    const fn = value.childForFieldName("function");
+    const plain = fn?.type === "identifier"
+      || (fn?.type === "member_expression" && /^[A-Z]/.test(fn.childForFieldName("object")?.text ?? ""));
+    if (!plain) return null;
+    value = value.childForFieldName("arguments")?.namedChildren.find((c) => c.type !== "comment") ?? null;
+  }
+  return value && FUNCTION_VALUE_TYPES.has(value.type) ? value : null;
 }
 
 /** Go definition shapes: top-level funcs, receiver methods, and named types
@@ -2955,17 +3000,18 @@ if (lang === "kotlin") {
     // since TypeScript treats those as intrinsic too.
     //
     // A dotted element name (`<UI.Button/>`, `<Widget.Slot/>`) is a
-    // `member_expression`, not an `identifier`, and is left alone on purpose: it
-    // needs a receiver type the way `ui.button()` does, and the namespace import
-    // it usually comes from binds none — the same wall qualified construction
-    // hits in Java (see javaConstructedTypeName). Resolving the trailing segment
-    // on its own is the guess this module does not make.
+    // `member_expression`, always a binding whatever its case. It is a member call: the
+    // import that binds its first name walks to it, and otherwise it has no target.
     //
     // `kinds` rather than the function-only default: a class component
     // (`class Boundary extends React.Component`) is as much a component as a
     // function one, and this is scoped to element names, so an ordinary
     // `Widget()` call in the same file still resolves against functions alone.
     const name = node.childForFieldName("name");
+    if (name?.type === "member_expression") {
+      const property = name.childForFieldName("property");
+      return property ? { name: property.text, viaMember: true, kinds: ["function", "class"] } : null;
+    }
     if (name?.type !== "identifier") return null;
     if (/^[a-z]/.test(name.text) || name.text.includes("-")) return null;
     return { name: name.text, viaMember: false, kinds: ["function", "class"] };

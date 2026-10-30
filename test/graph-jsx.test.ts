@@ -125,7 +125,7 @@ export function Shell() {
   );
 });
 
-test("jsx: a host element and a dotted element name are not symbols", async () => {
+test("jsx: a host element is not a symbol, and a dotted name follows its import", async () => {
   const graph = await buildJsx({
     "lib/panel.tsx": `
 export function Panel({ children }: { children?: unknown }) {
@@ -154,10 +154,9 @@ export function Page() {
   });
   const from = callEdges(graph).filter((c) => c.from === "Page").map((c) => c.to).sort();
   // `div`/`span` are host elements React passes to the DOM as strings, so they are
-  // not names in scope at all. `UI.Button` is a name in scope, but reaching it needs
-  // the namespace import's type — resolving the trailing `Button` on its own is the
-  // guess resolve.ts refuses to make for `ui.button()` either.
-  assert.deepEqual(from, ["Panel"]);
+  // not names in scope at all. `UI.Button` is a name in scope, and the namespace
+  // import that binds `UI` reaches it.
+  assert.deepEqual(from, ["Button", "Panel"]);
 });
 
 test("jsx: the intrinsic test is JSX's own rule, not an A-Z check", async () => {
