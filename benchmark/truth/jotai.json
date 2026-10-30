@@ -1,0 +1,198 @@
+{
+  "createStore": {
+    "target": "src/vanilla/store.ts",
+    "category": "re-exported; self-path jotai/vanilla",
+    "required": [
+      {"file":"benchmarks/computed-read.ts","chain":["main"]},
+      {"file":"benchmarks/derived-chain.ts","chain":["main"]},
+      {"file":"benchmarks/diamond.ts","chain":["main"]},
+      {"file":"benchmarks/read-write.ts","chain":["main"]},
+      {"file":"benchmarks/select-atom.ts","chain":["main"]},
+      {"file":"benchmarks/subscription.ts","chain":["main"]},
+      {"file":"benchmarks/wide-fan-out.ts","chain":["main"]},
+      {"file":"src/react/Provider.ts","chain":["Provider"]},
+      {"file":"src/vanilla/store.ts","chain":["getDefaultStore"]},
+      {"file":"tests/react/onmount.test.tsx","chain":"<file>"},
+      {"file":"tests/react/provider.test.tsx","chain":"<file>"},
+      {"file":"tests/react/useAtomValueRaw.test.tsx","chain":"<file>"},
+      {"file":"tests/react/useAtomValueRawSync.test.tsx","chain":"<file>"},
+      {"file":"tests/react/vanilla-utils/atomWithObservable.test.tsx","chain":"<file>"},
+      {"file":"tests/react/vanilla-utils/atomWithStorage.test.tsx","chain":"<file>"},
+      {"file":"tests/react/vanilla-utils/splitAtom.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/dependency.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/derive.test.tsx","chain":["deriveStore"]},
+      {"file":"tests/vanilla/derive.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/derive.test.tsx","chain":["makeStores"]},
+      {"file":"tests/vanilla/effect.test.ts","chain":"<file>"},
+      {"file":"tests/vanilla/internals.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/memoryleaks.test.ts","chain":"<file>"},
+      {"file":"tests/vanilla/store.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/utils/atomWithDefault.test.ts","chain":"<file>"},
+      {"file":"tests/vanilla/utils/atomWithLazy.test.ts","chain":"<file>"},
+      {"file":"tests/vanilla/utils/atomWithRefresh.test.ts","chain":"<file>"},
+      {"file":"tests/vanilla/utils/atomWithReset.test.ts","chain":"<file>"},
+      {"file":"tests/vanilla/utils/unwrap.test.ts","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"benchmarks/computed-read.ts","chain":"<import>"},
+      {"file":"benchmarks/derived-chain.ts","chain":"<import>"},
+      {"file":"benchmarks/diamond.ts","chain":"<import>"},
+      {"file":"benchmarks/read-write.ts","chain":"<import>"},
+      {"file":"benchmarks/select-atom.ts","chain":"<import>"},
+      {"file":"benchmarks/subscription.ts","chain":"<import>"},
+      {"file":"benchmarks/wide-fan-out.ts","chain":"<import>"},
+      {"file":"src/react/Provider.ts","chain":"<import>"},
+      {"file":"src/vanilla.ts","chain":"<import>"},
+      {"file":"src/vanilla/store.ts","chain":"<import>"},
+      {"file":"src/vanilla/store.ts","chain":["INTERNAL_overrideCreateStore"]},
+      {"file":"tests/react/onmount.test.tsx","chain":"<import>"},
+      {"file":"tests/react/provider.test.tsx","chain":"<import>"},
+      {"file":"tests/react/useAtomValueRaw.test.tsx","chain":"<import>"},
+      {"file":"tests/react/useAtomValueRawSync.test.tsx","chain":"<import>"},
+      {"file":"tests/react/vanilla-utils/atomWithObservable.test.tsx","chain":"<import>"},
+      {"file":"tests/react/vanilla-utils/atomWithStorage.test.tsx","chain":"<import>"},
+      {"file":"tests/react/vanilla-utils/splitAtom.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/dependency.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/derive.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/effect.test.ts","chain":"<import>"},
+      {"file":"tests/vanilla/internals.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/memoryleaks.test.ts","chain":"<import>"},
+      {"file":"tests/vanilla/store.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/store.test.tsx","chain":["deriveStore"]},
+      {"file":"tests/vanilla/utils/atomWithDefault.test.ts","chain":"<import>"},
+      {"file":"tests/vanilla/utils/atomWithLazy.test.ts","chain":"<import>"},
+      {"file":"tests/vanilla/utils/atomWithRefresh.test.ts","chain":"<import>"},
+      {"file":"tests/vanilla/utils/atomWithReset.test.ts","chain":"<import>"},
+      {"file":"tests/vanilla/utils/unwrap.test.ts","chain":"<import>"}
+    ]
+  },
+  "getDefaultStore": {
+    "target": "src/vanilla/store.ts",
+    "category": "re-exported; self-path",
+    "required": [
+      {"file":"src/react/Provider.ts","chain":["useStore"]},
+      {"file":"tests/react/async2.test.tsx","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"src/react/Provider.ts","chain":"<import>"},
+      {"file":"src/vanilla.ts","chain":"<import>"},
+      {"file":"tests/react/async2.test.tsx","chain":"<import>"}
+    ]
+  },
+  "isPromiseLike": {
+    "target": "src/vanilla/internals.ts",
+    "category": "ambiguous: 5 definitions",
+    "required": [
+      {"file":"src/vanilla/internals.ts","chain":["BUILDING_BLOCK_readAtomState","getter"]},
+      {"file":"src/vanilla/internals.ts","chain":["BUILDING_BLOCK_readAtomState"]},
+      {"file":"src/vanilla/internals.ts","chain":["BUILDING_BLOCK_setAtomStateValueOrPromise"]}
+    ],
+    "optional": [
+      {"file":"src/vanilla/internals.ts","chain":"<import>"}
+    ]
+  },
+  "selectAtom": {
+    "target": "src/vanilla/utils/selectAtom.ts",
+    "category": "overloads; re-exported; jotai/vanilla/utils",
+    "required": [
+      {"file":"benchmarks/select-atom.ts","chain":["main"]},
+      {"file":"tests/react/vanilla-utils/selectAtom.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/utils/types.test.tsx","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"benchmarks/select-atom.ts","chain":"<import>"},
+      {"file":"src/vanilla/utils.ts","chain":"<import>"},
+      {"file":"tests/react/vanilla-utils/selectAtom.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/utils/types.test.tsx","chain":"<import>"}
+    ]
+  },
+  "splitAtom": {
+    "target": "src/vanilla/utils/splitAtom.ts",
+    "category": "overloads; re-exported; jotai/utils double star",
+    "required": [
+      {"file":"examples/mega-form/src/useAtomSlice.ts","chain":["useAtomSlice"]},
+      {"file":"tests/react/vanilla-utils/splitAtom.test.tsx","chain":["TaskList"]},
+      {"file":"tests/react/vanilla-utils/splitAtom.test.tsx","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"examples/mega-form/src/useAtomSlice.ts","chain":"<import>"},
+      {"file":"src/vanilla/utils.ts","chain":"<import>"},
+      {"file":"tests/react/vanilla-utils/splitAtom.test.tsx","chain":"<import>"}
+    ]
+  },
+  "useHydrateAtoms": {
+    "target": "src/react/utils/useHydrateAtoms.ts",
+    "category": "overloads; re-exported; jotai/react/utils",
+    "required": [
+      {"file":"tests/react/utils/types.test.tsx","chain":["Component"]},
+      {"file":"tests/react/utils/useHydrateAtoms.test.tsx","chain":["Counter"]},
+      {"file":"tests/react/utils/useHydrateAtoms.test.tsx","chain":["Counter2"]},
+      {"file":"tests/react/utils/useHydrateAtoms.test.tsx","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"src/react/utils.ts","chain":"<import>"},
+      {"file":"tests/react/utils/types.test.tsx","chain":"<import>"},
+      {"file":"tests/react/utils/useHydrateAtoms.test.tsx","chain":"<import>"}
+    ]
+  },
+  "createJSONStorage": {
+    "target": "src/vanilla/utils/atomWithStorage.ts",
+    "category": "overloads; generic calls; module-level",
+    "required": [
+      {"file":"src/vanilla/utils/atomWithStorage.ts","chain":"<file>"},
+      {"file":"tests/react/vanilla-utils/atomWithStorage.test.tsx","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"src/vanilla/utils.ts","chain":"<import>"},
+      {"file":"tests/react/vanilla-utils/atomWithStorage.test.tsx","chain":"<import>"}
+    ]
+  },
+  "unwrap": {
+    "target": "src/vanilla/utils/unwrap.ts",
+    "category": "overloads; re-exported",
+    "required": [
+      {"file":"tests/vanilla/utils/types.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/utils/unwrap.test.ts","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"src/vanilla/utils.ts","chain":"<import>"},
+      {"file":"tests/vanilla/utils/types.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/utils/unwrap.test.ts","chain":"<import>"}
+    ]
+  },
+  "useStore": {
+    "target": "src/react/Provider.ts",
+    "category": "relative; re-export import ../../react.js",
+    "required": [
+      {"file":"src/react/useAtomValueRaw.ts","chain":["useAtomValueRaw"]},
+      {"file":"src/react/useAtomValueRawSync.ts","chain":["useAtomValueRawSync"]},
+      {"file":"src/react/useSetAtom.ts","chain":["useSetAtom"]},
+      {"file":"src/react/utils/useHydrateAtoms.ts","chain":["useHydrateAtoms"]}
+    ],
+    "optional": [
+      {"file":"src/react.ts","chain":"<import>"},
+      {"file":"src/react/useAtomValueRaw.ts","chain":"<import>"},
+      {"file":"src/react/useAtomValueRawSync.ts","chain":"<import>"},
+      {"file":"src/react/useSetAtom.ts","chain":"<import>"},
+      {"file":"src/react/utils/useHydrateAtoms.ts","chain":"<import>"}
+    ]
+  },
+  "buildStore": {
+    "target": "src/vanilla/internals.ts",
+    "category": "aliased export then aliased import (import-as equivalent)",
+    "required": [
+      {"file":"src/vanilla/store.ts","chain":["createStore"]},
+      {"file":"tests/vanilla/internals.test.tsx","chain":"<file>"},
+      {"file":"tests/vanilla/internals.test.tsx","chain":["createStoreWithHooks"]},
+      {"file":"tests/vanilla/store.test.tsx","chain":["createDevStore"]},
+      {"file":"tests/vanilla/store.test.tsx","chain":["deriveStore"]},
+      {"file":"tests/vanilla/storedev.test.tsx","chain":["createDevStore"]}
+    ],
+    "optional": [
+      {"file":"src/vanilla/store.ts","chain":"<import>"},
+      {"file":"tests/vanilla/internals.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/store.test.tsx","chain":"<import>"},
+      {"file":"tests/vanilla/storedev.test.tsx","chain":"<import>"}
+    ]
+  }
+}

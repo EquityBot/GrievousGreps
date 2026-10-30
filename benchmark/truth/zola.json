@@ -1,0 +1,133 @@
+{
+  "create_file": {
+    "target": "components/utils/src/fs.rs",
+    "target_lines": [28],
+    "category": "cross-crate use utils::fs::{..}",
+    "required": [
+      {"file":"components/site/src/lib.rs","chain":"impl Site::render_themes_css","lines":[776]},
+      {"file":"components/site/src/lib.rs","chain":"impl Site::index_for_lang","lines":[792]},
+      {"file":"components/site/src/lib.rs","chain":"impl Site::build_search_index","lines":[823]},
+      {"file":"components/site/src/sass.rs","chain":"compile_sass","lines":[36]},
+      {"file":"components/templates/src/functions/files.rs","chain":"tests::create_temp_dir","lines":[290]},
+      {"file":"components/templates/src/functions/files.rs","chain":"tests::can_link_to_file_in_output_path","lines":[416]},
+      {"file":"src/cmd/init.rs","chain":"populate","lines":[115]}
+    ]
+  },
+  "create_directory": {
+    "target": "components/utils/src/fs.rs",
+    "target_lines": [38],
+    "category": "use utils::fs as ufs; ufs::f",
+    "required": [
+      {"file":"components/imageproc/src/processor.rs","chain":"impl Processor::do_process","lines":[276]},
+      {"file":"components/imageproc/src/processor.rs","chain":"impl Processor::prune","lines":[296]},
+      {"file":"components/site/src/lib.rs","chain":"impl Site::render_themes_css","lines":[771]},
+      {"file":"components/site/src/lib.rs","chain":"impl Site::build_search_index","lines":[804]},
+      {"file":"components/site/src/sass.rs","chain":"compile_sass","lines":[13]},
+      {"file":"components/utils/src/fs.rs","chain":"create_parent","lines":[21]},
+      {"file":"components/utils/src/fs.rs","chain":"copy_directory","lines":[128]},
+      {"file":"src/cmd/serve.rs","chain":"serve","lines":[623]}
+    ]
+  },
+  "copy_file": {
+    "target": "components/utils/src/fs.rs",
+    "target_lines": [63],
+    "category": "use super::copy_file in tests",
+    "required": [
+      {"file":"components/utils/src/fs.rs","chain":"copy_directory","lines":[131]},
+      {"file":"components/utils/src/fs.rs","chain":"tests::test_copy_file_timestamp_preserved","lines":[270]},
+      {"file":"components/utils/src/fs.rs","chain":"tests::test_copy_file_already_exists","lines":[291,301,308,319]},
+      {"file":"src/cmd/serve.rs","chain":"serve","lines":[745]}
+    ]
+  },
+  "read_file": {
+    "target": "components/utils/src/fs.rs",
+    "target_lines": [47],
+    "category": "cross-crate; std::fs::read_to_string unrelated",
+    "required": [
+      {"file":"components/config/src/config/mod.rs","chain":"impl Config::from_file","lines":[193]},
+      {"file":"components/config/src/theme.rs","chain":"impl Theme::from_file","lines":[44]},
+      {"file":"components/content/src/page.rs","chain":"impl Page::from_file","lines":[183]},
+      {"file":"components/content/src/section.rs","chain":"impl Section::from_file","lines":[129]},
+      {"file":"components/templates/src/functions/load_data.rs","chain":"impl LoadData::call","lines":[323]}
+    ]
+  },
+  "is_external_link": {
+    "target": "components/utils/src/net.rs",
+    "target_lines": [15],
+    "category": "cross-crate",
+    "required": [
+      {"file":"components/markdown/src/markdown.rs","chain":"impl State<'a>::fix_link","lines":[443]},
+      {"file":"components/markdown/src/markdown.rs","chain":"impl State<'a>::start_link","lines":[483]},
+      {"file":"components/site/src/md_render.rs","chain":"render_section","lines":[162]},
+      {"file":"components/site/src/queue.rs","chain":"impl Queue<'a>::render_section","lines":[329]}
+    ]
+  },
+  "slugify_paths": {
+    "target": "components/utils/src/slugs.rs",
+    "target_lines": [30],
+    "category": "cross-crate; macro args",
+    "required": [
+      {"file":"components/config/src/config/mod.rs","chain":"impl Config::slugify_taxonomies","lines":[213]},
+      {"file":"components/content/src/library.rs","chain":"impl Library::find_path_collisions","lines":[124]},
+      {"file":"components/content/src/page.rs","chain":"impl Page::parse","lines":[135,137,139]},
+      {"file":"components/content/src/taxonomies.rs","chain":"impl TaxonomyTerm::new","lines":[57]},
+      {"file":"components/content/src/taxonomies.rs","chain":"impl Taxonomy::new","lines":[117]},
+      {"file":"components/templates/src/functions/taxonomy.rs","chain":"impl GetTaxonomyUrl::call","lines":[95]},
+      {"file":"components/templates/src/functions/taxonomy.rs","chain":"impl GetTaxonomyTerm::call","lines":[189]},
+      {"file":"components/utils/src/slugs.rs","chain":"tests::can_slugify_paths","lines":[66,67,68]}
+    ]
+  },
+  "render_content": {
+    "target": "components/markdown/src/lib.rs",
+    "target_lines": [9],
+    "category": "markdown::f; workspace test and bench",
+    "required": [
+      {"file":"components/markdown/benches/all.rs","chain":"bench_without_highlighting","lines":[92]},
+      {"file":"components/markdown/benches/all.rs","chain":"bench_with_highlighting","lines":[130]},
+      {"file":"components/markdown/tests/common.rs","chain":"configurable_render","lines":[43]},
+      {"file":"components/markdown/tests/markdown.rs","chain":"can_customise_anchor_template","lines":[125]},
+      {"file":"components/markdown/tests/markdown.rs","chain":"can_customise_summary_template","lines":[146]},
+      {"file":"components/site/src/md_render.rs","chain":"render_page","lines":[101]},
+      {"file":"components/site/src/md_render.rs","chain":"render_section","lines":[154]},
+      {"file":"components/templates/src/filters/markdown.rs","chain":"impl MarkdownFilter::call","lines":[76]}
+    ]
+  },
+  "has_anchor": {
+    "target": "components/content/src/utils.rs",
+    "target_lines": [11],
+    "category": "same name: Page, Section methods and link_checker free fn must not count",
+    "required": [
+      {"file":"components/content/src/page.rs","chain":"impl Page::has_anchor","lines":[230]},
+      {"file":"components/content/src/section.rs","chain":"impl Section::has_anchor","lines":[177]},
+      {"file":"components/content/src/utils.rs","chain":"has_anchor","lines":[16]},
+      {"file":"components/content/src/utils.rs","chain":"tests::can_find_anchor_at_root","lines":[288]},
+      {"file":"components/content/src/utils.rs","chain":"tests::can_find_anchor_in_children","lines":[323]}
+    ]
+  },
+  "get_reading_analytics": {
+    "target": "components/content/src/utils.rs",
+    "target_lines": [124],
+    "category": "crate::utils",
+    "required": [
+      {"file":"components/content/src/page.rs","chain":"impl Page::parse","lines":[107]},
+      {"file":"components/content/src/section.rs","chain":"impl Section::parse","lines":[96]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_empty_text","lines":[328]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_short_text","lines":[335]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_long_text","lines":[346]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_no_code","lines":[354,358]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_chinese_counts_chars","lines":[368]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_japanese_counts_chars","lines":[375]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_zh_variant_subtag","lines":[382]},
+      {"file":"components/content/src/utils.rs","chain":"tests::reading_analytics_unknown_lang_falls_back","lines":[392]}
+    ]
+  },
+  "find_taxonomies": {
+    "target": "components/content/src/library.rs",
+    "target_lines": [207],
+    "category": "method via field; macro body",
+    "required": [
+      {"file":"components/content/src/library.rs","chain":"tests","lines":[874]},
+      {"file":"components/site/src/lib.rs","chain":"impl Site::populate_taxonomies","lines":[629]}
+    ]
+  }
+}

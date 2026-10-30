@@ -1,0 +1,160 @@
+{
+  "isIntegerKey": {
+    "target": "packages/shared/src/general.ts",
+    "target_lines": [77],
+    "category": "arrow const; barrel @vue/shared",
+    "required": [
+      {"file":"packages/reactivity/src/baseHandlers.ts","chain":"BaseReactiveHandler::get","lines":[122]},
+      {"file":"packages/reactivity/src/baseHandlers.ts","chain":"MutableReactiveHandler::set","lines":[149]},
+      {"file":"packages/reactivity/src/dep.ts","chain":"trigger","lines":[334]},
+      {"file":"packages/reactivity/src/ref.ts","chain":"ObjectRefImpl::constructor","lines":[392]}
+    ]
+  },
+  "toRawType": {
+    "target": "packages/shared/src/general.ts",
+    "target_lines": [69],
+    "category": "arrow const; barrel @vue/shared",
+    "required": [
+      {"file":"packages/reactivity/src/collectionHandlers.ts","chain":"checkIdentityKeys","lines":[322]},
+      {"file":"packages/reactivity/src/reactive.ts","chain":"createReactiveObject","lines":[296]},
+      {"file":"packages/runtime-core/src/componentProps.ts","chain":"getInvalidTypeMessage","lines":[779]}
+    ]
+  },
+  "parseStringStyle": {
+    "target": "packages/shared/src/normalizeProp.ts",
+    "target_lines": [33],
+    "category": "barrel; same-file",
+    "required": [
+      {"file":"packages/compiler-dom/src/transforms/transformStyle.ts","chain":"parseInlineCSS","lines":[39]},
+      {"file":"packages/shared/__tests__/normalizeProp.spec.ts","chain":"<file>","lines":[82]},
+      {"file":"packages/shared/src/normalizeProp.ts","chain":"normalizeStyle","lines":[13]}
+    ]
+  },
+  "normalizeClass": {
+    "target": "packages/shared/src/normalizeProp.ts",
+    "target_lines": [65],
+    "category": "barrel; re-export by runtime-core; recursion",
+    "required": [
+      {"file":"packages/compiler-dom/src/transforms/stringifyStatic.ts","chain":"stringifyElement","lines":[372]},
+      {"file":"packages/runtime-core/src/compat/renderFn.ts","chain":"convertLegacyProps","lines":[209]},
+      {"file":"packages/runtime-core/src/compat/renderHelpers.ts","chain":"legacyBindObjectProps","lines":[42,44]},
+      {"file":"packages/runtime-core/src/hydration.ts","chain":"propHasMismatch","lines":[864]},
+      {"file":"packages/runtime-core/src/vnode.ts","chain":"_createVNode","lines":[616]},
+      {"file":"packages/runtime-core/src/vnode.ts","chain":"mergeProps","lines":[903]},
+      {"file":"packages/server-renderer/src/helpers/ssrRenderAttrs.ts","chain":"ssrRenderClass","lines":[101]},
+      {"file":"packages/shared/__tests__/normalizeProp.spec.ts","chain":"<file>","lines":[11,15,19,25,26,30,34,38,44,49,55,69]},
+      {"file":"packages/shared/src/normalizeProp.ts","chain":"normalizeClass","lines":[71]},
+      {"file":"packages/shared/src/normalizeProp.ts","chain":"normalizeProps","lines":[92]}
+    ]
+  },
+  "looseEqual": {
+    "target": "packages/shared/src/looseEqual.ts",
+    "target_lines": [91],
+    "category": "barrel; recursion",
+    "required": [
+      {"file":"packages/runtime-core/src/componentRenderUtils.ts","chain":"hasPropValueChanged","lines":[472]},
+      {"file":"packages/runtime-dom/src/directives/vModel.ts","chain":"setChecked","lines":[207]},
+      {"file":"packages/runtime-dom/src/directives/vModel.ts","chain":"created","lines":[218]},
+      {"file":"packages/runtime-dom/src/directives/vModel.ts","chain":"beforeUpdate","lines":[227]},
+      {"file":"packages/runtime-dom/src/directives/vModel.ts","chain":"isSameSelectValue","lines":[298,299]},
+      {"file":"packages/runtime-dom/src/directives/vModel.ts","chain":"setSelected","lines":[341]},
+      {"file":"packages/runtime-dom/src/directives/vModel.ts","chain":"initVModelForSSR","lines":[421]},
+      {"file":"packages/server-renderer/src/helpers/ssrVModelHelpers.ts","chain":"ssrRenderDynamicModel","lines":[18]},
+      {"file":"packages/server-renderer/src/helpers/ssrVModelHelpers.ts","chain":"ssrGetDynamicModelProps","lines":[37]},
+      {"file":"packages/shared/__tests__/looseEqual.spec.ts","chain":"<file>","lines":[8,9,10,11,12,20,21,22,23,31,32,33,34,35,36,46,48,50,52,61,62,63,64,96,98,100,102,104,114,116,117,119,121,123,125,135,137,139,141,154,156,158,160,162,164,166,168,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,200,204,205,206,207,208,209,210,211,227,228,229,230,231,232,233,234,243,245,253,254,256,268,284,285,286,287,288,289,301,303,305,306,312,313,317,329,330]},
+      {"file":"packages/shared/src/looseEqual.ts","chain":"looseCompareArrays","lines":[9]},
+      {"file":"packages/shared/src/looseEqual.ts","chain":"looseCompareCollections","lines":[25]},
+      {"file":"packages/shared/src/looseEqual.ts","chain":"looseCompareObjects","lines":[62]},
+      {"file":"packages/shared/src/looseEqual.ts","chain":"looseIndexOf","lines":[122]}
+    ]
+  },
+  "createCompilerError": {
+    "target": "packages/compiler-core/src/errors.ts",
+    "target_lines": [24],
+    "category": "relative and alias",
+    "required": [
+      {"file":"packages/compiler-core/__tests__/transform.spec.ts","chain":"plugin","lines":[228]},
+      {"file":"packages/compiler-core/src/compile.ts","chain":"baseCompile","lines":[76,78,86,89]},
+      {"file":"packages/compiler-core/src/parser.ts","chain":"emitError","lines":[1014]},
+      {"file":"packages/compiler-core/src/transforms/transformElement.ts","chain":"transformElement","lines":[161]},
+      {"file":"packages/compiler-core/src/transforms/transformElement.ts","chain":"buildProps","lines":[569,683]},
+      {"file":"packages/compiler-core/src/transforms/transformExpression.ts","chain":"processExpression","lines":[288]},
+      {"file":"packages/compiler-core/src/transforms/transformSlotOutlet.ts","chain":"processSlotOutlet","lines":[111]},
+      {"file":"packages/compiler-core/src/transforms/transformVBindShorthand.ts","chain":"transformVBindShorthand","lines":[29]},
+      {"file":"packages/compiler-core/src/transforms/vBind.ts","chain":"transformBind","lines":[28]},
+      {"file":"packages/compiler-core/src/transforms/vFor.ts","chain":"<file>","lines":[136]},
+      {"file":"packages/compiler-core/src/transforms/vFor.ts","chain":"processFor","lines":[267,276]},
+      {"file":"packages/compiler-core/src/transforms/vIf.ts","chain":"processIf","lines":[101,149,177,199]},
+      {"file":"packages/compiler-core/src/transforms/vModel.ts","chain":"transformModel","lines":[27,47,56,69,81]},
+      {"file":"packages/compiler-core/src/transforms/vOn.ts","chain":"transformOn","lines":[37,44]},
+      {"file":"packages/compiler-core/src/transforms/vSlot.ts","chain":"buildSlots","lines":[191,263,285,296,337]},
+      {"file":"packages/compiler-core/src/validateExpression.ts","chain":"validateBrowserExpression","lines":[57]},
+      {"file":"packages/compiler-dom/src/errors.ts","chain":"createDOMCompilerError","lines":[16]},
+      {"file":"packages/compiler-ssr/src/errors.ts","chain":"createSSRCompilerError","lines":[16]},
+      {"file":"packages/compiler-ssr/src/transforms/ssrTransformElement.ts","chain":"ssrTransformElement","lines":[237]}
+    ]
+  },
+  "markRaw": {
+    "target": "packages/reactivity/src/reactive.ts",
+    "target_lines": [420],
+    "category": "barrel chain reactivity, runtime-core",
+    "required": [
+      {"file":"packages-private/dts-test/reactivity.test-d.ts","chain":"<file>","lines":[37,41]},
+      {"file":"packages/reactivity/__tests__/effect.spec.ts","chain":"<file>","lines":[973]},
+      {"file":"packages/reactivity/__tests__/reactive.spec.ts","chain":"<file>","lines":[321,329,333,334,336,342]},
+      {"file":"packages/reactivity/__tests__/readonly.spec.ts","chain":"<file>","lines":[465]},
+      {"file":"packages/runtime-core/__tests__/components/KeepAlive.spec.ts","chain":"<file>","lines":[897,903]},
+      {"file":"packages/runtime-core/__tests__/components/Teleport.spec.ts","chain":"runSharedTests::setup","lines":[1030]},
+      {"file":"packages/runtime-core/src/component.ts","chain":"getComponentPublicInstance","lines":[1204]},
+      {"file":"packages/runtime-test/src/nodeOps.ts","chain":"createElement","lines":[91]},
+      {"file":"packages/runtime-test/src/nodeOps.ts","chain":"createText","lines":[109]},
+      {"file":"packages/runtime-test/src/nodeOps.ts","chain":"createComment","lines":[127]}
+    ]
+  },
+  "cloneVNode": {
+    "target": "packages/runtime-core/src/vnode.ts",
+    "target_lines": [672],
+    "category": "relative; tests via ../src/vnode and test renderer",
+    "required": [
+      {"file":"packages/runtime-core/__tests__/components/KeepAlive.spec.ts","chain":"setup","lines":[934]},
+      {"file":"packages/runtime-core/__tests__/vnode.spec.ts","chain":"<file>","lines":[296,299,301,306,307,308,325,329,334,341,346,351,360,370,380,396,410,413,417,420,433,436,444]},
+      {"file":"packages/runtime-core/src/apiCreateApp.ts","chain":"createAppAPI::mount","lines":[386]},
+      {"file":"packages/runtime-core/src/compat/global.ts","chain":"installCompatMount","lines":[524]},
+      {"file":"packages/runtime-core/src/componentRenderUtils.ts","chain":"renderComponentRoot","lines":[179,234,255]},
+      {"file":"packages/runtime-core/src/components/BaseTransition.ts","chain":"emptyPlaceholder","lines":[504]},
+      {"file":"packages/runtime-core/src/components/BaseTransition.ts","chain":"getTransitionRawChildren","lines":[584]},
+      {"file":"packages/runtime-core/src/components/KeepAlive.ts","chain":"setup","lines":[339]},
+      {"file":"packages/runtime-core/src/vnode.ts","chain":"_createVNode","lines":[585]},
+      {"file":"packages/runtime-core/src/vnode.ts","chain":"cloneVNode","lines":[732,733]},
+      {"file":"packages/runtime-core/src/vnode.ts","chain":"deepCloneVNode","lines":[765]},
+      {"file":"packages/runtime-core/src/vnode.ts","chain":"cloneIfMounted","lines":[834]}
+    ]
+  },
+  "queueJob": {
+    "target": "packages/runtime-core/src/scheduler.ts",
+    "target_lines": [100],
+    "category": "relative",
+    "required": [
+      {"file":"packages/runtime-core/__tests__/scheduler.spec.ts","chain":"<file>","lines":[41,42,77,92,93,94,95,111,131,164,205,206,207,208,237,267,268,279,434,455,479,498,499,523,524,525,526,527,566,597,598,612,613,629,645,667,668,680,681,688,709,710,716,727,728,737,740,749,750,753,754,760,803,804,823,827,839,861,862]},
+      {"file":"packages/runtime-core/__tests__/scheduler.spec.ts","chain":"job1","lines":[53,54,106,221,222,246,247,446,466,701]},
+      {"file":"packages/runtime-core/__tests__/scheduler.spec.ts","chain":"job2","lines":[59,60,178,179]},
+      {"file":"packages/runtime-core/__tests__/scheduler.spec.ts","chain":"cb1","lines":[127,145,147,148,229,394,412]},
+      {"file":"packages/runtime-core/__tests__/scheduler.spec.ts","chain":"job","lines":[626,641]},
+      {"file":"packages/runtime-core/src/apiWatch.ts","chain":"doWatch","lines":[214]},
+      {"file":"packages/runtime-core/src/componentPublicInstance.ts","chain":"pair:$forceUpdate","lines":[420]},
+      {"file":"packages/runtime-core/src/hmr.ts","chain":"reload","lines":[157]},
+      {"file":"packages/runtime-core/src/renderer.ts","chain":"baseCreateRenderer::setupRenderEffect","lines":[1635]}
+    ]
+  },
+  "parse": {
+    "target": "packages/compiler-dom/src/index.ts",
+    "target_lines": [67],
+    "category": "NS.f(): CompilerDOM.parse; common name; other parse must not count",
+    "required": [
+      {"file":"packages/compiler-sfc/__tests__/compileScript.spec.ts","chain":"<file>","lines":[352]},
+      {"file":"packages/compiler-sfc/__tests__/cssVars.spec.ts","chain":"<file>","lines":[190,211,222,229,236,306]},
+      {"file":"packages/compiler-sfc/__tests__/parse.spec.ts","chain":"<file>","lines":[46,76,91,110,138,144,155,166,187,201,211,221,222,223,224,225,227,232,239,244,268,274,284,295,306,308,312,317,324,329,334,351,359,372,391,398,406,415,424,431]},
+      {"file":"packages/compiler-sfc/__tests__/utils.ts","chain":"compileSFCScript","lines":[17]}
+    ]
+  }
+}

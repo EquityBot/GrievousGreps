@@ -1,0 +1,88 @@
+{
+  "get_debug_flag": {
+    "target": "src/flask/helpers.py",
+    "required": [
+      {"file":"src/flask/app.py","chain":["run"]},
+      {"file":"src/flask/cli.py","chain":["load_app"]},
+      {"file":"src/flask/cli.py","chain":["run_command"]},
+      {"file":"src/flask/sansio/app.py","chain":["make_config"]},
+      {"file":"tests/test_helpers.py","chain":["test_get_debug_flag"]}
+    ]
+  },
+  "find_best_app": {
+    "target": "src/flask/cli.py",
+    "required": [
+      {"file":"src/flask/cli.py","chain":["locate_app"]},
+      {"file":"tests/test_cli.py","chain":["test_find_best_app"]}
+    ]
+  },
+  "stream_with_context": {
+    "target": "src/flask/helpers.py",
+    "required": [
+      {"file":"src/flask/templating.py","chain":["_stream"]},
+      {"file":"tests/test_helpers.py","chain":["test_streaming_with_context","test_streaming_with_context.index"]},
+      {"file":"tests/test_helpers.py","chain":["test_streaming_with_context_as_decorator"]},
+      {"file":"tests/test_helpers.py","chain":["test_streaming_with_context_and_custom_close"]},
+      {"file":"tests/test_helpers.py","chain":["test_stream_keeps_session"]},
+      {"file":"tests/test_helpers.py","chain":["test_async_view"]},
+      {"file":"tests/test_testing.py","chain":["test_client_pop_all_preserved"]}
+    ],
+    "optional": [
+      {"file":"src/flask/helpers.py","chain":["stream_with_context","decorator"]}
+    ]
+  },
+  "get_template_attribute": {
+    "target": "src/flask/helpers.py",
+    "required": [
+      {"file":"tests/test_templating.py","chain":["test_macros"]}
+    ]
+  },
+  "has_request_context": {
+    "target": "src/flask/ctx.py",
+    "required": [
+      {"file":"tests/test_reqctx.py","chain":["test_context_test"]}
+    ]
+  },
+  "attach_enctype_error_multidict": {
+    "target": "src/flask/debughelpers.py",
+    "required": [
+      {"file":"src/flask/wrappers.py","chain":["_load_form_data"]}
+    ]
+  },
+  "explain_template_loading_attempts": {
+    "target": "src/flask/debughelpers.py",
+    "required": [
+      {"file":"src/flask/templating.py","chain":["_get_source_explained"]}
+    ]
+  },
+  "make_response": {
+    "target": "src/flask/helpers.py",
+    "required": [
+      {"file":"tests/test_basic.py","chain":["test_make_response"]},
+      {"file":"tests/test_basic.py","chain":["test_make_response_with_response_instance"]},
+      {"file":"tests/test_basic.py","chain":["test_jsonify_mimetype"]},
+      {"file":"tests/test_helpers.py","chain":["test_make_response"]},
+      {"file":"tests/test_views.py","chain":["test_view_decorators","add_x_parachute","new_function"]}
+    ]
+  },
+  "dumps": {
+    "target": "src/flask/json/__init__.py",
+    "required": [
+      {"file":"src/flask/json/tag.py","chain":["dumps"]},
+      {"file":"tests/test_json.py","chain":["test_jsonify_aware_datetimes"]},
+      {"file":"tests/test_json.py","chain":["test_json_decimal"]},
+      {"file":"tests/test_json.py","chain":["test_json_attr"]},
+      {"file":"tests/test_json.py","chain":["test_json_customization","index"]},
+      {"file":"tests/test_json.py","chain":["test_html_method"]}
+    ]
+  },
+  "Config.from_mapping": {
+    "target": "src/flask/config.py",
+    "required": [
+      {"file":"src/flask/config.py","chain":["from_file"]},
+      {"file":"examples/celery/src/task_app/__init__.py","chain":["create_app"]},
+      {"file":"examples/tutorial/flaskr/__init__.py","chain":["create_app"]},
+      {"file":"tests/test_config.py","chain":["test_config_from_mapping"]}
+    ]
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "Presence": {
+    "target": "packages/react/presence/src/presence.tsx",
+    "target_lines": [10],
+    "category": "JSX; package import",
+    "required": [
+      {"file":"packages/react/checkbox/src/checkbox.tsx","chain":"<file>","lines":[292]},
+      {"file":"packages/react/collapsible/src/collapsible.tsx","chain":"<file>","lines":[136]},
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"DialogPortal","lines":[193]},
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"<file>","lines":[224,298]},
+      {"file":"packages/react/hover-card/src/hover-card.tsx","chain":"HoverCardPortal","lines":[182]},
+      {"file":"packages/react/hover-card/src/hover-card.tsx","chain":"<file>","lines":[216]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"MenuPortal","lines":[204]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[253,956,1248]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"<file>","lines":[740,858,1110,1181]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"PopoverPortal","lines":[212]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"<file>","lines":[245]},
+      {"file":"packages/react/presence/src/presence.test.tsx","chain":"App","lines":[16,31,50]},
+      {"file":"packages/react/presence/src/presence.test.tsx","chain":"<file>","lines":[70,79,84,93,98,103,116,124,136]},
+      {"file":"packages/react/radio-group/src/radio.tsx","chain":"<file>","lines":[241]},
+      {"file":"packages/react/scroll-area/src/scroll-area.tsx","chain":"<file>","lines":[396,469,506,897]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[570]},
+      {"file":"packages/react/tabs/src/tabs.tsx","chain":"<file>","lines":[264]},
+      {"file":"packages/react/toast/src/toast.tsx","chain":"<file>","lines":[441]},
+      {"file":"packages/react/tooltip/src/tooltip.tsx","chain":"TooltipPortal","lines":[363]},
+      {"file":"packages/react/tooltip/src/tooltip.tsx","chain":"<file>","lines":[394]}
+    ]
+  },
+  "FocusScope": {
+    "target": "packages/react/focus-scope/src/focus-scope.tsx",
+    "target_lines": [56],
+    "category": "JSX; forwardRef const",
+    "required": [
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"<file>","lines":[483]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[527]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"<file>","lines":[476]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[897]}
+    ]
+  },
+  "DismissableLayer": {
+    "target": "packages/react/dismissable-layer/src/dismissable-layer.tsx",
+    "target_lines": [75],
+    "category": "JSX; forwardRef const",
+    "required": [
+      {"file":"packages/react/dialog/src/dialog.test.tsx","chain":"ControlledDialog","lines":[620]},
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"<file>","lines":[491]},
+      {"file":"packages/react/hover-card/src/hover-card.tsx","chain":"<file>","lines":[332]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[539]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"<file>","lines":[1013]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"<file>","lines":[484]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[911]},
+      {"file":"packages/react/tooltip/src/tooltip.tsx","chain":"<file>","lines":[565]}
+    ]
+  },
+  "createSlot": {
+    "target": "packages/react/slot/src/slot.tsx",
+    "target_lines": [21],
+    "category": "function; replaces Slot, which has no JSX use anywhere in the repo",
+    "required": [
+      {"file":"packages/react/collection/src/collection-legacy.tsx","chain":"createCollection","lines":[62,86]},
+      {"file":"packages/react/collection/src/collection.tsx","chain":"createCollection","lines":[184,208]},
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"<file>","lines":[235]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[380]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"<file>","lines":[258]},
+      {"file":"packages/react/primitive/src/primitive.tsx","chain":"<file>","lines":[45]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[672]},
+      {"file":"packages/react/slot/src/slot.tsx","chain":"<file>","lines":[95]}
+    ]
+  },
+  "VisuallyHidden": {
+    "target": "packages/react/visually-hidden/src/visually-hidden.tsx",
+    "target_lines": [26],
+    "category": "JSX; forwardRef const",
+    "required": [
+      {"file":"packages/react/toast/src/toast.tsx","chain":"<file>","lines":[392]},
+      {"file":"packages/react/toast/src/toast.tsx","chain":"ToastAnnounce","lines":[764]}
+    ]
+  },
+  "useComposedRefs": {
+    "target": "packages/react/compose-refs/src/compose-refs.tsx",
+    "target_lines": [55],
+    "category": "hook; package import",
+    "required": [
+      {"file":"packages/react/accordion/src/accordion.tsx","chain":"<file>","lines":[260]},
+      {"file":"packages/react/alert-dialog/src/alert-dialog.tsx","chain":"<file>","lines":[103,190]},
+      {"file":"packages/react/announce/src/announce.tsx","chain":"<file>","lines":[119]},
+      {"file":"packages/react/checkbox/src/checkbox.tsx","chain":"<file>","lines":[156,339]},
+      {"file":"packages/react/collapsible/src/collapsible.tsx","chain":"<file>","lines":[160]},
+      {"file":"packages/react/collection/src/collection-legacy.tsx","chain":"createCollection","lines":[67,91]},
+      {"file":"packages/react/collection/src/collection.tsx","chain":"createCollection::CollectionProviderImpl","lines":[118]},
+      {"file":"packages/react/collection/src/collection.tsx","chain":"createCollection","lines":[189,245]},
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"<file>","lines":[146,250,325]},
+      {"file":"packages/react/dismissable-layer/src/dismissable-layer.tsx","chain":"<file>","lines":[95,279]},
+      {"file":"packages/react/dropdown-menu/src/dropdown-menu.tsx","chain":"<file>","lines":[111]},
+      {"file":"packages/react/focus-scope/src/focus-scope.tsx","chain":"<file>","lines":[70]},
+      {"file":"packages/react/form/src/form.tsx","chain":"<file>","lines":[61,300,569]},
+      {"file":"packages/react/hover-card/src/hover-card.tsx","chain":"<file>","lines":[279]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[283,423,677,756,1102,1245]},
+      {"file":"packages/react/menubar/src/menubar.tsx","chain":"<file>","lines":[219]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"<file>","lines":[145,569,843,958,1130]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"NavigationMenuViewportItem","lines":[1219]},
+      {"file":"packages/react/one-time-password-field/src/one-time-password-field.tsx","chain":"<file>","lines":[418,547,642]},
+      {"file":"packages/react/password-toggle-field/src/password-toggle-field.tsx","chain":"<file>","lines":[219,271]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"<file>","lines":[157,274,467]},
+      {"file":"packages/react/popper/src/popper.tsx","chain":"<file>","lines":[115,204]},
+      {"file":"packages/react/radio-group/src/radio-group.tsx","chain":"<file>","lines":[90,196]},
+      {"file":"packages/react/radio-group/src/radio.tsx","chain":"<file>","lines":[133,280]},
+      {"file":"packages/react/roving-focus/src/roving-focus-group.tsx","chain":"<file>","lines":[129]},
+      {"file":"packages/react/scroll-area/src/scroll-area.tsx","chain":"<file>","lines":[107,180,296,636,692,791,917]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[345,460,704,997,1275,1424,1556,1636,1681,1834]},
+      {"file":"packages/react/slider/src/slider.tsx","chain":"<file>","lines":[140,360,436,605,735,838]},
+      {"file":"packages/react/slot/src/slot.tsx","chain":"createSlot","lines":[67]},
+      {"file":"packages/react/switch/src/switch.tsx","chain":"<file>","lines":[147,309]},
+      {"file":"packages/react/toast/src/toast.tsx","chain":"<file>","lines":[202,531]},
+      {"file":"packages/react/tooltip/src/tooltip.tsx","chain":"<file>","lines":[279,418,534]}
+    ]
+  },
+  "composeEventHandlers": {
+    "target": "packages/core/primitive/src/primitive.tsx",
+    "target_lines": [4],
+    "category": "function; package import",
+    "required": [
+      {"file":"packages/react/accordion/src/accordion.tsx","chain":"<file>","lines":[265]},
+      {"file":"packages/react/alert-dialog/src/alert-dialog.tsx","chain":"<file>","lines":[113]},
+      {"file":"packages/react/checkbox/src/checkbox.tsx","chain":"<file>","lines":[180,184,418]},
+      {"file":"packages/react/collapsible/src/collapsible.tsx","chain":"<file>","lines":[106]},
+      {"file":"packages/react/context-menu/src/context-menu.tsx","chain":"<file>","lines":[167,178,197,202,207]},
+      {"file":"packages/react/dialog/src/dialog.tsx","chain":"<file>","lines":[156,344,348,359,603]},
+      {"file":"packages/react/dismissable-layer/src/dismissable-layer.tsx","chain":"<file>","lines":[255,256,257]},
+      {"file":"packages/react/dropdown-menu/src/dropdown-menu.tsx","chain":"<file>","lines":[125,135,192,198]},
+      {"file":"packages/react/form/src/form.tsx","chain":"<file>","lines":[168,176,180,444,448]},
+      {"file":"packages/react/hover-card/src/hover-card.tsx","chain":"<file>","lines":[138,139,140,141,143,220,221,338,346]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[307,531,556,572,596,603,699,704,710,793,807,811,812,849,913,1127,1141,1182,1268,1273,1278]},
+      {"file":"packages/react/menubar/src/menubar.tsx","chain":"<file>","lines":[245,255,262,273,274,324,334,339,345]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"<file>","lines":[589,593,607,615,619,688,863,864,1028,1043,1049,1072,1168,1169,1264]},
+      {"file":"packages/react/one-time-password-field/src/one-time-password-field.tsx","chain":"<file>","lines":[501,693,696,712,727,794,909]},
+      {"file":"packages/react/password-toggle-field/src/password-toggle-field.tsx","chain":"<file>","lines":[222,341]},
+      {"file":"packages/react/popover/src/popover.tsx","chain":"<file>","lines":[168,309,313,326,591]},
+      {"file":"packages/react/radio-group/src/radio-group.tsx","chain":"<file>","lines":[225,230]},
+      {"file":"packages/react/radio-group/src/radio.tsx","chain":"<file>","lines":[146,357]},
+      {"file":"packages/react/roving-focus/src/roving-focus-group.tsx","chain":"<file>","lines":[178,181,206,299,306,307]},
+      {"file":"packages/react/scroll-area/src/scroll-area.tsx","chain":"<file>","lines":[474,475,844,858,859,960,967]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[390,403,422,906,939,1306,1463,1464,1465,1475,1486,1489,1500,1505,1753,1758,1764]},
+      {"file":"packages/react/slider/src/slider.tsx","chain":"<file>","lines":[256,523,538,552,556,770,906]},
+      {"file":"packages/react/switch/src/switch.tsx","chain":"<file>","lines":[171,389]},
+      {"file":"packages/react/tabs/src/tabs.tsx","chain":"<file>","lines":[187,204,218]},
+      {"file":"packages/react/toast/src/toast.tsx","chain":"<file>","lines":[449,452,458,465,631,653,660,664,695,865]},
+      {"file":"packages/react/toggle/src/toggle.tsx","chain":"<file>","lines":[50]},
+      {"file":"packages/react/toolbar/src/toolbar.tsx","chain":"<file>","lines":[137]},
+      {"file":"packages/react/tooltip/src/tooltip.tsx","chain":"<file>","lines":[301,311,315,322,325,326]}
+    ]
+  },
+  "useSize": {
+    "target": "packages/react/use-size/src/use-size.tsx",
+    "target_lines": [4],
+    "category": "hook; package import",
+    "required": [
+      {"file":"packages/react/checkbox/src/checkbox.tsx","chain":"<file>","lines":[340]},
+      {"file":"packages/react/popper/src/popper.tsx","chain":"<file>","lines":[207]},
+      {"file":"packages/react/radio-group/src/radio.tsx","chain":"<file>","lines":[281]},
+      {"file":"packages/react/slider/src/slider.tsx","chain":"SliderThumbProvider","lines":[676]},
+      {"file":"packages/react/switch/src/switch.tsx","chain":"<file>","lines":[310]},
+      {"file":"packages/react/use-size/src/use-size.test.tsx","chain":"SizeProbe","lines":[80]}
+    ]
+  },
+  "usePrevious": {
+    "target": "packages/react/use-previous/src/use-previous.tsx",
+    "target_lines": [3],
+    "category": "hook; package import",
+    "required": [
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"NavigationMenuProvider","lines":[400]}
+    ]
+  },
+  "useCallbackRef": {
+    "target": "packages/react/use-callback-ref/src/use-callback-ref.tsx",
+    "target_lines": [15],
+    "category": "hook; package import",
+    "required": [
+      {"file":"packages/react/avatar/src/avatar.tsx","chain":"<file>","lines":[95]},
+      {"file":"packages/react/dismissable-layer/src/dismissable-layer.tsx","chain":"<file>","lines":[165]},
+      {"file":"packages/react/dismissable-layer/src/dismissable-layer.tsx","chain":"usePointerDownOutside","lines":[349]},
+      {"file":"packages/react/dismissable-layer/src/dismissable-layer.tsx","chain":"useFocusOutside","lines":[552]},
+      {"file":"packages/react/focus-scope/src/focus-scope.tsx","chain":"<file>","lines":[67,68]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"Menu","lines":[102]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"<file>","lines":[880]},
+      {"file":"packages/react/menu/src/menu.tsx","chain":"MenuSub","lines":[1037]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"NavigationMenuProvider","lines":[409,410,411,412,413,414]},
+      {"file":"packages/react/navigation-menu/src/navigation-menu.tsx","chain":"useResizeObserver","lines":[1343]},
+      {"file":"packages/react/popper/src/popper.tsx","chain":"<file>","lines":[298]},
+      {"file":"packages/react/roving-focus/src/roving-focus-group.tsx","chain":"<file>","lines":[138]},
+      {"file":"packages/react/scroll-area/src/scroll-area.tsx","chain":"<file>","lines":[796,797,835,836,838]},
+      {"file":"packages/react/scroll-area/src/scroll-area.tsx","chain":"useDebounceCallback","lines":[1131]},
+      {"file":"packages/react/scroll-area/src/scroll-area.tsx","chain":"useResizeObserver","lines":[1141]},
+      {"file":"packages/react/select/src/select.tsx","chain":"<file>","lines":[1421,1553]},
+      {"file":"packages/react/select/src/select.tsx","chain":"useTypeaheadSearch","lines":[1960]},
+      {"file":"packages/react/toast/src/toast.tsx","chain":"<file>","lines":[447,448,539]},
+      {"file":"packages/react/toast/src/toast.tsx","chain":"useNextFrame","lines":[959]},
+      {"file":"packages/react/use-escape-keydown/src/use-escape-keydown.tsx","chain":"useEscapeKeydown","lines":[14]}
+    ]
+  }
+}

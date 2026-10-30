@@ -1,0 +1,131 @@
+{
+  "write": {
+    "target": "crates/mdbook-core/src/utils/fs.rs",
+    "category": "std-colliding: fs::write resolves per file to utils::fs or std::fs; std::fs::write must not count",
+    "required": [
+      {"file":"crates/mdbook-core/src/utils/fs.rs","chain":["tests","copy_files_except_ext_test"]},
+      {"file":"crates/mdbook-driver/src/builtin_renderers/markdown_renderer.rs","chain":["MarkdownRenderer","render"]},
+      {"file":"crates/mdbook-driver/src/init.rs","chain":["BookBuilder","write_book_toml"]},
+      {"file":"crates/mdbook-driver/src/init.rs","chain":["BookBuilder","build_gitignore"]},
+      {"file":"crates/mdbook-driver/src/init.rs","chain":["BookBuilder","create_stub_files"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["create_missing"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","dummy_link"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","nested_links"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","load_a_single_chapter_with_utf8_bom_from_disk"]},
+      {"file":"crates/mdbook-driver/src/mdbook.rs","chain":["MDBook","test_chapter"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","render_chapter"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","render_404"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","emit_redirect"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","render"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/static_files.rs","chain":["StaticFiles","write_files"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/static_files.rs","chain":["tests","test_write_directive"]},
+      {"file":"crates/mdbook-html/src/theme/mod.rs","chain":["Theme","copy_theme"]},
+      {"file":"tests/testsuite/book_test.rs","chain":["BookTest","change_file"]},
+      {"file":"tests/testsuite/book_test.rs","chain":["BookTest","rust_program"]}
+    ]
+  },
+  "remove_dir_content": {
+    "target": "crates/mdbook-core/src/utils/fs.rs",
+    "category": "path call through use mdbook_core::utils::fs",
+    "required": [
+      {"file":"crates/mdbook-driver/src/builtin_renderers/markdown_renderer.rs","chain":["MarkdownRenderer","render"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","render"]}
+    ]
+  },
+  "copy_files_except_ext": {
+    "target": "crates/mdbook-core/src/utils/fs.rs",
+    "category": "fully qualified cross-crate path",
+    "required": [
+      {"file":"crates/mdbook-core/src/utils/fs.rs","chain":["tests","copy_files_except_ext_test"]},
+      {"file":"tests/testsuite/book_test.rs","chain":["BookTest","from_dir"]}
+    ]
+  },
+  "path_to_root": {
+    "target": "crates/mdbook-core/src/utils/fs.rs",
+    "category": "macro-invoked json!/format!; local var same name",
+    "required": [
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","render_chapter"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/hbs_renderer.rs","chain":["HtmlHandlebars","render_print_page"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/helpers/resources.rs","chain":["ResourceHelper","call"]},
+      {"file":"crates/mdbook-html/src/html_handlebars/static_files.rs","chain":["StaticFiles","write_files","replace_all"]}
+    ]
+  },
+  "escape_html": {
+    "target": "crates/mdbook-core/src/utils/html.rs",
+    "category": "pub use re-export; macro assert_eq!",
+    "required": [
+      {"file":"crates/mdbook-core/src/utils/html.rs","chain":["html_is_escaped"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["create_missing"]},
+      {"file":"crates/mdbook-html/src/html/serialize.rs","chain":["serialize"]}
+    ],
+    "optional": [
+      {"file":"crates/mdbook-core/src/utils/mod.rs","chain":"<import>"},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":"<import>"},
+      {"file":"crates/mdbook-html/src/html/serialize.rs","chain":"<import>"}
+    ]
+  },
+  "parse_summary": {
+    "target": "crates/mdbook-summary/src/lib.rs",
+    "category": "cross-crate use",
+    "required": [
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["load_book"]},
+      {"file":"crates/mdbook-summary/src/lib.rs","chain":["tests","duplicate_entries_1"]},
+      {"file":"crates/mdbook-summary/src/lib.rs","chain":["tests","duplicate_entries_2"]},
+      {"file":"crates/mdbook-summary/src/lib.rs","chain":["tests","duplicate_entries_3"]},
+      {"file":"crates/mdbook-summary/src/lib.rs","chain":["tests","duplicate_entries_4"]},
+      {"file":"crates/mdbook-summary/src/lib.rs","chain":["tests","duplicate_entries_5"]}
+    ],
+    "optional": [
+      {"file":"crates/mdbook-driver/src/load.rs","chain":"<import>"}
+    ]
+  },
+  "new_cmark_parser": {
+    "target": "crates/mdbook-markdown/src/lib.rs",
+    "category": "cross-crate use",
+    "required": [
+      {"file":"crates/mdbook-html/src/html/mod.rs","chain":["build_tree"]}
+    ],
+    "optional": [
+      {"file":"crates/mdbook-html/src/html/mod.rs","chain":"<import>"}
+    ]
+  },
+  "take_lines": {
+    "target": "crates/mdbook-driver/src/builtin_preprocessors/links/take_lines.rs",
+    "category": "function shares name with its module; macro assert_eq!",
+    "required": [
+      {"file":"crates/mdbook-driver/src/builtin_preprocessors/links.rs","chain":["Link","render_with_path"]},
+      {"file":"crates/mdbook-driver/src/builtin_preprocessors/links/take_lines.rs","chain":["tests","take_lines_test"]}
+    ],
+    "optional": [
+      {"file":"crates/mdbook-driver/src/builtin_preprocessors/links.rs","chain":"<import>"}
+    ]
+  },
+  "id_from_content": {
+    "target": "crates/mdbook-html/src/utils.rs",
+    "category": "crate::utils; macro assert_eq! nested",
+    "required": [
+      {"file":"crates/mdbook-html/src/html/print.rs","chain":["make_root_id_map"]},
+      {"file":"crates/mdbook-html/src/html/tree.rs","chain":["MarkdownTreeBuilder","add_header_links"]},
+      {"file":"crates/mdbook-html/src/utils.rs","chain":["tests","it_normalizes_ids"]},
+      {"file":"crates/mdbook-html/src/utils.rs","chain":["tests","punctuation_only_headings_get_unique_section_ids"]}
+    ],
+    "optional": [
+      {"file":"crates/mdbook-html/src/html/print.rs","chain":"<import>"},
+      {"file":"crates/mdbook-html/src/html/tree.rs","chain":"<import>"}
+    ]
+  },
+  "Chapter.new": {
+    "target": "crates/mdbook-core/src/book.rs",
+    "category": "ambiguous new (many types); inside vec!",
+    "required": [
+      {"file":"crates/mdbook-core/src/book/tests.rs","chain":["for_each_mut_visits_all_items"]},
+      {"file":"crates/mdbook-core/src/book/tests.rs","chain":["iterate_over_nested_book_items"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["load_chapter"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","load_a_single_chapter_from_disk"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","load_a_single_chapter_with_utf8_bom_from_disk"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","load_recursive_link_with_separators"]},
+      {"file":"crates/mdbook-driver/src/load.rs","chain":["tests","load_a_book_with_a_single_chapter"]},
+      {"file":"tests/testsuite/search.rs","chain":["with_no_source_path"]}
+    ]
+  }
+}

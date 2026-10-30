@@ -1,0 +1,97 @@
+{
+  "hostname": {
+    "target": "crates/cli/src/hostname.rs",
+    "required": [
+      {"file":"crates/cli/src/hostname.rs","chain":["print_hostname"]},
+      {"file":"crates/core/flags/hiargs.rs","chain":["platform_hostname"]}
+    ]
+  },
+  "pattern_from_os": {
+    "target": "crates/cli/src/pattern.rs",
+    "required": [
+      {"file":"crates/cli/src/pattern.rs","chain":["os"]},
+      {"file":"crates/grep/examples/simplegrep.rs","chain":["try_main"]}
+    ]
+  },
+  "resolve_binary": {
+    "target": "crates/cli/src/decompress.rs",
+    "required": [
+      {"file":"crates/cli/src/decompress.rs","chain":["default_decompression_commands","add"]},
+      {"file":"crates/core/flags/hiargs.rs","chain":["hostname"]},
+      {"file":"crates/core/search.rs","chain":["preprocessor"]}
+    ]
+  },
+  "unescape": {
+    "target": "crates/cli/src/escape.rs",
+    "required": [
+      {"file":"crates/cli/src/escape.rs","chain":["unescape_os"]},
+      {"file":"crates/cli/src/escape.rs","chain":["empty"]},
+      {"file":"crates/cli/src/escape.rs","chain":["backslash"]},
+      {"file":"crates/cli/src/escape.rs","chain":["nul"]},
+      {"file":"crates/cli/src/escape.rs","chain":["nl"]},
+      {"file":"crates/cli/src/escape.rs","chain":["tab"]},
+      {"file":"crates/cli/src/escape.rs","chain":["carriage"]},
+      {"file":"crates/cli/src/escape.rs","chain":["nothing_simple"]},
+      {"file":"crates/cli/src/escape.rs","chain":["nothing_hex0"]},
+      {"file":"crates/cli/src/escape.rs","chain":["nothing_hex1"]},
+      {"file":"crates/cli/src/escape.rs","chain":["nothing_hex2"]}
+    ]
+  },
+  "sort_lines": {
+    "target": "tests/util.rs",
+    "required": [
+      {"file":"tests/feature.rs","chain":"<file>"},
+      {"file":"tests/misc.rs","chain":"<file>"},
+      {"file":"tests/regression.rs","chain":"<file>"}
+    ]
+  },
+  "parse_human_readable_size": {
+    "target": "crates/cli/src/human.rs",
+    "required": [
+      {"file":"crates/cli/src/human.rs","chain":["suffix_none"]},
+      {"file":"crates/cli/src/human.rs","chain":["suffix_k"]},
+      {"file":"crates/cli/src/human.rs","chain":["suffix_m"]},
+      {"file":"crates/cli/src/human.rs","chain":["suffix_g"]},
+      {"file":"crates/cli/src/human.rs","chain":["invalid_empty"]},
+      {"file":"crates/cli/src/human.rs","chain":["invalid_non_digit"]},
+      {"file":"crates/cli/src/human.rs","chain":["invalid_overflow"]},
+      {"file":"crates/cli/src/human.rs","chain":["invalid_suffix"]},
+      {"file":"crates/core/flags/defs.rs","chain":["human_readable_u64"]}
+    ]
+  },
+  "locate": {
+    "target": "crates/searcher/src/lines.rs",
+    "required": [
+      {"file":"crates/searcher/src/lines.rs","chain":["loc"]},
+      {"file":"crates/searcher/src/searcher/core.rs","chain":["find_by_line_fast"]},
+      {"file":"crates/searcher/src/searcher/glue.rs","chain":["sink"]},
+      {"file":"crates/searcher/src/searcher/glue.rs","chain":["sink_matched_inverted"]}
+    ]
+  },
+  "strip_prefix": {
+    "target": "crates/ignore/src/pathutil.rs",
+    "required": [
+      {"file":"crates/ignore/src/dir.rs","chain":["matched"]},
+      {"file":"crates/ignore/src/dir.rs","chain":["strip_if_is_prefix"]},
+      {"file":"crates/ignore/src/gitignore.rs","chain":["strip"]},
+      {"file":"crates/ignore/src/gitignore.rs","chain":["new"]}
+    ]
+  },
+  "non_matching_bytes": {
+    "target": "crates/regex/src/non_matching.rs",
+    "required": [
+      {"file":"crates/regex/src/config.rs","chain":["non_matching_bytes"]},
+      {"file":"crates/regex/src/non_matching.rs","chain":["extract"]}
+    ]
+  },
+  "Gitignore.matched_path_or_any_parents": {
+    "target": "crates/ignore/src/gitignore.rs",
+    "required": [
+      {"file":"crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs","chain":["test_path_should_be_under_root"]},
+      {"file":"crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs","chain":["test_files_in_root"]},
+      {"file":"crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs","chain":["test_files_in_deep"]},
+      {"file":"crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs","chain":["test_dirs_in_root"]},
+      {"file":"crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs","chain":["test_dirs_in_deep"]}
+    ]
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "get": {
+    "target": "httpx/_api.py",
+    "target_lines": [174],
+    "category": "client.get must not count; httpx.get counts",
+    "required": [
+      {"file":"tests/test_api.py","chain":"test_get","lines":[9]},
+      {"file":"tests/test_api.py","chain":"test_get_invalid_url","lines":[87]},
+      {"file":"tests/test_api.py","chain":"test_httpcore_lazy_loading","lines":[101]},
+      {"file":"tests/test_config.py","chain":"test_SSLContext_with_get_request","lines":[85]},
+      {"file":"tests/test_exceptions.py","chain":"test_httpcore_exception_mapping","lines":[45,48]}
+    ]
+  },
+  "post": {
+    "target": "httpx/_api.py",
+    "target_lines": [282],
+    "category": "client.post must not count",
+    "required": [
+      {"file":"tests/test_api.py","chain":"test_post","lines":[17]},
+      {"file":"tests/test_api.py","chain":"test_post_byte_iterator","lines":[28]},
+      {"file":"tests/test_api.py","chain":"test_post_byte_stream","lines":[40]}
+    ]
+  },
+  "request": {
+    "target": "httpx/_api.py",
+    "target_lines": [39],
+    "category": "client.request and fixtures named request must not count",
+    "required": [
+      {"file":"httpx/_api.py","chain":"get","lines":[195]},
+      {"file":"httpx/_api.py","chain":"options","lines":[231]},
+      {"file":"httpx/_api.py","chain":"head","lines":[267]},
+      {"file":"httpx/_api.py","chain":"post","lines":[304]},
+      {"file":"httpx/_api.py","chain":"put","lines":[345]},
+      {"file":"httpx/_api.py","chain":"patch","lines":[386]},
+      {"file":"httpx/_api.py","chain":"delete","lines":[426]}
+    ]
+  },
+  "stream": {
+    "target": "httpx/_api.py",
+    "target_lines": [124],
+    "category": "client.stream must not count",
+    "required": [
+      {"file":"tests/test_api.py","chain":"test_stream","lines":[76]}
+    ]
+  },
+  "urlparse": {
+    "target": "httpx/_urlparse.py",
+    "target_lines": [213],
+    "category": "urllib urlparse must not count",
+    "required": [
+      {"file":"httpx/_urlparse.py","chain":"ParseResult::copy_with","lines":[198]},
+      {"file":"httpx/_urls.py","chain":"URL::__init__","lines":[117]},
+      {"file":"tests/models/test_whatwg.py","chain":"test_urlparse","lines":[30]}
+    ]
+  },
+  "quote": {
+    "target": "httpx/_urlparse.py",
+    "target_lines": [497],
+    "category": "urllib quote must not count",
+    "required": [
+      {"file":"httpx/_urlparse.py","chain":"urlparse","lines":[246,247,319,331,332,333]},
+      {"file":"httpx/_urlparse.py","chain":"encode_host","lines":[386]}
+    ]
+  },
+  "encode_host": {
+    "target": "httpx/_urlparse.py",
+    "target_lines": [348],
+    "category": "same module",
+    "required": [
+      {"file":"httpx/_urlparse.py","chain":"urlparse","lines":[320]}
+    ]
+  },
+  "normalize_path": {
+    "target": "httpx/_urlparse.py",
+    "target_lines": [447],
+    "category": "same module",
+    "required": [
+      {"file":"httpx/_urlparse.py","chain":"urlparse","lines":[329]}
+    ]
+  },
+  "create_ssl_context": {
+    "target": "httpx/_config.py",
+    "target_lines": [23],
+    "category": "httpx.create_ssl_context and relative",
+    "required": [
+      {"file":"httpx/_transports/default.py","chain":"HTTPTransport::__init__","lines":[153]},
+      {"file":"httpx/_transports/default.py","chain":"AsyncHTTPTransport::__init__","lines":[297]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config","lines":[12]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_verify_non_existing_file","lines":[19]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_with_keylog","lines":[25]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_verify_existing_file","lines":[30]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_verify_directory","lines":[37]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_cert_and_key","lines":[44]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_cert_and_encrypted_key","lines":[54]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_cert_and_key_invalid_password","lines":[64]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_cert_without_key_raises","lines":[72]},
+      {"file":"tests/test_config.py","chain":"test_load_ssl_config_no_verify","lines":[77]},
+      {"file":"tests/test_config.py","chain":"test_SSLContext_with_get_request","lines":[83]}
+    ]
+  },
+  "to_bytes": {
+    "target": "httpx/_utils.py",
+    "target_lines": [79],
+    "category": "relative import",
+    "required": [
+      {"file":"httpx/_auth.py","chain":"BasicAuth::_build_auth_header","lines":[140,140]},
+      {"file":"httpx/_auth.py","chain":"NetRCAuth::_build_auth_header","lines":[170,170]},
+      {"file":"httpx/_auth.py","chain":"DigestAuth::__init__","lines":[188,189]},
+      {"file":"httpx/_multipart.py","chain":"DataField::render_data","lines":[101]},
+      {"file":"httpx/_multipart.py","chain":"FileField::get_length","lines":[175]},
+      {"file":"httpx/_multipart.py","chain":"FileField::render_data","lines":[205,216]}
+    ]
+  }
+}

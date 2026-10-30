@@ -1,0 +1,204 @@
+{
+  "cell_len": {
+    "target": "rich/cells.py",
+    "target_lines": [98],
+    "category": "ambiguous with Text.cell_len; relative, local and from pkg import mod",
+    "required": [
+      {"file":"rich/cells.py","chain":"set_cell_size","lines":[317]},
+      {"file":"rich/console.py","chain":"Console::export_svg","lines":[2512,2538]},
+      {"file":"rich/containers.py","chain":"Lines::justify","lines":[136,137,142,148]},
+      {"file":"rich/panel.py","chain":"Panel::__rich_console__::align_text","lines":[176]},
+      {"file":"rich/pretty.py","chain":"Pretty::__rich_measure__","lines":[352]},
+      {"file":"rich/pretty.py","chain":"Node::check_length","lines":[458]},
+      {"file":"rich/pretty.py","chain":"_Line::check_length","lines":[514,514]},
+      {"file":"rich/rule.py","chain":"Rule::__init__","lines":[32]},
+      {"file":"rich/rule.py","chain":"Rule::__rich_console__","lines":[60,82,85,85]},
+      {"file":"rich/segment.py","chain":"Segment::cell_length","lines":[86]},
+      {"file":"rich/segment.py","chain":"Segment::_split_cells","lines":[133]},
+      {"file":"rich/syntax.py","chain":"Syntax::__rich_measure__","lines":[637]},
+      {"file":"rich/text.py","chain":"Text::cell_len","lines":[227]},
+      {"file":"rich/text.py","chain":"Text::__rich_measure__","lines":[712,715]},
+      {"file":"rich/text.py","chain":"Text::truncate","lines":[875]},
+      {"file":"rich/text.py","chain":"Text::align","lines":[953]},
+      {"file":"tests/test_cells.py","chain":"test_cell_len_long_string","lines":[36,38]},
+      {"file":"tests/test_cells.py","chain":"test_cell_len_short_string","lines":[43,45]},
+      {"file":"tests/test_cells.py","chain":"test_set_cell_size_infinite","lines":[66]},
+      {"file":"tests/test_cells.py","chain":"test_split_graphemes","lines":[229]},
+      {"file":"tests/test_cells.py","chain":"test_nerd_font","lines":[237]},
+      {"file":"tests/test_cells.py","chain":"test_zwj","lines":[242,243,244,247]},
+      {"file":"tests/test_cells.py","chain":"test_non_printable","lines":[254]},
+      {"file":"tests/test_segment.py","chain":"test_split_cells_mixed","lines":[323,325,326]},
+      {"file":"tests/test_segment.py","chain":"test_split_cells_doubles","lines":[334,335]},
+      {"file":"tests/test_segment.py","chain":"test_split_cells_single","lines":[343,344]}
+    ]
+  },
+  "escape": {
+    "target": "rich/markup.py",
+    "target_lines": [48],
+    "category": "html.escape, re.escape and a nested escape must not count; local import",
+    "required": [
+      {"file":"examples/tree.py","chain":"walk_directory","lines":[30]},
+      {"file":"rich/text.py","chain":"Text::markup","lines":[252]},
+      {"file":"tests/test_markup.py","chain":"test_escape","lines":[32,33,36,37,40,41,44]},
+      {"file":"tests/test_markup.py","chain":"test_escape_backslash_end","lines":[50,52]},
+      {"file":"tests/test_markup.py","chain":"test_render_escape","lines":[63,63,63,63]}
+    ]
+  },
+  "install": {
+    "target": "rich/traceback.py",
+    "target_lines": [84],
+    "category": "ambiguous with pretty.install; import as tr_install; module traceback named like stdlib",
+    "required": [
+      {"file":"examples/suppress.py","chain":"<file>","lines":[10]},
+      {"file":"rich/_extension.py","chain":"load_ipython_extension","lines":[10]},
+      {"file":"rich/traceback.py","chain":"<file>","lines":[899]},
+      {"file":"tests/test_traceback.py","chain":"test_handler","lines":[24]}
+    ]
+  },
+  "get_console": {
+    "target": "rich/__init__.py",
+    "target_lines": [23],
+    "category": "from . import f; import pkg; pkg.f(); local import",
+    "required": [
+      {"file":"rich/__init__.py","chain":"reconfigure","lines":[49]},
+      {"file":"rich/__init__.py","chain":"print","lines":[73]},
+      {"file":"rich/__init__.py","chain":"print_json","lines":[106]},
+      {"file":"rich/__init__.py","chain":"inspect","lines":[155]},
+      {"file":"rich/jupyter.py","chain":"JupyterMixin::_repr_mimebundle_","lines":[47]},
+      {"file":"rich/jupyter.py","chain":"print","lines":[100]},
+      {"file":"rich/live.py","chain":"Live::__init__","lines":[73]},
+      {"file":"rich/logging.py","chain":"RichHandler::__init__","lines":[98]},
+      {"file":"rich/pretty.py","chain":"_ipy_display_hook","lines":[131]},
+      {"file":"rich/pretty.py","chain":"install","lines":[197]},
+      {"file":"rich/pretty.py","chain":"pprint","lines":[940]},
+      {"file":"rich/progress.py","chain":"Progress::__init__","lines":[1101]},
+      {"file":"rich/prompt.py","chain":"PromptBase::__init__","lines":[65]},
+      {"file":"tests/test_rich_print.py","chain":"test_get_console","lines":[9]},
+      {"file":"tests/test_rich_print.py","chain":"test_reconfigure_console","lines":[15]},
+      {"file":"tests/test_rich_print.py","chain":"test_rich_print","lines":[19]},
+      {"file":"tests/test_rich_print.py","chain":"test_rich_print_json","lines":[33]},
+      {"file":"tests/test_rich_print.py","chain":"test_rich_print_json_round_trip","lines":[44]},
+      {"file":"tests/test_rich_print.py","chain":"test_rich_print_json_no_truncation","lines":[54]},
+      {"file":"tests/test_rich_print.py","chain":"test_rich_print_X","lines":[64]}
+    ]
+  },
+  "decimal": {
+    "target": "rich/filesize.py",
+    "target_lines": [52],
+    "category": "name of a stdlib module; from pkg import mod; mod.f()",
+    "required": [
+      {"file":"examples/tree.py","chain":"walk_directory","lines":[40]},
+      {"file":"rich/progress.py","chain":"FileSizeColumn::render","lines":[825]},
+      {"file":"rich/progress.py","chain":"TotalFileSizeColumn::render","lines":[834]},
+      {"file":"rich/progress.py","chain":"TransferSpeedColumn::render","lines":[922]},
+      {"file":"tests/test_filesize.py","chain":"test_traditional","lines":[5,6,7,8,9,10,11,12,13,14]}
+    ]
+  },
+  "auto": {
+    "target": "rich/repr.py",
+    "target_lines": [27,32,36],
+    "category": "overloads; decorator @rich.repr.auto; module repr",
+    "required": [
+      {"file":"examples/repr.py","chain":"<file>","lines":[4]},
+      {"file":"rich/repr.py","chain":"rich_repr","lines":[119,121]},
+      {"file":"rich/repr.py","chain":"<file>","lines":[126]},
+      {"file":"tests/test_repr.py","chain":"<file>","lines":[11,25,33,41,49,80]}
+    ]
+  },
+  "pretty_repr": {
+    "target": "rich/pretty.py",
+    "target_lines": [878],
+    "category": "from pkg.mod import; many tests",
+    "required": [
+      {"file":"rich/pretty.py","chain":"Pretty::__rich_console__","lines":[307]},
+      {"file":"rich/pretty.py","chain":"Pretty::__rich_measure__","lines":[342]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty","lines":[153]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_dataclass","lines":[176,182,189]},
+      {"file":"tests/test_pretty.py","chain":"test_empty_dataclass","lines":[195,196]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_namedtuple","lines":[219]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_namedtuple_length_one_no_trailing_comma","lines":[236]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_namedtuple_empty","lines":[241]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_namedtuple_custom_repr","lines":[249]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_namedtuple_fields_invalid_type","lines":[257]},
+      {"file":"tests/test_pretty.py","chain":"test_pretty_namedtuple_max_depth","lines":[263]},
+      {"file":"tests/test_pretty.py","chain":"test_small_width","lines":[269]},
+      {"file":"tests/test_pretty.py","chain":"test_broken_repr","lines":[294]},
+      {"file":"tests/test_pretty.py","chain":"test_broken_getattr","lines":[308]},
+      {"file":"tests/test_pretty.py","chain":"test_reference_cycle_container","lines":[315,320,326]},
+      {"file":"tests/test_pretty.py","chain":"test_reference_cycle_namedtuple","lines":[337,343]},
+      {"file":"tests/test_pretty.py","chain":"test_reference_cycle_dataclass","lines":[355,360,366]},
+      {"file":"tests/test_pretty.py","chain":"test_reference_cycle_attrs","lines":[378,383,389]},
+      {"file":"tests/test_pretty.py","chain":"test_reference_cycle_custom_repr","lines":[405,410,416]},
+      {"file":"tests/test_pretty.py","chain":"test_max_depth","lines":[424,425,426,427,429,433,437]},
+      {"file":"tests/test_pretty.py","chain":"test_max_depth_rich_repr","lines":[458]},
+      {"file":"tests/test_pretty.py","chain":"test_max_depth_attrs","lines":[473]},
+      {"file":"tests/test_pretty.py","chain":"test_max_depth_dataclass","lines":[488]},
+      {"file":"tests/test_pretty.py","chain":"test_defaultdict","lines":[495]},
+      {"file":"tests/test_pretty.py","chain":"test_deque","lines":[501,504,507,510,513,516,519,522]},
+      {"file":"tests/test_pretty.py","chain":"test_array","lines":[528]},
+      {"file":"tests/test_pretty.py","chain":"test_tuple_of_one","lines":[533]},
+      {"file":"tests/test_pretty.py","chain":"test_node","lines":[538]},
+      {"file":"tests/test_pretty.py","chain":"test_empty_repr","lines":[614]},
+      {"file":"tests/test_pretty.py","chain":"test_attrs","lines":[625]},
+      {"file":"tests/test_pretty.py","chain":"test_attrs_empty","lines":[636]},
+      {"file":"tests/test_pretty.py","chain":"test_attrs_broken","lines":[654]},
+      {"file":"tests/test_pretty.py","chain":"test_attrs_broken_310","lines":[669]},
+      {"file":"tests/test_pretty.py","chain":"test_user_dict","lines":[688,691]},
+      {"file":"tests/test_pretty.py","chain":"test_lying_attribute","lines":[704]},
+      {"file":"tests/test_pretty.py","chain":"test_tuple_rich_repr","lines":[727]},
+      {"file":"tests/test_pretty.py","chain":"test_tuple_rich_repr_default","lines":[739]}
+    ]
+  },
+  "Segment.split_lines": {
+    "target": "rich/segment.py",
+    "target_lines": [247],
+    "category": "classmethod",
+    "required": [
+      {"file":"rich/align.py","chain":"Align::__rich_console__","lines":[154]},
+      {"file":"tests/test_segment.py","chain":"test_split_lines","lines":[34]}
+    ]
+  },
+  "Text.from_markup": {
+    "target": "rich/text.py",
+    "target_lines": [260],
+    "category": "classmethod; module-level",
+    "required": [
+      {"file":"benchmarks/benchmarks.py","chain":"TextSuite::setup","lines":[20]},
+      {"file":"examples/attrs.py","chain":"<file>","lines":[50]},
+      {"file":"examples/table_movie.py","chain":"<file>","lines":[78]},
+      {"file":"rich/__main__.py","chain":"make_test_card","lines":[83]},
+      {"file":"rich/_inspect.py","chain":"Inspect::_render","lines":[213]},
+      {"file":"rich/logging.py","chain":"RichHandler::render_message","lines":[201]},
+      {"file":"rich/panel.py","chain":"Panel::_title","lines":[113]},
+      {"file":"rich/panel.py","chain":"Panel::_subtitle","lines":[129]},
+      {"file":"rich/progress.py","chain":"SpinnerColumn::__init__","lines":[586]},
+      {"file":"rich/progress.py","chain":"TextColumn::render","lines":[638]},
+      {"file":"rich/progress.py","chain":"TaskProgressColumn::render","lines":[764]},
+      {"file":"rich/prompt.py","chain":"PromptBase::__init__","lines":[67]},
+      {"file":"rich/segment.py","chain":"<file>","lines":[759]},
+      {"file":"rich/spinner.py","chain":"Spinner::__init__","lines":[39]},
+      {"file":"rich/spinner.py","chain":"Spinner::update","lines":[110]},
+      {"file":"rich/traceback.py","chain":"Traceback::__rich_console__::render_stack","lines":[717,721]},
+      {"file":"rich/traceback.py","chain":"Traceback::_render_syntax_error","lines":[745]},
+      {"file":"tests/test_markup.py","chain":"test_escape_backslash_end","lines":[54]},
+      {"file":"tests/test_segment.py","chain":"test_divide_complex","lines":[200]},
+      {"file":"tests/test_text.py","chain":"test_from_markup","lines":[96]},
+      {"file":"tests/test_text.py","chain":"test_end","lines":[373,373]},
+      {"file":"tests/test_text.py","chain":"test_split_spans","lines":[398]},
+      {"file":"tests/test_text.py","chain":"test_render","lines":[683]},
+      {"file":"tests/test_text.py","chain":"test_tabs_to_spaces_spans","lines":[831]},
+      {"file":"tests/test_text.py","chain":"test_get_style_at_offset","lines":[894]},
+      {"file":"tests/test_text.py","chain":"test_slice","lines":[993]},
+      {"file":"tests/test_text.py","chain":"test_markup_property","lines":[1038,1040,1044]},
+      {"file":"tests/test_text.py","chain":"test_extend_style","lines":[1051]}
+    ]
+  },
+  "is_expandable": {
+    "target": "rich/pretty.py",
+    "target_lines": [398],
+    "category": "local import as _is_expandable; nested def same name must not count",
+    "required": [
+      {"file":"rich/console.py","chain":"Console::_collect_renderables::is_expandable","lines":[1531]}
+    ]
+  }
+}

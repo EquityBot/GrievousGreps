@@ -1,0 +1,206 @@
+{
+  "wrap_logger": {
+    "target": "src/structlog/_config.py",
+    "category": "free; re-exported; import pkg; pkg.f(); from pkg import f",
+    "required": [
+      {"file":"bench/test_benchmarks.py","chain":["make_logger"]},
+      {"file":"bench/test_benchmarks.py","chain":["test_create_bound_logger"]},
+      {"file":"src/structlog/_config.py","chain":["get_logger"]},
+      {"file":"tests/test_config.py","chain":["TestFunctions","test_wrap_passes_args"]},
+      {"file":"tests/test_config.py","chain":["TestFunctions","test_empty_processors"]},
+      {"file":"tests/test_config.py","chain":["TestFunctions","test_wrap_returns_proxy"]},
+      {"file":"tests/test_stdlib.py","chain":["TestRenderToLogArgsAndKwargs","test_integration"]},
+      {"file":"tests/test_stdlib.py","chain":["TestRenderToLogKwargs","test_integration_special_kw"]},
+      {"file":"tests/test_threadlocal.py","chain":["_log"]}
+    ],
+    "optional": [
+      {"file":"src/structlog/__init__.py","chain":"<import>"},
+      {"file":"tests/test_config.py","chain":"<import>"},
+      {"file":"tests/test_stdlib.py","chain":"<import>"},
+      {"file":"tests/test_threadlocal.py","chain":"<import>"}
+    ]
+  },
+  "bind_contextvars": {
+    "target": "src/structlog/contextvars.py",
+    "category": "module name collides with stdlib contextvars; from pkg.mod import; pkg.mod.f()",
+    "required": [
+      {"file":"bench/test_benchmarks.py","chain":["test_log_event_with_contextvars"]},
+      {"file":"bench/test_benchmarks.py","chain":["test_bind_and_clear_contextvars"]},
+      {"file":"src/structlog/contextvars.py","chain":["bound_contextvars"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_multiple_binds","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_reset","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_reset","nested_coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_nested_async_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_nested_async_bind","nested_coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_merge_overrides_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_clear","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_unbind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_parallel_binds"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_parallel_binds","coro1"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_parallel_binds","coro2"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_get_only_gets_structlog_without_deleted"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_get_merged_merges_context"]},
+      {"file":"tests/test_contextvars.py","chain":["TestBoundContextvars","test_cleanup_conflict"]},
+      {"file":"tests/test_contextvars.py","chain":["TestBoundContextvars","test_preserve_independent_bind"]},
+      {"file":"tests/test_contextvars.py","chain":["TestBoundContextvars","test_as_decorator","wrapped"]},
+      {"file":"tests/test_native.py","chain":["TestNativeFilteringLogger","test_async_contextvars_merged"]}
+    ],
+    "optional": [
+      {"file":"tests/test_contextvars.py","chain":"<import>"},
+      {"file":"tests/test_native.py","chain":"<import>"}
+    ]
+  },
+  "merge_contextvars": {
+    "target": "src/structlog/contextvars.py",
+    "category": "as above; relative import; mostly passed by reference",
+    "required": [
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_multiple_binds","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_nested_async_bind","nested_coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_merge_works_without_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_merge_overrides_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_clear","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_clear_without_bind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_unbind","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_unbind_not_bound","coro"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_parallel_binds","coro1"]},
+      {"file":"tests/test_contextvars.py","chain":["TestContextvars","test_parallel_binds","coro2"]}
+    ],
+    "optional": [
+      {"file":"bench/test_benchmarks.py","chain":["test_log_event_with_contextvars"]},
+      {"file":"src/structlog/_config.py","chain":"<import>"},
+      {"file":"src/structlog/stdlib.py","chain":"<import>"},
+      {"file":"tests/test_contextvars.py","chain":"<import>"},
+      {"file":"tests/test_native.py","chain":"<import>"},
+      {"file":"tests/test_native.py","chain":["TestNativeFilteringLogger","test_async_contextvars_merged"]},
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_uses_processors_arg_and_restores_on_success"]}
+    ]
+  },
+  "capture_logs": {
+    "target": "src/structlog/testing.py",
+    "category": "from pkg import mod; mod.f(); module name testing",
+    "required": [
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_captures_logs"]},
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_restores_processors_on_success"]},
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_uses_processors_arg_and_restores_on_success"]},
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_restores_processors_on_error"]},
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_captures_bound_logers"]},
+      {"file":"tests/test_testing.py","chain":["TestCaptureLogs","test_captures_log_level_mapping"]}
+    ]
+  },
+  "_find_first_app_frame_and_name": {
+    "target": "src/structlog/_frames.py",
+    "category": "relative import; private free",
+    "required": [
+      {"file":"src/structlog/processors.py","chain":["StackInfoRenderer","__call__"]},
+      {"file":"src/structlog/processors.py","chain":["CallsiteParameterAdder","__call__"]},
+      {"file":"src/structlog/stdlib.py","chain":["_FixedFindCallerLogger","findCaller"]},
+      {"file":"src/structlog/stdlib.py","chain":["LoggerFactory","__call__"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_ignores_structlog_by_default"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_ignoring_of_additional_frame_names_works"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_stacklevel"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_stacklevel_capped"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_tolerates_missing_name"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_tolerates_name_explicitly_None_oneframe"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_tolerates_name_explicitly_None_manyframe"]},
+      {"file":"tests/test_frames.py","chain":["TestFindFirstAppFrameAndName","test_tolerates_f_back_is_None"]}
+    ],
+    "optional": [
+      {"file":"src/structlog/processors.py","chain":"<import>"},
+      {"file":"src/structlog/stdlib.py","chain":"<import>"},
+      {"file":"tests/test_frames.py","chain":"<import>"}
+    ]
+  },
+  "make_filtering_bound_logger": {
+    "target": "src/structlog/_native.py",
+    "category": "re-exported; pkg.f(); module-level call",
+    "required": [
+      {"file":"bench/test_benchmarks.py","chain":"<file>"},
+      {"file":"src/structlog/_config.py","chain":"<file>"},
+      {"file":"tests/test_native.py","chain":["_bl"]},
+      {"file":"tests/test_native.py","chain":["TestNativeFilteringLogger","test_pickle"]},
+      {"file":"tests/test_native.py","chain":["TestNativeFilteringLogger","test_async_contextvars_merged"]},
+      {"file":"tests/test_native.py","chain":["TestNativeFilteringLogger","test_log_level_str"]}
+    ],
+    "optional": [
+      {"file":"src/structlog/__init__.py","chain":"<import>"},
+      {"file":"src/structlog/_config.py","chain":"<import>"},
+      {"file":"tests/test_native.py","chain":"<import>"}
+    ]
+  },
+  "add_log_level": {
+    "target": "src/structlog/_log_levels.py",
+    "category": "re-exported through two sibling modules; relative",
+    "required": [
+      {"file":"tests/test_stdlib.py","chain":["TestAddLogLevel","test_log_level_added"]},
+      {"file":"tests/test_stdlib.py","chain":["TestAddLogLevel","test_log_level_alias_normalized"]}
+    ],
+    "optional": [
+      {"file":"bench/test_benchmarks.py","chain":["test_log_event_json"]},
+      {"file":"bench/test_benchmarks.py","chain":["test_log_event_console"]},
+      {"file":"bench/test_benchmarks.py","chain":["test_log_event_key_value"]},
+      {"file":"bench/test_benchmarks.py","chain":["test_log_exception_as_dict"]},
+      {"file":"bench/test_benchmarks.py","chain":["test_log_exception_formatted"]},
+      {"file":"src/structlog/_config.py","chain":"<import>"},
+      {"file":"src/structlog/processors.py","chain":"<import>"},
+      {"file":"src/structlog/stdlib.py","chain":"<import>"},
+      {"file":"tests/test_stdlib.py","chain":"<import>"},
+      {"file":"tests/test_stdlib.py","chain":["_configure_for_processor_formatter"]},
+      {"file":"tests/test_stdlib.py","chain":["TestProcessorFormatter","test_foreign_pre_chain"]},
+      {"file":"tests/test_stdlib.py","chain":["TestAsyncBoundLogger","test_integration"]},
+      {"file":"typing_tests/api.py","chain":"<import>"}
+    ]
+  },
+  "_format_exception": {
+    "target": "src/structlog/_frames.py",
+    "category": "mod.f() where mod re-imports f; relative",
+    "required": [
+      {"file":"src/structlog/dev.py","chain":["plain_traceback"]},
+      {"file":"tests/test_dev.py","chain":["TestConsoleRenderer","test_exc_info_tuple"]},
+      {"file":"tests/test_dev.py","chain":["TestConsoleRenderer","test_exc_info_bool"]},
+      {"file":"tests/test_dev.py","chain":["TestConsoleRenderer","test_exc_info_exception"]},
+      {"file":"tests/test_dev.py","chain":["TestConsoleRenderer","test_everything"]},
+      {"file":"tests/test_frames.py","chain":["TestFormatException","test_returns_str"]},
+      {"file":"tests/test_frames.py","chain":["TestFormatException","test_formats"]},
+      {"file":"tests/test_frames.py","chain":["TestFormatException","test_no_trailing_nl"]}
+    ],
+    "optional": [
+      {"file":"src/structlog/dev.py","chain":"<import>"},
+      {"file":"src/structlog/processors.py","chain":"<import>"},
+      {"file":"src/structlog/processors.py","chain":["ExceptionRenderer","__init__"]},
+      {"file":"src/structlog/processors.py","chain":["ExceptionPrettyPrinter","__init__"]},
+      {"file":"tests/test_frames.py","chain":"<import>"}
+    ]
+  },
+  "ProcessorFormatter.remove_processors_meta": {
+    "target": "src/structlog/stdlib.py",
+    "category": "staticmethod; Class.m()",
+    "required": [
+      {"file":"tests/test_stdlib.py","chain":["TestProcessorFormatter","test_remove_processors_meta"]}
+    ],
+    "optional": [
+      {"file":"src/structlog/stdlib.py","chain":["ProcessorFormatter","__init__"]},
+      {"file":"tests/test_stdlib.py","chain":["configure_logging"]}
+    ]
+  },
+  "get_context": {
+    "target": "src/structlog/_base.py",
+    "category": "re-exported; pkg.f(); from pkg import f",
+    "required": [
+      {"file":"src/structlog/contextvars.py","chain":["get_merged_contextvars"]},
+      {"file":"src/structlog/threadlocal.py","chain":["get_merged_threadlocal"]},
+      {"file":"tests/test_base.py","chain":["TestBinding","test_new_clears_state"]},
+      {"file":"tests/test_config.py","chain":["test_lazy_logger_context_is_initial_values"]},
+      {"file":"tests/test_stdlib.py","chain":["TestBoundLogger","test_proxies_bind"]},
+      {"file":"tests/test_stdlib.py","chain":["TestBoundLogger","test_proxies_new"]},
+      {"file":"tests/test_stdlib.py","chain":["TestBoundLogger","test_proxies_unbind"]},
+      {"file":"tests/test_stdlib.py","chain":["TestBoundLogger","test_proxies_try_unbind"]}
+    ],
+    "optional": [
+      {"file":"src/structlog/__init__.py","chain":"<import>"},
+      {"file":"tests/test_base.py","chain":"<import>"},
+      {"file":"tests/test_stdlib.py","chain":"<import>"}
+    ]
+  }
+}

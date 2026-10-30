@@ -1,0 +1,99 @@
+{
+  "getCookie": {
+    "target": "src/helper/cookie/index.ts",
+    "required": [
+      {"file":"adapters/aws-lambda/test/index.test.ts","chain":"<file>"},
+      {"file":"src/adapter/cloudflare-pages/handler.test.ts","chain":"<file>"},
+      {"file":"src/helper/cookie/index.test.ts","chain":"<file>"},
+      {"file":"src/helper/cookie/index.ts","chain":["deleteCookie"]},
+      {"file":"src/middleware/jwk/jwk.ts","chain":["jwk"]},
+      {"file":"src/middleware/jwt/jwt.ts","chain":["jwt"]},
+      {"file":"src/middleware/language/language.ts","chain":["detectFromCookie"]},
+      {"file":"src/validator/validator.ts","chain":["validator"]}
+    ]
+  },
+  "sha256": {
+    "target": "src/utils/crypto.ts",
+    "required": [
+      {"file":"src/middleware/cache/index.ts","chain":["createQueryDigest"]},
+      {"file":"src/utils/crypto.test.ts","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"src/utils/buffer.ts","chain":"<file>"}
+    ]
+  },
+  "verify": {
+    "target": "src/utils/jwt/jwt.ts",
+    "required": [
+      {"file":"src/utils/jwt/jwt.ts","chain":["verifyWithJwks"]},
+      {"file":"src/middleware/jwt/jwt.ts","chain":["jwt"]},
+      {"file":"src/utils/jwt/jwt.test.ts","chain":"<file>"}
+    ],
+    "optional": [
+      {"file":"src/middleware/jwt/jwt.ts","chain":"<file>"},
+      {"file":"src/utils/jwt/index.ts","chain":"<file>"},
+      {"file":"src/middleware/jwt/index.ts","chain":"<file>"}
+    ]
+  },
+  "streamSSE": {
+    "target": "src/helper/streaming/sse.ts",
+    "required": [
+      {"file":"adapters/aws-lambda/test/index.test.ts","chain":"<file>"},
+      {"file":"runtime-tests/bun/index.test.tsx","chain":"<file>"},
+      {"file":"runtime-tests/deno/stream.test.ts","chain":"<file>"},
+      {"file":"runtime-tests/node/index.test.ts","chain":"<file>"},
+      {"file":"src/helper/streaming/sse.test.tsx","chain":"<file>"},
+      {"file":"src/middleware/compress/index.test.ts","chain":"<file>"}
+    ]
+  },
+  "parseBody": {
+    "target": "src/utils/body.ts",
+    "required": [
+      {"file":"src/request.ts","chain":["parseBody"]},
+      {"file":"src/middleware/method-override/index.ts","chain":["methodOverride"]},
+      {"file":"src/utils/body.test.ts","chain":"<file>"}
+    ]
+  },
+  "SSEStreamingApi.writeSSE": {
+    "target": "src/helper/streaming/sse.ts",
+    "required": [
+      {"file":"src/helper/streaming/sse.ts","chain":["run"]},
+      {"file":"src/helper/streaming/sse.test.tsx","chain":"<file>"},
+      {"file":"adapters/aws-lambda/test/index.test.ts","chain":"<file>"},
+      {"file":"src/middleware/compress/index.test.ts","chain":"<file>"}
+    ]
+  },
+  "mergePath": {
+    "target": "src/utils/url.ts",
+    "required": [
+      {"file":"src/hono-base.ts","chain":["#addRoute","addRoute"]},
+      {"file":"src/hono-base.ts","chain":["basePath"]},
+      {"file":"src/hono-base.ts","chain":["mount"]},
+      {"file":"src/hono-base.ts","chain":["request"]},
+      {"file":"src/utils/url.test.ts","chain":"<file>"}
+    ]
+  },
+  "createFactory": {
+    "target": "src/helper/factory/index.ts",
+    "required": [
+      {"file":"src/helper/factory/index.test.ts","chain":"<file>"},
+      {"file":"build/fixtures/declaration-emit/index.ts","chain":"<file>"}
+    ]
+  },
+  "decodeBase64Url": {
+    "target": "src/utils/encode.ts",
+    "required": [
+      {"file":"src/utils/encode.test.ts","chain":"<file>"},
+      {"file":"src/utils/jwt/jwt.ts","chain":["decodeJwtPart"]},
+      {"file":"src/utils/jwt/jwt.ts","chain":["verify"]}
+    ]
+  },
+  "timingSafeEqual": {
+    "target": "src/utils/buffer.ts",
+    "required": [
+      {"file":"src/middleware/basic-auth/index.ts","chain":["basicAuth"]},
+      {"file":"src/middleware/bearer-auth/index.ts","chain":["bearerAuth"]},
+      {"file":"src/utils/buffer.test.ts","chain":"<file>"}
+    ]
+  }
+}

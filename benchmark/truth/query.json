@@ -1,0 +1,145 @@
+{
+  "hashKey": {
+    "target": "packages/query-core/src/utils.ts",
+    "target_lines": [323],
+    "category": "cross-package through the package name",
+    "required": [
+      {"file":"packages/query-core/src/__tests__/queryCache.test.tsx","chain":"<file>","lines":[451,464,483]},
+      {"file":"packages/query-core/src/__tests__/utils.test-d.tsx","chain":"<file>","lines":[531]},
+      {"file":"packages/query-core/src/__tests__/utils.test.tsx","chain":"<file>","lines":[41,560,561,562,569,570,580,580,587,587,594,594]},
+      {"file":"packages/query-core/src/mutationObserver.ts","chain":"MutationObserver::setOptions","lines":[123,123]},
+      {"file":"packages/query-core/src/queryClient.ts","chain":"QueryClient::setQueryDefaults","lines":[946]},
+      {"file":"packages/query-core/src/queryClient.ts","chain":"QueryClient::setMutationDefaults","lines":[1006]},
+      {"file":"packages/query-core/src/utils.ts","chain":"matchMutation","lines":[279,279]},
+      {"file":"packages/query-persist-client-core/src/__tests__/createPersister.test.ts","chain":"setupPersister","lines":[49]},
+      {"file":"packages/query-persist-client-core/src/createPersister.ts","chain":"experimental_createQueryPersister::restoreQueries","lines":[388]},
+      {"file":"packages/query-persist-client-core/src/createPersister.ts","chain":"experimental_createQueryPersister::removeQueries","lines":[443]}
+    ]
+  },
+  "replaceEqualDeep": {
+    "target": "packages/query-core/src/utils.ts",
+    "target_lines": [389],
+    "category": "overloads; recursion; relative",
+    "required": [
+      {"file":"packages/angular-query-experimental/src/inject-mutation-state.ts","chain":"injectMutationState","lines":[159]},
+      {"file":"packages/lit-query/src/createQueriesController.ts","chain":"QueriesController::createResult","lines":[541]},
+      {"file":"packages/lit-query/src/useMutationState.ts","chain":"MutationStateController::setMutationState","lines":[123]},
+      {"file":"packages/preact-query/src/useMutationState.ts","chain":"createSnapshotFactory","lines":[97]},
+      {"file":"packages/query-core/src/__tests__/utils.test-d.tsx","chain":"<file>","lines":[633,645,646]},
+      {"file":"packages/query-core/src/__tests__/utils.test.tsx","chain":"<file>","lines":[197,198,199,200,201,202,209,210,211,212,213,214,220,221,222,223,224,225,226,227,228,229,235,241,250,259,265,271,277,288,302,314,326,339,348,358,371,397,415,427,439,446,462]},
+      {"file":"packages/query-core/src/queriesObserver.ts","chain":"QueriesObserver::#combineResult","lines":[326]},
+      {"file":"packages/query-core/src/utils.ts","chain":"replaceEqualDeep","lines":[429]},
+      {"file":"packages/query-core/src/utils.ts","chain":"replaceData","lines":[551,562]},
+      {"file":"packages/react-query/src/useMutationState.ts","chain":"createSnapshotFactory","lines":[97]},
+      {"file":"packages/solid-query/src/useMutationState.ts","chain":"useMutationState","lines":[145]},
+      {"file":"packages/svelte-query/src/useMutationState.svelte.ts","chain":"useMutationState","lines":[116]}
+    ]
+  },
+  "functionalUpdate": {
+    "target": "packages/query-core/src/utils.ts",
+    "target_lines": [132],
+    "category": "relative",
+    "required": [
+      {"file":"packages/query-core/src/__tests__/utils.test-d.tsx","chain":"<file>","lines":[442,447]},
+      {"file":"packages/query-core/src/queryClient.ts","chain":"QueryClient::setQueryData","lines":[307]}
+    ]
+  },
+  "matchQuery": {
+    "target": "packages/query-core/src/utils.ts",
+    "target_lines": [205],
+    "category": "relative and package name",
+    "required": [
+      {"file":"packages/query-core/src/__tests__/utils.test-d.tsx","chain":"<file>","lines":[615]},
+      {"file":"packages/query-core/src/queryCache.ts","chain":"QueryCache::find","lines":[330]},
+      {"file":"packages/query-core/src/queryCache.ts","chain":"QueryCache::findAll","lines":[353]},
+      {"file":"packages/query-persist-client-core/src/createPersister.ts","chain":"experimental_createQueryPersister::persisterFn","lines":[284]}
+    ]
+  },
+  "shouldThrowError": {
+    "target": "packages/query-core/src/utils.ts",
+    "target_lines": [693],
+    "category": "cross-package; several framework packages",
+    "required": [
+      {"file":"packages/angular-query-experimental/src/create-base-query.ts","chain":"createBaseQuery","lines":[135]},
+      {"file":"packages/angular-query-experimental/src/inject-mutation.ts","chain":"injectMutation","lines":[281]},
+      {"file":"packages/preact-query/src/errorBoundaryUtils.ts","chain":"ensurePreventErrorBoundaryRetry","lines":[41]},
+      {"file":"packages/preact-query/src/errorBoundaryUtils.ts","chain":"getHasError","lines":[101]},
+      {"file":"packages/preact-query/src/useMutation.ts","chain":"useMutation","lines":[235]},
+      {"file":"packages/query-core/src/__tests__/utils.test-d.tsx","chain":"<file>","lines":[807]},
+      {"file":"packages/query-core/src/__tests__/utils.test.tsx","chain":"<file>","lines":[675,678,684,685,686]},
+      {"file":"packages/react-query/src/errorBoundaryUtils.ts","chain":"ensurePreventErrorBoundaryRetry","lines":[41]},
+      {"file":"packages/react-query/src/errorBoundaryUtils.ts","chain":"getHasError","lines":[101]},
+      {"file":"packages/react-query/src/useMutation.ts","chain":"useMutation","lines":[235]},
+      {"file":"packages/solid-query/src/useBaseQuery.ts","chain":"useBaseQuery","lines":[283]},
+      {"file":"packages/solid-query/src/useMutation.ts","chain":"useMutation","lines":[216]},
+      {"file":"packages/vue-query/src/useBaseQuery.ts","chain":"useBaseQuery::suspense::run","lines":[191]},
+      {"file":"packages/vue-query/src/useBaseQuery.ts","chain":"useBaseQuery","lines":[222]},
+      {"file":"packages/vue-query/src/useMutation.ts","chain":"useMutation","lines":[299]}
+    ]
+  },
+  "isCancelledError": {
+    "target": "packages/query-core/src/retryer.ts",
+    "target_lines": [136],
+    "category": "barrel in query-core",
+    "required": [
+      {"file":"packages/query-core/src/__tests__/retryer.test-d.tsx","chain":"<file>","lines":[602,618]}
+    ]
+  },
+  "createRetryer": {
+    "target": "packages/query-core/src/retryer.ts",
+    "target_lines": [149],
+    "category": "relative",
+    "required": [
+      {"file":"packages/query-core/src/__tests__/retryer.test-d.tsx","chain":"<file>","lines":[19,29,39,52,77,92,101,142,145,164,167,176,193,196,221,230,249,271,310,332,456,472,500,514]},
+      {"file":"packages/query-core/src/__tests__/retryer.test.tsx","chain":"<file>","lines":[21,37,63,85,104,129,147,173,199,226,248,269,276,289]},
+      {"file":"packages/query-core/src/mutation.ts","chain":"Mutation::execute","lines":[312]},
+      {"file":"packages/query-core/src/query.ts","chain":"Query::fetch","lines":[839]}
+    ]
+  },
+  "hydrate": {
+    "target": "packages/query-core/src/hydration.ts",
+    "target_lines": [306],
+    "category": "cross-package; vue-query and others",
+    "required": [
+      {"file":"packages/preact-query/src/HydrationBoundary.tsx","chain":"HydrationBoundary","lines":[152,163]},
+      {"file":"packages/query-core/src/__tests__/hydration.test-d.tsx","chain":"<file>","lines":[89,94,95,97,107,109,118,124,136,141,469,479]},
+      {"file":"packages/query-core/src/__tests__/hydration.test.tsx","chain":"<file>","lines":[144,253,278,313,352,381,443,490,527,567,669,756,757,758,805,864,923,958,997,1063,1128,1165,1214,1250,1295,1345,1366,1523,1565,1599,1648,1680,1733,1767,1857,1907,1966,2017,2067]},
+      {"file":"packages/query-core/src/__tests__/query.test.tsx","chain":"<file>","lines":[480]},
+      {"file":"packages/query-core/src/__tests__/queryClient.test.tsx","chain":"<file>","lines":[2959]},
+      {"file":"packages/query-devtools/src/__tests__/Devtools.test.tsx","chain":"<file>","lines":[640]},
+      {"file":"packages/query-persist-client-core/src/persist.ts","chain":"persistQueryClientRestore","lines":[142]},
+      {"file":"packages/react-query/src/HydrationBoundary.tsx","chain":"HydrationBoundary","lines":[154,165]},
+      {"file":"packages/solid-query/src/useBaseQuery.ts","chain":"useBaseQuery::onHydrated","lines":[320]},
+      {"file":"packages/svelte-query/src/useHydrate.ts","chain":"useHydrate","lines":[39]}
+    ]
+  },
+  "dehydrate": {
+    "target": "packages/query-core/src/hydration.ts",
+    "target_lines": [245],
+    "category": "cross-package; vue-query wraps it",
+    "required": [
+      {"file":"packages/query-core/src/__tests__/hydration.test-d.tsx","chain":"<file>","lines":[40,45,47,52,62,67,75,81,351,361,367,380,391,397,410,493,518]},
+      {"file":"packages/query-core/src/__tests__/hydration.test.tsx","chain":"<file>","lines":[134,222,243,273,303,342,373,435,472,510,561,624,709,745,793,833,898,945,988,1023,1054,1117,1155,1210,1242,1278,1333,1362,1404,1434,1471,1510,1556,1595,1639,1676,1729,1763,1828,1884,1941,2002,2049]},
+      {"file":"packages/query-core/src/__tests__/query.test.tsx","chain":"<file>","lines":[477]},
+      {"file":"packages/query-core/src/__tests__/queryClient.test.tsx","chain":"<file>","lines":[2947]},
+      {"file":"packages/query-devtools/src/__tests__/Devtools.test.tsx","chain":"<file>","lines":[637]},
+      {"file":"packages/query-persist-client-core/src/__tests__/persist.test.ts","chain":"<file>","lines":[255]},
+      {"file":"packages/query-persist-client-core/src/__tests__/retryStrategies.test.ts","chain":"createQuery","lines":[24]},
+      {"file":"packages/query-persist-client-core/src/__tests__/retryStrategies.test.ts","chain":"<file>","lines":[89]},
+      {"file":"packages/query-persist-client-core/src/persist.ts","chain":"persistQueryClientSave","lines":[178]},
+      {"file":"packages/query-sync-storage-persister/src/__tests__/storageIsFull.test.ts","chain":"<file>","lines":[90,149,172,210]},
+      {"file":"packages/svelte-query/tests/HydrationBoundary/HydrationBoundary.svelte.test.ts","chain":"<file>","lines":[22]}
+    ]
+  },
+  "useBaseQuery": {
+    "target": "packages/react-query/src/useBaseQuery.ts",
+    "target_lines": [39],
+    "category": "same name in solid, preact and others must not count",
+    "required": [
+      {"file":"packages/react-query/src/useInfiniteQuery.ts","chain":"useInfiniteQuery","lines":[359]},
+      {"file":"packages/react-query/src/useQuery.ts","chain":"useQuery","lines":[292]},
+      {"file":"packages/react-query/src/useSuspenseInfiniteQuery.ts","chain":"useSuspenseInfiniteQuery","lines":[124]},
+      {"file":"packages/react-query/src/useSuspenseQuery.ts","chain":"useSuspenseQuery","lines":[88]}
+    ]
+  }
+}

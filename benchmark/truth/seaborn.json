@@ -1,0 +1,233 @@
+{
+  "bootstrap": {
+    "target": "seaborn/algorithms.py",
+    "category": "import pkg.mod as p (from . import algorithms as algo); local var same name",
+    "required": [
+      {"file":"seaborn/_statistics.py","chain":["EstimateAggregator","__call__"]},
+      {"file":"seaborn/_statistics.py","chain":["WeightedAggregator","__call__"]},
+      {"file":"seaborn/regression.py","chain":["_RegressionPlotter","estimate_data"]},
+      {"file":"seaborn/regression.py","chain":["_RegressionPlotter","fit_fast"]},
+      {"file":"seaborn/regression.py","chain":["_RegressionPlotter","fit_poly"]},
+      {"file":"seaborn/regression.py","chain":["_RegressionPlotter","fit_statsmodels"]},
+      {"file":"seaborn/regression.py","chain":["_RegressionPlotter","fit_logx"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_length"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_range"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_multiarg"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_axis"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_seed"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_ols"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_units"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_arglength"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_string_func"]},
+      {"file":"tests/test_algorithms.py","chain":["test_bootstrap_reproducibility"]},
+      {"file":"tests/test_algorithms.py","chain":["test_nanaware_func_auto"]},
+      {"file":"tests/test_algorithms.py","chain":["test_nanaware_func_warning"]}
+    ],
+    "optional": [
+      {"file":"seaborn/_statistics.py","chain":"<import>"}
+    ]
+  },
+  "despine": {
+    "target": "seaborn/utils.py",
+    "category": "ambiguous free v FacetGrid.despine; import seaborn as sns star re-export; utils.f()",
+    "required": [
+      {"file":"doc/sphinxext/tutorial_builder.py","chain":["properties"]},
+      {"file":"doc/sphinxext/tutorial_builder.py","chain":["distributions"]},
+      {"file":"doc/sphinxext/tutorial_builder.py","chain":["categorical"]},
+      {"file":"doc/sphinxext/tutorial_builder.py","chain":["aesthetics"]},
+      {"file":"examples/different_scatter_variables.py","chain":"<file>"},
+      {"file":"examples/grouped_boxplot.py","chain":"<file>"},
+      {"file":"examples/histogram_stacked.py","chain":"<file>"},
+      {"file":"examples/horizontal_boxplot.py","chain":"<file>"},
+      {"file":"examples/jitter_stripplot.py","chain":"<file>"},
+      {"file":"examples/paired_pointplots.py","chain":"<file>"},
+      {"file":"examples/pairgrid_dotplot.py","chain":"<file>"},
+      {"file":"examples/palette_choices.py","chain":"<file>"},
+      {"file":"examples/part_whole_bars.py","chain":"<file>"},
+      {"file":"examples/wide_form_violinplot.py","chain":"<file>"},
+      {"file":"seaborn/axisgrid.py","chain":["FacetGrid","despine"]},
+      {"file":"seaborn/axisgrid.py","chain":["PairGrid","__init__"]},
+      {"file":"seaborn/axisgrid.py","chain":["PairGrid","map_diag"]},
+      {"file":"seaborn/axisgrid.py","chain":["JointGrid","__init__"]},
+      {"file":"seaborn/matrix.py","chain":["_HeatMapper","plot"]},
+      {"file":"seaborn/matrix.py","chain":["_DendrogramPlotter","plot"]},
+      {"file":"seaborn/matrix.py","chain":["ClusterGrid","plot_dendrograms"]},
+      {"file":"seaborn/matrix.py","chain":["ClusterGrid","plot_colors"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_specific_axes"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_with_offset"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_side_specific_offset"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_with_offset_specific_axes"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_trim_spines"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_trim_inverted"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_trim_noticks"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_trim_categorical"]},
+      {"file":"tests/test_utils.py","chain":["TestSpineUtils","test_despine_moved_ticks"]}
+    ],
+    "optional": [
+      {"file":"seaborn/matrix.py","chain":"<import>"}
+    ]
+  },
+  "categorical_order": {
+    "target": "seaborn/_base.py",
+    "category": "ambiguous: _base.py v _core/rules.py",
+    "required": [
+      {"file":"seaborn/_base.py","chain":["HueMapping","categorical_mapping"]},
+      {"file":"seaborn/_base.py","chain":["SizeMapping","categorical_mapping"]},
+      {"file":"seaborn/_base.py","chain":["StyleMapping","__init__"]},
+      {"file":"seaborn/_base.py","chain":["VectorPlotter","_attach"]},
+      {"file":"seaborn/_base.py","chain":["VectorPlotter","scale_categorical"]},
+      {"file":"seaborn/axisgrid.py","chain":["Grid","_get_palette"]},
+      {"file":"seaborn/axisgrid.py","chain":["FacetGrid","__init__"]},
+      {"file":"seaborn/axisgrid.py","chain":["PairGrid","__init__"]},
+      {"file":"seaborn/categorical.py","chain":["_CategoricalPlotter","__init__"]},
+      {"file":"tests/test_axisgrid.py","chain":["TestFacetGrid","test_get_boolean_legend_data"]},
+      {"file":"tests/test_base.py","chain":["TestHueMapping","test_hue_map_categorical"]},
+      {"file":"tests/test_base.py","chain":["TestHueMapping","test_saturation"]},
+      {"file":"tests/test_base.py","chain":["TestSizeMapping","test_map_size_categorical"]},
+      {"file":"tests/test_base.py","chain":["TestVectorPlotter","test_iter_data_reverse"]},
+      {"file":"tests/test_base.py","chain":["TestVectorPlotter","test_scale_categorical"]},
+      {"file":"tests/test_base.py","chain":["TestCoreFunc","test_categorical_order"]},
+      {"file":"tests/test_categorical.py","chain":["SharedAxesLevelTests","test_labels_long"]},
+      {"file":"tests/test_categorical.py","chain":["SharedAxesLevelTests","test_labels_hue_order"]},
+      {"file":"tests/test_categorical.py","chain":["SharedScatterTests","test_positions"]},
+      {"file":"tests/test_categorical.py","chain":["SharedScatterTests","test_positions_dodged"]},
+      {"file":"tests/test_categorical.py","chain":["SharedScatterTests","test_hue_categorical"]},
+      {"file":"tests/test_categorical.py","chain":["SharedScatterTests","test_single"]},
+      {"file":"tests/test_categorical.py","chain":["SharedScatterTests","test_legend_categorical"]},
+      {"file":"tests/test_categorical.py","chain":["TestStripPlot","test_jitter"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxPlot","test_grouped"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxPlot","test_hue_grouped"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxPlot","test_hue_not_dodged"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxPlot","test_dodge_native_scale"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxPlot","test_dodge_without_hue"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxPlot","test_gap"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxenPlot","test_grouped"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxenPlot","test_hue_grouped"]},
+      {"file":"tests/test_categorical.py","chain":["TestBoxenPlot","test_dodge_native_scale"]},
+      {"file":"tests/test_categorical.py","chain":["TestViolinPlot","test_grouped"]},
+      {"file":"tests/test_categorical.py","chain":["TestViolinPlot","test_hue_grouped"]},
+      {"file":"tests/test_categorical.py","chain":["TestViolinPlot","test_hue_not_dodged"]},
+      {"file":"tests/test_categorical.py","chain":["TestViolinPlot","test_dodge_native_scale"]},
+      {"file":"tests/test_categorical.py","chain":["TestViolinPlot","test_split_single"]},
+      {"file":"tests/test_categorical.py","chain":["TestViolinPlot","test_split_multi"]},
+      {"file":"tests/test_categorical.py","chain":["TestBarPlot","test_estimate_default"]},
+      {"file":"tests/test_categorical.py","chain":["TestBarPlot","test_estimate_string"]},
+      {"file":"tests/test_categorical.py","chain":["TestBarPlot","test_estimate_func"]},
+      {"file":"tests/test_categorical.py","chain":["TestBarPlot","test_errorbars"]},
+      {"file":"tests/test_categorical.py","chain":["TestPointPlot","test_estimate"]},
+      {"file":"tests/test_categorical.py","chain":["TestPointPlot","test_errorbars"]},
+      {"file":"tests/test_categorical.py","chain":["TestCountPlot","test_stat"]},
+      {"file":"tests/test_distributions.py","chain":["TestRugPlot","test_rug_colors"]},
+      {"file":"tests/test_distributions.py","chain":["TestKDEPlotUnivariate","test_legend"]},
+      {"file":"tests/test_distributions.py","chain":["TestDisPlot","test_array_faceting"]},
+      {"file":"tests/test_relational.py","chain":["Helpers","levels"]},
+      {"file":"tests/test_relational.py","chain":["TestRelationalPlotter","test_relplot_weighted_estimator"]},
+      {"file":"tests/test_relational.py","chain":["TestLinePlotter","test_weights"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_legend_hue"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_legend_hue_style_same"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_legend_hue_style_different"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_legend_data_hue_size_same"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_legend_size_numeric_list"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_legend_size_numeric_dict"]},
+      {"file":"tests/test_relational.py","chain":["TestScatterPlotter","test_hue_order"]}
+    ],
+    "optional": [
+      {"file":"seaborn/axisgrid.py","chain":"<import>"},
+      {"file":"seaborn/categorical.py","chain":"<import>"},
+      {"file":"tests/test_axisgrid.py","chain":"<import>"},
+      {"file":"tests/test_base.py","chain":"<import>"},
+      {"file":"tests/test_categorical.py","chain":"<import>"},
+      {"file":"tests/test_distributions.py","chain":"<import>"},
+      {"file":"tests/test_relational.py","chain":"<import>"}
+    ]
+  },
+  "user_cache_dir": {
+    "target": "seaborn/external/appdirs.py",
+    "category": "nested file named like the appdirs package",
+    "required": [
+      {"file":"seaborn/utils.py","chain":["get_data_home"]}
+    ],
+    "optional": [
+      {"file":"seaborn/utils.py","chain":"<import>"}
+    ]
+  },
+  "axis_ticklabels_overlap": {
+    "target": "seaborn/utils.py",
+    "category": "free; relative; utils.f()",
+    "required": [
+      {"file":"seaborn/matrix.py","chain":["_HeatMapper","plot"]},
+      {"file":"seaborn/matrix.py","chain":["_DendrogramPlotter","plot"]},
+      {"file":"seaborn/utils.py","chain":["axes_ticklabels_overlap"]},
+      {"file":"tests/test_utils.py","chain":["test_ticklabels_overlap"]}
+    ],
+    "optional": [
+      {"file":"seaborn/matrix.py","chain":"<import>"}
+    ]
+  },
+  "husl_palette": {
+    "target": "seaborn/palettes.py",
+    "category": "star re-export; import seaborn as sns; palettes.f()",
+    "required": [
+      {"file":"examples/structured_heatmap.py","chain":"<file>"},
+      {"file":"seaborn/palettes.py","chain":["color_palette"]},
+      {"file":"tests/test_palettes.py","chain":["TestColorPalettes","test_husl_palette"]},
+      {"file":"tests/test_palettes.py","chain":["TestColorPalettes","test_palette_desat"]},
+      {"file":"tests/test_palettes.py","chain":["TestColorPalettes","test_husl_values"]}
+    ]
+  },
+  "relative_luminance": {
+    "target": "seaborn/utils.py",
+    "category": "relative import; utils.f()",
+    "required": [
+      {"file":"seaborn/matrix.py","chain":["_HeatMapper","_annotate_heatmap"]},
+      {"file":"tests/test_utils.py","chain":["test_relative_luminance"]}
+    ],
+    "optional": [
+      {"file":"seaborn/matrix.py","chain":"<import>"}
+    ]
+  },
+  "ci_to_errsize": {
+    "target": "seaborn/utils.py",
+    "category": "utils.f() from tests only",
+    "required": [
+      {"file":"tests/test_utils.py","chain":["test_ci_to_errsize"]}
+    ]
+  },
+  "move_legend": {
+    "target": "seaborn/utils.py",
+    "category": "import seaborn as sns star re-export; utils.f()",
+    "required": [
+      {"file":"examples/jitter_stripplot.py","chain":"<file>"},
+      {"file":"tests/test_utils.py","chain":["test_move_legend_matplotlib_objects"]},
+      {"file":"tests/test_utils.py","chain":["test_move_legend_grid_object"]},
+      {"file":"tests/test_utils.py","chain":["test_move_legend_input_checks"]},
+      {"file":"tests/test_utils.py","chain":["test_move_legend_with_labels"]}
+    ]
+  },
+  "Histogram.define_bin_params": {
+    "target": "seaborn/_statistics.py",
+    "category": "method; untyped receivers",
+    "required": [
+      {"file":"seaborn/_statistics.py","chain":["Histogram","_eval_bivariate"]},
+      {"file":"seaborn/_statistics.py","chain":["Histogram","_eval_univariate"]},
+      {"file":"seaborn/distributions.py","chain":["_DistributionPlotter","plot_bivariate_histogram"]},
+      {"file":"tests/test_distributions.py","chain":["TestHistPlotBivariate","test_mesh_with_hue"]},
+      {"file":"tests/test_distributions.py","chain":["TestHistPlotBivariate","test_mesh_common_norm"]},
+      {"file":"tests/test_distributions.py","chain":["TestHistPlotBivariate","test_mesh_unique_norm"]},
+      {"file":"tests/test_distributions.py","chain":["TestHistPlotBivariate","test_hue_color_limits"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_string_bins"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_int_bins"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_array_bins"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_bivariate_string_bins"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_bivariate_int_bins"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_bivariate_array_bins"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_binwidth"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_bivariate_binwidth"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_binrange"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_bivariate_binrange"]},
+      {"file":"tests/test_statistics.py","chain":["TestHistogram","test_discrete_bins"]}
+    ]
+  }
+}

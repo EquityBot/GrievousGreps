@@ -1,0 +1,23 @@
+[
+  { "name": "attrs", "repository": "python-attrs/attrs", "sha": "c8bb9bfaa2843e7844b5bb13bed4370b51feec4f", "language": "Python", "rules": "span" },
+  { "name": "axum", "repository": "tokio-rs/axum", "sha": "bebe175c334d2a4154b32cd9e477274c2aab5953", "language": "Rust", "rules": "span" },
+  { "name": "click", "repository": "pallets/click", "sha": "2247b35ea1c47c727d7a06e51fa280e12a863ff6", "language": "Python", "rules": "span" },
+  { "name": "flask", "repository": "pallets/flask", "sha": "d086db856be187255b8ec61ef409357393020f32", "language": "Python", "rules": "names" },
+  { "name": "hono", "repository": "honojs/hono", "sha": "ee88684625077a2cd0e2f4613e593e2635ffe4c7", "language": "TypeScript", "rules": "names" },
+  { "name": "httpx", "repository": "encode/httpx", "sha": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254", "language": "Python", "rules": "span" },
+  { "name": "jotai", "repository": "pmndrs/jotai", "sha": "e5971ba44866d070564a0a30187f6976fee0e350", "language": "TypeScript", "rules": "chain" },
+  { "name": "mdbook", "repository": "rust-lang/mdBook", "sha": "b21095b60826a4dc644bbde97a951ec72126d5d1", "language": "Rust", "rules": "chain" },
+  { "name": "query", "repository": "TanStack/query", "sha": "979695d0a2daa8662bdfcbf9f4ae9c9805d97dec", "language": "TypeScript", "rules": "span" },
+  { "name": "radix", "repository": "radix-ui/primitives", "sha": "eb3a2b7091293e27df8f9ba906632d8daa3d81a3", "language": "TypeScript", "rules": "span" },
+  { "name": "rayon", "repository": "rayon-rs/rayon", "sha": "599425d4a4c64714632817f48496dbc53f656a90", "language": "Rust", "rules": "span" },
+  { "name": "rich", "repository": "Textualize/rich", "sha": "9d8f9a372cc5916fd4781fec207ced7ddac2f08f", "language": "Python", "rules": "span" },
+  { "name": "ripgrep", "repository": "BurntSushi/ripgrep", "sha": "91f5d22ef48bde459d90a8c7dbeab416e97d0f2b", "language": "Rust", "rules": "names" },
+  { "name": "seaborn", "repository": "mwaskom/seaborn", "sha": "c1cb287835852406691aed60ea0c62710f2c6b18", "language": "Python", "rules": "chain" },
+  { "name": "structlog", "repository": "hynek/structlog", "sha": "19c4f21059e853114efa7a93b6e675d93bf7934e", "language": "Python", "rules": "chain" },
+  { "name": "table", "repository": "TanStack/table", "sha": "c14e0221b1e656c7bb35e7b3d4cdf188719a3599", "language": "TypeScript", "rules": "span" },
+  { "name": "tokio", "repository": "tokio-rs/tokio", "sha": "6470b5e4b8e943ad014383a5bf6a93ba415678a3", "language": "Rust", "rules": "span" },
+  { "name": "tracing", "repository": "tokio-rs/tracing", "sha": "79b80a9095944cef1006ec2893510325e157639d", "language": "Rust", "rules": "span" },
+  { "name": "trpc", "repository": "trpc/trpc", "sha": "708753ff1383c47c5f765694978db1000a86ee36", "language": "TypeScript", "rules": "span" },
+  { "name": "vue", "repository": "vuejs/core", "sha": "24c9d0bffb2299635b8112a978d74a38723aaa10", "language": "TypeScript", "rules": "span" },
+  { "name": "zola", "repository": "getzola/zola", "sha": "628926f8ea5d68d9430ee242289ce1a33794dbd2", "language": "Rust", "rules": "span" }
+]

@@ -1,0 +1,199 @@
+{
+  "serve": {
+    "target": "axum/src/serve/mod.rs",
+    "target_lines": [110],
+    "category": "axum::serve; methods named serve must not count",
+    "required": [
+      {"file":"axum/benches/benches.rs","chain":"impl BenchmarkBuilder::run","lines":[168]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::if_it_compiles_it_works","lines":[1032,1033,1035,1037,1041,1046,1051,1057,1064,1070,1071,1073,1075,1079,1084,1089,1093,1098,1104,1108,1110,1112,1116,1118,1120,1124,1126,1128,1132,1137,1145,1146,1149,1152,1153,1165,1167,1170,1173]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::test_serve_local_addr","lines":[1209]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::test_with_graceful_shutdown_local_addr","lines":[1221]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::test_with_graceful_shutdown_request_header_timeout","lines":[1245]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::test_hyper_header_read_timeout_is_enabled","lines":[1267]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::into_future_outside_tokio","lines":[1300]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_on_custom_io_type","lines":[1310]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::graceful_shutdown_completes_inflight_request","lines":[1358]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::tap_io_runs_on_each_accepted_connection","lines":[1427]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_with_custom_executor","lines":[1456]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_with_custom_executor_http2","lines":[1491]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_with_custom_body_type","lines":[1538]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_closes_idle_connection","lines":[1573]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_grace_force_closes_stuck_connection","lines":[1628]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_without_grace_lets_inflight_request_finish","lines":[1688]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_closes_idle_connection_http2","lines":[1732]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_grace_force_closes_stuck_connection_http2","lines":[1791]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_grace_lets_request_finish_in_time","lines":[1842]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_jitter_extends_deadline","lines":[1891]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_grace_unblocks_graceful_shutdown","lines":[1970]},
+      {"file":"axum/src/test_helpers/test_client.rs","chain":"spawn_service","lines":[24]},
+      {"file":"examples/anyhow-error-response/src/main.rs","chain":"main","lines":[22]},
+      {"file":"examples/auto-reload/src/main.rs","chain":"main","lines":[29]},
+      {"file":"examples/chat/src/main.rs","chain":"main","lines":[59]},
+      {"file":"examples/compression/src/main.rs","chain":"main","lines":[26]},
+      {"file":"examples/consume-body-in-extractor-or-middleware/src/main.rs","chain":"main","lines":[37]},
+      {"file":"examples/cors/src/main.rs","chain":"serve","lines":[44]},
+      {"file":"examples/customize-extractor-error/src/main.rs","chain":"main","lines":[35]},
+      {"file":"examples/customize-path-rejection/src/main.rs","chain":"main","lines":[35]},
+      {"file":"examples/dependency-injection/src/main.rs","chain":"main","lines":[72]},
+      {"file":"examples/diesel-async-postgres/src/main.rs","chain":"main","lines":[86]},
+      {"file":"examples/diesel-postgres/src/main.rs","chain":"main","lines":[89]},
+      {"file":"examples/error-handling/src/main.rs","chain":"main","lines":[92]},
+      {"file":"examples/form/src/main.rs","chain":"main","lines":[29]},
+      {"file":"examples/global-404-handler/src/main.rs","chain":"main","lines":[36]},
+      {"file":"examples/graceful-shutdown/src/main.rs","chain":"main","lines":[49]},
+      {"file":"examples/handle-head-request/src/main.rs","chain":"main","lines":[20]},
+      {"file":"examples/hello-world/src/main.rs","chain":"main","lines":[19]},
+      {"file":"examples/jwt/src/main.rs","chain":"main","lines":[76]},
+      {"file":"examples/key-value-store/src/main.rs","chain":"main","lines":[81]},
+      {"file":"examples/mongodb/src/main.rs","chain":"main","lines":[53]},
+      {"file":"examples/multipart-form/src/main.rs","chain":"main","lines":[41]},
+      {"file":"examples/oauth/src/main.rs","chain":"main","lines":[80]},
+      {"file":"examples/parse-body-based-on-content-type/src/main.rs","chain":"main","lines":[36]},
+      {"file":"examples/print-request-response/src/main.rs","chain":"main","lines":[38]},
+      {"file":"examples/prometheus-metrics/src/main.rs","chain":"start_main_server","lines":[48]},
+      {"file":"examples/prometheus-metrics/src/main.rs","chain":"start_metrics_server","lines":[59]},
+      {"file":"examples/readme/src/main.rs","chain":"main","lines":[32]},
+      {"file":"examples/request-id/src/main.rs","chain":"main","lines":[58]},
+      {"file":"examples/reqwest-response/src/main.rs","chain":"main","lines":[50]},
+      {"file":"examples/reverse-proxy/src/main.rs","chain":"main","lines":[37]},
+      {"file":"examples/reverse-proxy/src/main.rs","chain":"server","lines":[66]},
+      {"file":"examples/routes-and-handlers-close-together/src/main.rs","chain":"main","lines":[23]},
+      {"file":"examples/sqlx-postgres/src/main.rs","chain":"main","lines":[60]},
+      {"file":"examples/sse/src/main.rs","chain":"main","lines":[42]},
+      {"file":"examples/sse/src/main.rs","chain":"tests::integration_test::spawn_app","lines":[92]},
+      {"file":"examples/static-file-server/src/main.rs","chain":"serve","lines":[123]},
+      {"file":"examples/stream-to-file/src/main.rs","chain":"main","lines":[46]},
+      {"file":"examples/templates-minijinja/src/main.rs","chain":"main","lines":[47]},
+      {"file":"examples/templates/src/main.rs","chain":"main","lines":[35]},
+      {"file":"examples/testing-websockets/src/main.rs","chain":"main","lines":[24]},
+      {"file":"examples/testing-websockets/src/main.rs","chain":"tests::integration_test","lines":[109]},
+      {"file":"examples/testing/src/main.rs","chain":"main","lines":[32]},
+      {"file":"examples/testing/src/main.rs","chain":"tests::the_real_deal","lines":[128]},
+      {"file":"examples/tls-graceful-shutdown/src/main.rs","chain":"redirect_http_to_https","lines":[134]},
+      {"file":"examples/tls-rustls/src/main.rs","chain":"redirect_http_to_https","lines":[100]},
+      {"file":"examples/todos/src/main.rs","chain":"main","lines":[75]},
+      {"file":"examples/tokio-postgres/src/main.rs","chain":"main","lines":[47]},
+      {"file":"examples/tokio-redis/src/main.rs","chain":"main","lines":[52]},
+      {"file":"examples/tracing-aka-logging/src/main.rs","chain":"main","lines":[91]},
+      {"file":"examples/unix-domain-socket/src/main.rs","chain":"unix::server","lines":[55]},
+      {"file":"examples/validator/src/main.rs","chain":"main","lines":[42]},
+      {"file":"examples/versioning/src/main.rs","chain":"main","lines":[35]},
+      {"file":"examples/websockets/src/main.rs","chain":"main","lines":[72]}
+    ]
+  },
+  "any": {
+    "target": "axum/src/routing/method_routing.rs",
+    "target_lines": [510],
+    "category": "iterator any must not count",
+    "required": [
+      {"file":"axum-extra/src/routing/mod.rs","chain":"add_tsr_redirect_route","lines":[459]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::doesnt_panic_if_router_called_from_wildcard_route","lines":[380]},
+      {"file":"axum/src/extract/ws.rs","chain":"tests::rejects_http_1_0_requests","lines":[1173]},
+      {"file":"axum/src/extract/ws.rs","chain":"tests::default_on_failed_upgrade","lines":[1202]},
+      {"file":"axum/src/extract/ws.rs","chain":"tests::on_failed_upgrade","lines":[1211]},
+      {"file":"axum/src/extract/ws.rs","chain":"tests::echo_app","lines":[1286]},
+      {"file":"axum/src/routing/method_routing.rs","chain":"tests::allow_header_any","lines":[1597]},
+      {"file":"axum/src/routing/method_routing.rs","chain":"tests::method_filter","lines":[1735]},
+      {"file":"axum/src/routing/mod.rs","chain":"impl Router<S>::fallback","lines":[338]},
+      {"file":"examples/websockets-http2/src/main.rs","chain":"main","lines":[49]},
+      {"file":"examples/websockets/src/main.rs","chain":"main","lines":[60]}
+    ]
+  },
+  "on": {
+    "target": "axum/src/routing/method_routing.rs",
+    "target_lines": [468],
+    "category": "MethodRouter::on must not count",
+    "required": [
+      {"file":"axum-extra/src/extract/form.rs","chain":"tests::deserialize_error_status_codes","lines":[134]},
+      {"file":"axum-extra/src/routing/mod.rs","chain":"add_tsr_redirect_route","lines":[458]},
+      {"file":"axum-extra/src/routing/resource.rs","chain":"impl Resource<S>::update","lines":[120]},
+      {"file":"axum/src/form.rs","chain":"tests::deserialize_error_status_codes","lines":[256]},
+      {"file":"axum/src/routing/method_routing.rs","chain":"<file>","lines":[171]},
+      {"file":"axum/src/routing/tests/mod.rs","chain":"router_type_doesnt_change","lines":[145]},
+      {"file":"axum/src/routing/tests/mod.rs","chain":"multiple_methods_for_one_handler","lines":[305]}
+    ]
+  },
+  "from_fn": {
+    "target": "axum/src/middleware/from_fn.rs",
+    "target_lines": [114],
+    "category": "std::iter::from_fn must not count",
+    "required": [
+      {"file":"axum/src/extract/nested_path.rs","chain":"tests::in_middleware","lines":[220]},
+      {"file":"axum/src/extract/path/inner_path.rs","chain":"tests::in_nested_middleware","lines":[525]},
+      {"file":"axum/src/middleware/from_fn.rs","chain":"tests::basic","lines":[408]},
+      {"file":"axum/src/routing/tests/mod.rs","chain":"nested_body_limit_rejection","lines":[1383,1384]},
+      {"file":"examples/consume-body-in-extractor-or-middleware/src/main.rs","chain":"main","lines":[31]},
+      {"file":"examples/error-handling/src/main.rs","chain":"main","lines":[65]},
+      {"file":"examples/print-request-response/src/main.rs","chain":"main","lines":[32]},
+      {"file":"examples/prometheus-metrics/src/main.rs","chain":"main_app","lines":[38]}
+    ]
+  },
+  "from_fn_with_state": {
+    "target": "axum/src/middleware/from_fn.rs",
+    "target_lines": [164],
+    "category": "cross-crate through middleware::",
+    "required": [
+      {"file":"axum/src/middleware/from_fn.rs","chain":"from_fn","lines":[115]},
+      {"file":"axum/src/routing/tests/mod.rs","chain":"state_isnt_cloned_too_much_in_layer","lines":[1189]}
+    ]
+  },
+  "map_request": {
+    "target": "axum/src/middleware/map_request.rs",
+    "target_lines": [117],
+    "category": "cross-crate",
+    "required": [
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::cannot_extract_nested_matched_path_in_middleware","lines":[215]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::can_extract_nested_matched_path_in_middleware_using_nest","lines":[235]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::cannot_extract_nested_matched_path_in_middleware_via_extension","lines":[252]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::can_extract_nested_matched_path_in_middleware_via_extension_using_nest","lines":[269]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::can_extract_nested_matched_path_in_middleware_on_nested_router","lines":[288]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::can_extract_nested_matched_path_with_prefix_in_middleware_on_nested_router","lines":[308]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::can_extract_nested_matched_path_with_prefix_and_suffix_in_middleware_on_nested_router","lines":[329]},
+      {"file":"axum/src/extract/matched_path.rs","chain":"tests::can_extract_nested_matched_path_in_middleware_on_nested_router_via_extension","lines":[350]},
+      {"file":"axum/src/middleware/map_request.rs","chain":"tests::works","lines":[411]},
+      {"file":"axum/src/middleware/map_request.rs","chain":"tests::works_for_short_circutting","lines":[431]},
+      {"file":"axum/src/routing/tests/fallback.rs","chain":"with_middleware_on_inner_fallback","lines":[147]}
+    ]
+  },
+  "map_response": {
+    "target": "axum/src/middleware/map_response.rs",
+    "target_lines": [99],
+    "category": "cross-crate; ServiceExt map_response must not count",
+    "required": [
+      {"file":"axum/src/middleware/map_response.rs","chain":"tests::works","lines":[356]},
+      {"file":"axum/src/routing/tests/fallback.rs","chain":"also_inherits_default_layered_fallback","lines":[169]}
+    ]
+  },
+  "from_extractor": {
+    "target": "axum/src/middleware/from_extractor.rs",
+    "target_lines": [89],
+    "category": "cross-crate",
+    "required": [
+      {"file":"axum/src/middleware/from_extractor.rs","chain":"tests::works_with_request_body_limit","lines":[383]}
+    ]
+  },
+  "to_bytes": {
+    "target": "axum/src/body/mod.rs",
+    "target_lines": [48],
+    "category": "axum::body::to_bytes; external must not count",
+    "required": [
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_on_custom_io_type","lines":[1322]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::graceful_shutdown_completes_inflight_request","lines":[1391]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_with_custom_executor","lines":[1471]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::serving_with_custom_executor_http2","lines":[1509]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_closes_idle_connection","lines":[1589]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_closes_idle_connection_http2","lines":[1750]},
+      {"file":"axum/src/serve/mod.rs","chain":"tests::max_connection_age_grace_lets_request_finish_in_time","lines":[1860]},
+      {"file":"examples/compression/src/tests.rs","chain":"byte_from_response","lines":[215]}
+    ]
+  },
+  "on_service": {
+    "target": "axum/src/routing/method_routing.rs",
+    "target_lines": [369],
+    "category": "MethodRouter::on_service must not count",
+    "required": [
+      {"file":"axum/src/routing/method_routing.rs","chain":"<file>","lines":[100]},
+      {"file":"axum/src/routing/tests/mod.rs","chain":"routing_between_services","lines":[186]}
+    ]
+  }
+}
