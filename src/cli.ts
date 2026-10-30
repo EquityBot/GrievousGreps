@@ -365,8 +365,7 @@ program
   .command("_trail-claim", { hidden: true })
   .description("internal: wait for a sign-in through the link trail handed the agent, then connect the workspace")
   .action(async () => {
-    const got = await waitForConnect();
-    if (got && "cloud" in got) addAgentEntries();
+    await waitForConnect();
   });
 
 program
@@ -2208,12 +2207,13 @@ grouped(program.command("uninstall"), GROUP.setup)
  */
 function loginCommand(name = "login"): Command {
   return new Command(name)
-    .description("Sign this laptop in to Trail (team.trailhq.com), in the browser: every coding agent here gets your workspace's brand, skills and learnings")
+    .description("Sign this laptop in to Trail (team.trailhq.com), in the browser. With --global, every coding agent here gets your workspace's brand, skills and learnings")
     .argument("[dir]", "the repo to add", ".")
     .option("--code <code>", "a one-time sign-in code from Trail's web app (TRL-…): signs in with no browser step")
     .option("--workspace <slug>", "the workspace to sign in to, as its page names it (default: this repo's, if it has one)")
     .option("--server <url>", "a self-hosted Trail, e.g. https://trail.acme.internal (default: Trail cloud, https://team.trailhq.com)")
-    .action(async (dir: string, opts: { server?: string; workspace?: string; code?: string }) => {
+    .option("--global", "also add the workspace's server to Claude Code, Cursor and Codex settings in your home folder")
+    .action(async (dir: string, opts: { server?: string; workspace?: string; code?: string; global?: boolean }) => {
       const repo = resolve(dir);
       // Saved on the link, so its sign-in and every upload after go there; nothing in the environment.
       const server = opts.server === undefined ? undefined : serverUrl(opts.server);
@@ -2223,7 +2223,7 @@ function loginCommand(name = "login"): Command {
         return;
       }
       if (opts.code !== undefined) {
-        await loginWithCode(repo, opts.code, server ?? trailUrl());
+        await loginWithCode(repo, opts.code, server ?? trailUrl(), opts.global === true);
         return;
       }
       const slug = opts.workspace?.trim().toLowerCase() || (server ? undefined : teamWorkspace(repo)?.workspace);
@@ -2236,7 +2236,7 @@ function loginCommand(name = "login"): Command {
           process.exitCode = 1;
           return;
         }
-        addAgentEntries();
+        if (opts.global) addAgentEntries();
         console.error(`✓ already signed in to workspace ${cloud.workspace.name} · ${cloud.workspace.url}`);
         return;
       }
@@ -2252,7 +2252,7 @@ function loginCommand(name = "login"): Command {
       console.error("· waiting for you to sign in · ctrl-c stops");
       const got = await waitForConnect({ waitMs: 10 * 60 * 1000 });
       if (got && "cloud" in got) {
-        addAgentEntries();
+        if (opts.global) addAgentEntries();
         printLines(cloudLines(repo, { command: "note", agent: false }));
       } else if (got && "error" in got) {
         console.error(`✗ ${got.error} · run ${cmd("graft login")} again for a new link`);
@@ -2262,7 +2262,7 @@ function loginCommand(name = "login"): Command {
 }
 
 /** `trail login --code`: trade the web app's one-time code for this laptop's token, then set up its agents. */
-async function loginWithCode(repo: string, code: string, base: string): Promise<void> {
+async function loginWithCode(repo: string, code: string, base: string, global: boolean): Promise<void> {
   const before = readCloud();
   const got = await claimLoginCode(base, code.trim());
   if ("error" in got) {
@@ -2280,13 +2280,13 @@ async function loginWithCode(repo: string, code: string, base: string): Promise<
   // A sign-in link out from before is moot now.
   clearPending();
   rememberRepo(repo);
-  addAgentEntries();
+  if (global) addAgentEntries();
   const sent = await syncWorkspaceRepos(cloud).catch(() => ({ repos: 0, learnings: 0 }));
   console.log(`✓ this laptop is signed in to Trail workspace ${cloud.workspace.name} · ${cloud.workspace.url}`);
   if (sent.repos) console.log(`✓ shared ${sent.learnings} learning${sent.learnings === 1 ? "" : "s"} from ${sent.repos} repo${sent.repos === 1 ? "" : "s"}`);
   if (!process.stdout.isTTY) {
     console.log(
-      `[${brand()}] Tell the user, in one line, that this laptop is signed in to their Trail workspace ${cloud.workspace.name}: Claude Code, Codex and Cursor here have its brand, skills and learnings from their next session. Don't repeat the code.`,
+      `[${brand()}] Tell the user, in one line, that this laptop is signed in to their Trail workspace ${cloud.workspace.name}: ${global ? "Claude Code, Codex and Cursor here have its brand, skills and learnings from their next session." : "to give Claude Code, Codex and Cursor here its brand, skills and learnings, run this again with --global."} Don't repeat the code.`,
     );
   }
 }
@@ -2297,7 +2297,8 @@ async function loginWithCode(repo: string, code: string, base: string): Promise<
  * and Cursor through a user-level workspace-only `trail` server, Codex
  * through its user-level `trail` server (the one `trail init` writes, which
  * passes the workspace through once signed in). Only for agents installed
- * here. Best effort.
+ * here. Only for `trail login --global`, or a repeat of it once signed in: the
+ * background claim a link-only sign-in leaves running writes nothing. Best effort.
  */
 function addAgentEntries(): void {
   const home = homedir();
