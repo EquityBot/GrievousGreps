@@ -116,7 +116,7 @@ test("py: aliased annotation resolves to original name", () => {
 // traversal arriving there stopped, never reaching the module holding the code.
 function importSpecs(src: string) {
   return extractFile("index.ts", src, "typescript")
-    .rawEdges.filter((e) => e.relation === "imports")
+    .rawEdges.filter((e) => e.relation === "imports" && e.specifier)
     .map((e) => e.specifier);
 }
 
@@ -137,7 +137,7 @@ test("ts: a plain export is not an import and its definitions survive the walk",
   const src = 'export const x = 1\nexport function helper() { return x }\n';
   const out = extractFile("m.ts", src, "typescript");
   assert.deepEqual(
-    out.rawEdges.filter((e) => e.relation === "imports"),
+    out.rawEdges.filter((e) => e.relation === "imports" && e.specifier),
     [],
     "no source string, so no import edge",
   );

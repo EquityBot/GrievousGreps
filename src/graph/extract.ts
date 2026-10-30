@@ -77,6 +77,18 @@ export function languageLabelOf(path: string): string | null {
 
 /** What a Python module binds through imports. An import with no `name` binds the module
  * itself. `all` is `__all__` when it is a plain literal, null when absent or computed. */
+/** What a TS or JS module's top-level imports and exports bind. `name` is `default` for
+ * a default binding and `*` for a whole module. */
+export interface TsModule {
+  imports: { local: string; name: string; specifier: string }[];
+  /** `export { a as b } from "./x"`, `export * as b from "./x"`. */
+  reexports: { exported: string; name: string; specifier: string }[];
+  /** `export * from "./x"`. */
+  stars: string[];
+  /** `export { a as b }`, `export default a`. */
+  exports: { exported: string; local: string }[];
+}
+
 export interface PythonExports {
   imports: { local: string; name: string; specifier: string; line: number; conditional: boolean }[];
   stars: string[];
@@ -117,6 +129,10 @@ export interface RawEdge {
    * `pythonChain`, resolve.ts walks it from this module's export table; without, an
    * assignment rebinds it and there is no target to walk to. */
   pythonRebound?: string;
+  /** TS and JS: the module-level import a call's first name reads, and the names between
+   * it and `name`. Empty for a bare call. */
+  tsPath?: string[];
+  tsModule?: TsModule;
   /** With pythonRebound: the module a def's own import of that name reads from. */
   pythonReboundModule?: string;
   name?: string; // symbol name to resolve (extends/implements/calls)
@@ -366,6 +382,8 @@ export interface WalkCtx {
   /** Names a module-level import binds outside the plain one-import case → whether an
    * assignment also rebinds them, which leaves no single target to look for. */
   pythonReboundNames: ReadonlyMap<string, boolean>;
+  /** TS and JS: the names a module-level import binds. */
+  tsImported: ReadonlySet<string>;
   /** Python only: names an import binds in scope, from module-level imports
    * (conditional ones included) and the enclosing defs' own imports. A call through
    * one that neither import map resolves here is dropped, never matched globally. */
@@ -429,6 +447,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
   const importedSymbols = collectImportedSymbols(root, lang);
   const rGenerics = lang === "r" ? collectRGenerics(root) : EMPTY_SET;
   const pythonExports = lang === "python" ? collectPythonExports(root) : null;
+  const tsModule = lang === "typescript" || lang === "tsx" ? collectTsModule(root) : null;
   const pythonModuleAssigned = new Set<string>();
   if (lang === "python") collectPythonScopeBindings(root, pythonModuleAssigned, false);
   const pythonReboundNames = new Map(
@@ -472,6 +491,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
     pythonNamedImports,
     pythonImportedNames,
     pythonReboundNames,
+    tsImported: new Set(tsModule?.imports.map((i) => i.local)),
     pythonLocalRebound: new Map(),
     rR6Access: null,
     rGenerics,
@@ -488,6 +508,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
   // residual on the file node so a term outside every symbol still surfaces it.
   nodes[0].body_text = fileResidual(source, nodes.slice(1));
   if (pythonExports) rawEdges.push({ source: rel, relation: "imports", file: rel, pythonExports });
+  if (tsModule) rawEdges.push({ source: rel, relation: "imports", file: rel, tsModule });
   return { nodes, rawEdges };
 }
 
@@ -740,6 +761,7 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
         pythonNamedImports: ctx.pythonNamedImports,
         pythonImportedNames: ctx.pythonImportedNames,
         pythonReboundNames: ctx.pythonReboundNames,
+        tsImported: ctx.tsImported,
         pythonLocalRebound: ctx.pythonLocalRebound,
       };
       walkNamedChildren(node.namedChildren.filter(inHeader), headerCtx, out, edges, minted);
@@ -819,6 +841,11 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
       const argCount =
         ctx.lang === "java" ? javaArgCount(node) : ctx.lang === "swift" ? swiftArgCount(node) : undefined;
       if (argCount !== undefined) callEdge.argCount = argCount;
+      if (ctx.tsImported.size) {
+        const path = callee.viaMember ? tsMemberPath(node.childForFieldName("function")) : [];
+        const head = path ? (path[0] ?? callee.name) : undefined;
+        if (head && ctx.tsImported.has(head) && !tsCallHasLocalBinding(node, head)) callEdge.tsPath = path!;
+      }
       // Swift: a bare lowercase call inside a type body may be an implicit-`self`
       // member call (`walk()` for `self.walk()`), syntactically indistinguishable
       // from a free-function call — and Swift's own lookup is member-FIRST (inner
@@ -1147,6 +1174,95 @@ function pythonLocalImports(definition: SyntaxNode): {
   if (params) collectPythonBindingNames(params, ambiguous);
   collectPythonScopeBindings(body, ambiguous, false);
   return { symbols, modules, ambiguous };
+}
+
+/** The string a TS `source` field holds. */
+function tsSpecifier(source: SyntaxNode | null): string | null {
+  if (source?.type !== "string") return null;
+  return source.namedChildren.find((c) => c.type === "string_fragment")?.text ?? null;
+}
+
+function collectTsModule(root: SyntaxNode): TsModule | null {
+  const out: TsModule = { imports: [], reexports: [], stars: [], exports: [] };
+  for (const node of root.namedChildren) {
+    if (node.type === "import_statement") {
+      const specifier = tsSpecifier(node.childForFieldName("source"));
+      const clause = node.namedChildren.find((c) => c.type === "import_clause");
+      if (!specifier || !clause) continue;
+      for (const part of clause.namedChildren) {
+        if (part.type === "identifier") out.imports.push({ local: part.text, name: "default", specifier });
+        else if (part.type === "namespace_import") {
+          const local = part.namedChildren.find((c) => c.type === "identifier")?.text;
+          if (local) out.imports.push({ local, name: "*", specifier });
+        } else if (part.type === "named_imports") {
+          for (const item of part.namedChildren) {
+            const name = item.childForFieldName("name")?.text;
+            if (item.type === "import_specifier" && name) {
+              out.imports.push({ local: item.childForFieldName("alias")?.text ?? name, name, specifier });
+            }
+          }
+        }
+      }
+    } else if (node.type === "export_statement") {
+      const specifier = tsSpecifier(node.childForFieldName("source"));
+      const clause = node.namedChildren.find((c) => c.type === "export_clause");
+      const space = node.namedChildren.find((c) => c.type === "namespace_export");
+      const local = node.childForFieldName("value");
+      const declared = node.childForFieldName("declaration");
+      for (const item of clause?.namedChildren ?? []) {
+        const name = item.childForFieldName("name")?.text;
+        if (item.type !== "export_specifier" || !name) continue;
+        const exported = item.childForFieldName("alias")?.text ?? name;
+        if (specifier) out.reexports.push({ exported, name, specifier });
+        else out.exports.push({ exported, local: name });
+      }
+      if (specifier && space) {
+        const exported = space.namedChildren.find((c) => c.type === "identifier")?.text;
+        if (exported) out.reexports.push({ exported, name: "*", specifier });
+      } else if (specifier && !clause) out.stars.push(specifier);
+      if (node.children.some((c) => c.type === "default")) {
+        const named = local?.type === "identifier" ? local.text : declared?.childForFieldName("name")?.text;
+        if (named) out.exports.push({ exported: "default", local: named });
+      }
+    }
+  }
+  return out.imports.length || out.reexports.length || out.stars.length || out.exports.length ? out : null;
+}
+
+/** The names before a call's last one, if it is a plain dotted name: `a.b.f` is [a, b]. */
+function tsMemberPath(fn: SyntaxNode | null): string[] | null {
+  const path: string[] = [];
+  for (let at = fn?.childForFieldName("object"); at; at = at.childForFieldName("object")) {
+    if (at.type === "identifier") return [at.text, ...path];
+    const property = at.type === "member_expression" ? at.childForFieldName("property")?.text : undefined;
+    if (!property) return null;
+    path.unshift(property);
+  }
+  return null;
+}
+
+/** Does a scope between the call and the module bind `name`? Reads patterns whole, so a
+ * name that only appears in a default value counts: that keeps today's reading. */
+function tsCallHasLocalBinding(call: SyntaxNode, name: string): boolean {
+  const mentions = (node: SyntaxNode | null | undefined): boolean => {
+    if (!node) return false;
+    if (node.type === "identifier" || node.type === "shorthand_property_identifier_pattern") return node.text === name;
+    return node.namedChildren.some(mentions);
+  };
+  for (let scope = call.parent; scope && scope.type !== "program"; scope = scope.parent) {
+    if (mentions(scope.childForFieldName("parameters")) || mentions(scope.childForFieldName("parameter"))) return true;
+    if (scope.type === "for_in_statement" && mentions(scope.childForFieldName("left"))) return true;
+    if (scope.type === "for_statement" && scope.childForFieldName("initializer")?.namedChildren.some((d) => mentions(d.childForFieldName("name")))) return true;
+    if (scope.type !== "statement_block") continue;
+    for (const stmt of scope.namedChildren) {
+      if (stmt.type === "lexical_declaration" || stmt.type === "variable_declaration") {
+        if (stmt.namedChildren.some((d) => mentions(d.childForFieldName("name")))) return true;
+      } else if ((stmt.type === "function_declaration" || stmt.type === "class_declaration") && stmt.childForFieldName("name")?.text === name) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** `outer` plus the names `definition` both imports and binds some other way, less

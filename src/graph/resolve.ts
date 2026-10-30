@@ -15,7 +15,7 @@
 import { posix } from "node:path";
 import { toPosixPath } from "../util/paths.js";
 import type { EdgeV1, Kind, NodeV1, Relation, UnresolvedCallV1 } from "./types.js";
-import { languageOf, type PythonExports, type RawEdge } from "./extract.js";
+import { languageOf, type PythonExports, type TsModule, type RawEdge } from "./extract.js";
 import { PythonModules } from "./python-roots.js";
 import { genericLangOf } from "./generic.js";
 
@@ -219,6 +219,10 @@ export function resolveEdges(
 
   for (const e of rawEdges) if (e.rustAlias) push(classParents, e.rustAlias.alias, e.rustAlias.target);
 
+  const tsModules = new Map<string, TsModule>();
+  for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
+  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId };
+
   const pythonExports = new Map<string, PythonExports>();
   for (const e of rawEdges) if (e.pythonExports) pythonExports.set(e.file, e.pythonExports);
   const pythonModules = new PythonModules(
@@ -312,6 +316,17 @@ export function resolveEdges(
         const candidates = narrowGleamByKind(perFileName.get(targetFile)?.get(e.name!) ?? [], e.file, CALLABLE_KINDS);
         if (candidates.length === 1) add(e.source, candidates[0].id, "calls", "extracted");
         continue;
+      }
+      // A TS or JS import names the module, so the name's own definition is found through
+      // it. An import from outside the repo, or an alias this cannot read, keeps the
+      // name lookup below.
+      if (e.tsPath) {
+        const hit = followTsCall(e.tsPath, e.name!, toPosixPath(e.file), tsCtx);
+        if (hit === "undecided") continue;
+        if (hit !== "outside") {
+          if (hit.id !== e.source) add(e.source, hit.id, "calls", "extracted");
+          continue;
+        }
       }
       // Python imports identify the target module. A named receiver can be a
       // class or a submodule; both resolve within their explicit import path.
@@ -600,6 +615,74 @@ const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "tr
  * there is neither. `external`: bound from outside the repo, so no in-repo node is its
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */
 type PythonName = NodeV1 | { module: string } | "external" | "undecided";
+
+interface TsCtx {
+  modules: Map<string, TsModule>;
+  perFileName: Map<string, Map<string, NodeV1[]>>;
+  byId: Map<string, NodeV1>;
+}
+
+type TsName = NodeV1 | { module: string } | "outside" | "undecided";
+
+function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
+  const target = resolveImport(specifier, file, ctx.byId);
+  return ctx.byId.has(target) ? { module: target } : "outside";
+}
+
+/** What a name bound at the top of `file` is: its definition, or the import it came from. */
+function followTsLocal(name: string, file: string, ctx: TsCtx, seen: Set<string>): TsName {
+  const own = (ctx.perFileName.get(file)?.get(name) ?? [])
+    .filter((n) => n.id.replace(/~\d+$/, "") === `${file}#${name}` && (n.kind === "function" || n.kind === "class"));
+  if (own.length === 1) return own[0];
+  const bound = ctx.modules.get(file)?.imports.find((i) => i.local === name);
+  if (own.length > 1 || !bound) return "undecided";
+  const target = tsModuleOf(bound.specifier, file, ctx);
+  if (bound.name === "*" || typeof target === "string" || !("module" in target)) return target;
+  return followTsExport(bound.name, target.module, ctx, seen);
+}
+
+/** What `file` exports as `name`, through barrels and renames. */
+function followTsExport(name: string, file: string, ctx: TsCtx, seen = new Set<string>()): TsName {
+  const key = `${file}\0${name}`;
+  if (seen.has(key)) return "undecided"; // an export cycle defines nothing
+  seen.add(key);
+  const table = ctx.modules.get(file);
+  const forwarded = table?.reexports.find((r) => r.exported === name);
+  if (forwarded) {
+    const target = tsModuleOf(forwarded.specifier, file, ctx);
+    if (forwarded.name === "*" || typeof target === "string" || !("module" in target)) return target;
+    return followTsExport(forwarded.name, target.module, ctx, seen);
+  }
+  const listed = table?.exports.find((x) => x.exported === name);
+  if (listed) return followTsLocal(listed.local, file, ctx, seen);
+  if (name === "default") return "undecided"; // `export *` does not carry a default
+  const own = followTsLocal(name, file, ctx, seen);
+  if (typeof own !== "string") return own;
+  const through = (table?.stars ?? []).map((spec) => {
+    const target = tsModuleOf(spec, file, ctx);
+    return typeof target !== "string" && "module" in target ? followTsExport(name, target.module, ctx, new Set(seen)) : target;
+  });
+  const found = new Map(through.filter((t) => typeof t !== "string").map((t) => [("id" in t ? t.id : t.module), t]));
+  if (found.size === 1) return [...found.values()][0];
+  if (found.size > 1) return "undecided";
+  return through.includes("outside") ? "outside" : "undecided";
+}
+
+/** The definition a TS or JS call reaches through the import that binds its first name.
+ * A dotted call that does not walk through whole modules is left to receiver typing. */
+function followTsCall(path: string[], name: string, file: string, ctx: TsCtx): NodeV1 | "outside" | "undecided" {
+  const seen = new Set<string>();
+  if (path.length === 0) {
+    const hit = followTsLocal(name, file, ctx, seen);
+    return typeof hit === "string" ? hit : "id" in hit ? hit : "undecided";
+  }
+  let at = followTsLocal(path[0], file, ctx, seen);
+  for (const part of [...path.slice(1), name]) {
+    if (typeof at === "string" || "id" in at) return "outside";
+    at = followTsExport(part, at.module, ctx);
+  }
+  return typeof at !== "string" && "id" in at ? at : "outside";
+}
 
 interface PythonCtx {
   modules: PythonModules;
