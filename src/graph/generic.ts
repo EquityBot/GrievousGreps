@@ -398,7 +398,10 @@ function rustCallEdge(source: string, rel: string, name: string, owner: string |
 
 /** Rust macro arguments are a flat token tree, invisible to tags.scm, so a call inside
  * `assert!(parse(x))` or `vec![make()]` would have no edge. A name directly followed
- * by a `(…)` group there is a call; `a[0]` and `Foo { }` are not. */
+ * by a `(…)` group there is a call; `a[0]` and `Foo { }` are not. Only targets the
+ * tokens decide get an edge: `Type::f(…)` on that type alone, and `f(…)` or `module::f(…)`
+ * on a free function. `x.f(…)` has no receiver type here, and a `cfg!` predicate is not
+ * a call at all. */
 function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges: RawEdge[]): void {
   const scan = (tree: TsNode): void => {
     const count = tree.childCount ?? 0;
@@ -411,14 +414,25 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       }
       if (c.type !== "identifier" || i + 1 >= count) continue;
       const next = tree.child?.(i + 1);
+      if (c.text === "cfg" && next?.type === "!") {
+        i += 2; // the name, the `!` and its predicate
+        continue;
+      }
       if (next?.type !== "token_tree" || !next.text.startsWith("(")) continue;
+      const before = i >= 1 ? tree.child?.(i - 1)?.type : undefined;
+      if (before === ".") continue;
       const enc = enclosingDef(defs, c.startIndex);
-      const path = i >= 2 && tree.child?.(i - 1)?.type === "::" ? tree.child?.(i - 2)?.text : undefined;
-      rawEdges.push(rustCallEdge(enc ? enc.id : rel, rel, c.text, rustCallOwner(path, enc)));
+      const path = before === "::" && i >= 2 ? tree.child?.(i - 2)?.text : undefined;
+      const owner = rustCallOwner(path, enc);
+      const source = enc ? enc.id : rel;
+      rawEdges.push(owner
+        ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner }
+        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true });
     }
   };
   const visit = (n: TsNode): void => {
     if (n.type === "macro_invocation") {
+      if (n.childForFieldName?.("macro")?.text === "cfg") return;
       for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
         const c = n.namedChild?.(i);
         if (c?.type === "token_tree") scan(c);

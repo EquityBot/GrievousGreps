@@ -416,6 +416,14 @@ export function resolveEdges(
           : e.file.endsWith(".java")
             ? ["class", "struct", "enum", "interface"]
             : ["function"]);
+      if (e.freeFunction) {
+        const free = (list: NodeV1[] | undefined) => (list ?? []).filter((n) => n.kind === "function" && !n.owner);
+        const local = free(perFileName.get(e.file)?.get(e.name!));
+        const global = free(globalName.get(e.name!)).filter((n) => reachable(e.file, n.path));
+        const only = local.length === 1 ? local[0] : global.length === 1 ? global[0] : undefined;
+        if (only) add(e.source, only.id, "calls", local.length === 1 ? "extracted" : "inferred");
+        continue;
+      }
       let hit = resolveName(e.name!, e.file, callKinds, perFileName, globalName);
       // Python is the Java case without the `new` to mark it: `Widget()` is an
       // ordinary call node, so a constructor edge dies against the function-only

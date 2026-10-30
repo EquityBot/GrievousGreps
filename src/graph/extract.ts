@@ -96,6 +96,8 @@ export interface RawEdge {
   /** A Python file's module-level names, so resolve.ts can follow a re-export. Only on
    * the file's one export-table edge, which is not itself a graph edge. */
   pythonExports?: PythonExports;
+  /** calls: may only target a function with no owning type (a Rust call inside a macro). */
+  freeFunction?: boolean;
   /** calls: a bare Python name a conditional import rebinds, so it has no single binding. */
   pythonRebound?: boolean;
   name?: string; // symbol name to resolve (extends/implements/calls)

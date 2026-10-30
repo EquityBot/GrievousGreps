@@ -85,6 +85,34 @@ fn one(x: i32) {}
   assert.ok(!edges.some((e) => e.startsWith("lib.rs#evaluate ->") && e.endsWith("#new~2")), "Vec::new is not Store::new");
 });
 
+test("Rust: a macro body gives an edge only for a target its tokens decide", async () => {
+  await warmGenericGrammars(["rust"]);
+  const src = `struct Repo;
+impl Repo {
+    fn is_empty(&self) -> bool { true }
+    fn size() -> usize { 0 }
+    fn open() -> Repo { Repo }
+}
+fn not(x: bool) -> bool { x }
+fn missing() {}
+fn parse(x: &str) -> bool { true }
+fn method_call(items: Vec<u8>) { assert!(items.is_empty()); }
+fn predicate() { assert!(cfg!(not(feature = "x"))); }
+fn direct_predicate() -> bool { cfg!(not(feature = "x")) }
+fn other_type() { assert_eq!(Vec::new(), Other::missing()); }
+fn bare_method_name() { assert_eq!(size(), 0); }
+fn typed() { assert!(Repo::open().is_empty()); }
+fn free() { assert!(parse("a")); assert!(rules::parse("b")); }
+`;
+  const { nodes, rawEdges } = extractGeneric("lib.rs", src, "rust");
+  const edges = resolveEdges(nodes, rawEdges).filter((e) => e.relation === "calls").map((e) => `${e.source} -> ${e.target}`);
+  for (const source of ["method_call", "predicate", "direct_predicate", "other_type", "bare_method_name"]) {
+    assert.deepEqual(edges.filter((e) => e.startsWith(`lib.rs#${source} ->`)), [], source);
+  }
+  assert.deepEqual(edges.filter((e) => e.startsWith("lib.rs#typed ->")), ["lib.rs#typed -> lib.rs#open"]);
+  assert.deepEqual(edges.filter((e) => e.startsWith("lib.rs#free ->")), ["lib.rs#free -> lib.rs#parse"]);
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");
