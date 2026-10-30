@@ -36,7 +36,7 @@ import { writeFingerprint } from "./fingerprint.js";
 import { seedGraph, type SeedResult } from "./seed.js";
 import { filterByOnlyDirs, listSourceStats } from "./source-files.js";
 import { readPythonRoots } from "./python-roots.js";
-import { resolveEdges, type GoModule, type TsPaths } from "./resolve.js";
+import { resolveEdges, type GoModule, type TsPackage, type TsPaths } from "./resolve.js";
 import { readFileInside } from "../util/safe-fs.js";
 import { enrichGraph, type EnrichStats } from "./enrich.js";
 import { readGraph, writeGraph, wiringPath } from "./write.js";
@@ -222,39 +222,40 @@ function readGoModules(root: string, repoFiles: string[]): GoModule[] {
   return mods;
 }
 
-/** A package's `exports` as path aliases: each subpath to where its targets' source can be. */
-function readExportPaths(pkg: string, exports: unknown): Record<string, string[]> {
+/**
+ * The files a package's manifest points at, per subpath, each read back to where its source
+ * can be: `dist/x/y.js` as `src/x/y`, `x/y` and itself. Conditions are all kept in the order
+ * written, since resolve.ts tries each until one defines the name.
+ */
+function readPackageEntries(manifest: Record<string, unknown>): Record<string, string[]> {
   const targets = (value: unknown): string[] =>
     typeof value === "string" ? [value] : value && typeof value === "object" ? Object.values(value).flatMap(targets) : [];
-  const isMap = !!exports && typeof exports === "object" && !Array.isArray(exports) && Object.keys(exports).some((k) => k.startsWith("."));
-  const entries = isMap ? Object.entries(exports as Record<string, unknown>) : [[".", exports] as [string, unknown]];
-  const paths: Record<string, string[]> = {};
-  for (const [subpath, value] of entries) {
-    const found = targets(value).flatMap((target) => {
-      const bare = posix.normalize(target).replace(/\.(d\.)?[cm]?[jt]sx?$/, "");
-      const rest = bare.replace(/^((dist|lib|build|out|esm|es|cjs|mjs|types)\/)+/, "");
-      return [bare, `src/${rest}`, rest];
-    });
-    if (found.length) paths[posix.join(pkg, subpath)] = [...new Set(found)];
-  }
-  return paths;
+  const sources = (value: unknown) => [...new Set(targets(value).flatMap((target) => {
+    const bare = posix.normalize(target).replace(/\.(d\.)?[cm]?[jt]sx?$/, "");
+    const rest = bare.replace(/^((dist|lib|build|out|esm|es|cjs|mjs|types)\/)+/, "");
+    return [`src/${rest}`, rest, bare];
+  }))];
+  const { exports, main, module } = manifest;
+  if (exports === undefined) return { ".": sources([module, main]) };
+  const isMap = !!exports && typeof exports === "object" && Object.keys(exports).some((k) => k.startsWith("."));
+  if (!isMap) return { ".": sources(exports) };
+  return Object.fromEntries(Object.entries(exports as Record<string, unknown>).map(([subpath, value]) => [subpath, sources(value)]));
 }
 
 /** The crates Cargo.toml files depend on from outside the repo, `-` as `_`: every
  * dependency, less the repo's own packages and anything named by a `path`. */
 /**
- * The path aliases the repo states, so an import written through one
- * (`jotai/vanilla/internals`) still names an in-repo file: each tsconfig's `paths`,
- * through `extends`, and each package's name and `exports` map, read back to its source.
+ * What the repo states about its own import names: each tsconfig's `paths` and `baseUrl`,
+ * through `extends`, and each package's name and manifest.
  *
- * shortcut: an `exports` target maps to source by dropping its leading output folders
- * (`dist/`, `lib/`, `cjs/` and the like) and looking in `src/` and the package root; a layout
- * that moves more than that reads as unresolved. An `extends` naming an npm package is not
- * followed, and that import has no edge. The upgrade is the build's own rootDir and outDir,
- * and node_modules-style `extends`.
+ * shortcut: a manifest's build path maps to source by dropping leading output folders and
+ * looking in `src/` and the package root, and an `extends` naming an npm package is not
+ * followed. resolve.ts falls back to the name inside the package, as inferred. The upgrade is
+ * the build's own rootDir and outDir, and node_modules-style `extends`.
  */
-function readTsPaths(root: string, repoFiles: string[]): TsPaths[] {
-  const out: TsPaths[] = [];
+function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[]; tsPackages: TsPackage[] } {
+  const tsPaths: TsPaths[] = [];
+  const tsPackages: TsPackage[] = [];
   const present = new Set(repoFiles.map((f) => relPosix(root, f)));
   const parse = (rel: string): Record<string, unknown> | null => {
     try {
@@ -267,41 +268,36 @@ function readTsPaths(root: string, repoFiles: string[]): TsPaths[] {
     }
   };
   /** `paths` and the folder they read from, through `extends`; the config's own wins. */
-  const effective = (rel: string, seen: Set<string>): { base: string; paths: Record<string, string[]> } | null => {
+  const effective = (rel: string, seen: Set<string>): { base: string; paths: Record<string, string[]>; baseUrl?: boolean } | null => {
     if (seen.has(rel)) return null;
     seen.add(rel);
     const config = parse(rel);
     if (!config) return null;
     const dir = posix.dirname(rel);
     const options = config.compilerOptions as { paths?: Record<string, string[]>; baseUrl?: unknown } | undefined;
-    if (options?.paths) {
-      const baseUrl = typeof options.baseUrl === "string" ? options.baseUrl : ".";
-      return { base: posix.normalize(posix.join(dir, baseUrl)), paths: options.paths };
-    }
+    const stated = typeof options?.baseUrl === "string" ? options.baseUrl : undefined;
+    const base = posix.normalize(posix.join(dir, stated ?? "."));
+    if (options?.paths) return { base, paths: options.paths, baseUrl: stated !== undefined };
     const parents = [config.extends].flat().filter((p): p is string => typeof p === "string" && p.startsWith("."));
     for (const parent of parents.reverse()) {
       const target = posix.normalize(posix.join(dir, parent));
       const found = effective(present.has(target) ? target : `${target}.json`, seen);
       if (found) return found;
     }
-    return null;
+    return stated === undefined ? null : { base, paths: {}, baseUrl: true };
   };
   for (const rel of [...present].sort((a, b) => posix.basename(a).length - posix.basename(b).length)) {
     const name = posix.basename(rel);
     if (name === "package.json") {
       const manifest = parse(rel);
-      const pkg = manifest?.name;
-      if (typeof pkg !== "string" || !pkg) continue;
-      const dir = posix.dirname(rel);
-      const paths = { [pkg]: ["src/index", "index"], [`${pkg}/*`]: ["src/*", "*"], ...readExportPaths(pkg, manifest?.exports) };
-      out.push({ dir: "", base: dir, paths, pkg });
+      if (typeof manifest?.name === "string" && manifest.name) tsPackages.push({ name: manifest.name, dir: posix.dirname(rel), entries: readPackageEntries(manifest) });
     } else if (name === "tsconfig.json" || name === "tsconfig.base.json") {
       const found = effective(rel, new Set());
       const dir = posix.dirname(rel);
-      if (found) out.push({ dir: dir === "." ? "" : dir, ...found });
+      if (found) tsPaths.push({ dir: dir === "." ? "" : dir, ...found });
     }
   }
-  return out;
+  return { tsPaths, tsPackages };
 }
 
 function readRustExternalCrates(root: string, repoFiles: string[]): Set<string> {
@@ -498,7 +494,7 @@ export async function buildGraph(
     goModules: readGoModules(root, repoFiles),
     pythonRoots: readPythonRoots(root, repoFiles),
     rustExternalCrates: readRustExternalCrates(root, repoFiles),
-    tsPaths: readTsPaths(root, repoFiles),
+    ...readTsImports(root, repoFiles),
     unresolvedCalls,
   });
 

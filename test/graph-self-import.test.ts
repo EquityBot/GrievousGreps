@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 interface Graph {
-  edges: { relation: string; source: string; target: string }[];
+  edges: { relation: string; source: string; target: string; confidence: string }[];
   unresolvedCalls?: { source: string; name: string; through: string | null }[];
 }
 
@@ -51,17 +51,72 @@ test("a package's own name reaches its source through `exports`, at the root and
   assert.deepEqual(calls(graph, "apps/b.ts#run"), ["packages/core/src/deep/entry.ts#dig", "packages/core/src/feat/one.ts#one"]);
 });
 
-test("the repo's own import with no source to map to is reported, and an outside one stays silent", async (t) => {
+const edge = (graph: Graph, source: string) =>
+  graph.edges.filter((e) => e.relation === "calls" && e.source === source).map((e) => [e.target, e.confidence]);
+
+test("a stub the manifest points at does not stop the search (vue)", async (t) => {
+  const stub = `'use strict'\nmodule.exports = require('./dist/shared.cjs.js')\n`;
+  const graph = await build(t, {
+    "packages/shared/package.json": JSON.stringify({ name: "@vue/shared", main: "index.js", exports: { ".": { node: { default: "./index.js" }, import: "./dist/shared.esm.js", require: "./index.js" } } }),
+    "packages/shared/index.js": stub,
+    "packages/shared/src/index.ts": `export * from "./general";\n`,
+    "packages/shared/src/general.ts": "export function isArray() {}\n",
+    "packages/other/x.ts": "export function isArray() {}\n",
+    "apps/a.ts": `import { isArray } from "@vue/shared";\nexport function run() { isArray(); }\n`,
+  });
+  assert.deepEqual(edge(graph, "apps/a.ts#run"), [["packages/shared/src/general.ts#isArray", "extracted"]]);
+});
+
+test("without `exports`, a workspace package's `main` reaches its source", async (t) => {
+  const graph = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", main: "lib/entry.js" }),
+    "packages/core/src/entry.ts": "export function make() {}\n",
+    "packages/other/x.ts": "export function make() {}\n",
+    "apps/a.ts": `import { make } from "@acme/core";\nexport function run() { make(); }\n`,
+  });
+  assert.deepEqual(edge(graph, "apps/a.ts#run"), [["packages/core/src/entry.ts#make", "extracted"]]);
+});
+
+test("a name no path reaches is found inside its package and marked inferred, whatever the map says", async (t) => {
+  const graph = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { "./features/*": "./dist/impl/*.js", "./gen": "./generated/gen.js" } }),
+    "packages/core/src/impl/one.ts": "export function one() {}\n",
+    "packages/core/src/gen-source.ts": "export function gen() {}\n",
+    "packages/other/x.ts": "export function one() {}\nexport function gen() {}\n",
+    "apps/a.ts": `import { one } from "@acme/core/features/one";\nimport { gen } from "@acme/core/gen";\nexport function run() { one(); gen(); }\n`,
+  });
+  assert.deepEqual(edge(graph, "apps/a.ts#run").sort(), [
+    ["packages/core/src/gen-source.ts#gen", "inferred"],
+    ["packages/core/src/impl/one.ts#one", "inferred"],
+  ]);
+});
+
+test("the repo's own import that nothing in its package defines is reported, and an outside one stays silent", async (t) => {
   const graph = await build(t, {
     "package.json": JSON.stringify({ name: "hono", exports: { "./gen": "./generated/gen.js" } }),
-    "src/decoy.ts": "export function gen() {}\nexport function ext() {}\nexport function ns() {}\n",
-    "a.ts": `import { gen } from "hono/gen";\nimport { ext } from "other-pkg/sub";\nimport * as K from "hono/nope";\nexport function run() { gen(); ext(); K.ns(); }\n`,
+    "packages/twice/package.json": JSON.stringify({ name: "twice" }),
+    "packages/twice/a.ts": "export function both() {}\n",
+    "packages/twice/b.ts": "export function both() {}\n",
+    "src/decoy.ts": "export function ext() {}\n",
+    "a.ts": `import { gen } from "hono/gen";\nimport { ext } from "other-pkg/sub";\nimport * as K from "hono/nope";\nimport { both } from "twice";\nexport function run() { gen(); ext(); K.ns(); both(); }\n`,
   });
   assert.deepEqual(calls(graph, "a.ts#run"), [], "no guess at the decoy");
   assert.deepEqual((graph.unresolvedCalls ?? []).filter((u) => u.source === "a.ts#run").map((u) => [u.name, u.through]).sort(), [
+    ["both", "twice"],
     ["gen", "hono/gen"],
     ["ns", "hono/nope"],
   ]);
+});
+
+test("`baseUrl` without `paths` is in the repo when the first segment is under it, and outside when not", async (t) => {
+  const graph = await build(t, {
+    "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: "./src" } }),
+    "src/lib/util.ts": "export function f() {}\n",
+    "z/other.ts": "export function f() {}\nexport function ext() {}\nexport function gone() {}\n",
+    "a.ts": `import { f } from "lib/util";\nimport { ext } from "lodash";\nimport { gone } from "lib/gone";\nexport function run() { f(); ext(); gone(); }\n`,
+  });
+  assert.deepEqual(calls(graph, "a.ts#run"), ["src/lib/util.ts#f"]);
+  assert.deepEqual((graph.unresolvedCalls ?? []).filter((u) => u.source === "a.ts#run").map((u) => u.name), ["gone"]);
 });
 
 test("Python: an absolute import of the repo's own package finds its module", async (t) => {

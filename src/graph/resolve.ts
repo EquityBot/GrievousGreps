@@ -99,6 +99,7 @@ export interface ResolveOptions {
   goModules?: GoModule[];
   /** The path aliases the repo's tsconfig files state. */
   tsPaths?: TsPaths[];
+  tsPackages?: TsPackage[];
   /** The crates the repo's Cargo.toml files depend on from outside it, `-` as `_`. */
   rustExternalCrates?: ReadonlySet<string>;
   /** The Python roots the repo's configuration states (see python-roots.ts). */
@@ -241,7 +242,7 @@ export function resolveEdges(
 
   const tsModules = new Map<string, TsModule>();
   for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
-  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId, paths: opts.tsPaths ?? [] };
+  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId, paths: opts.tsPaths ?? [], packages: opts.tsPackages ?? [], repoPaths: tsRepoPaths(byId) };
 
   const pythonExports = new Map<string, PythonExports>();
   for (const e of rawEdges) if (e.pythonExports) pythonExports.set(e.file, e.pythonExports);
@@ -349,7 +350,8 @@ export function resolveEdges(
         }
         if (hit === "undecided" || (hit === "outside" && e.tsPath.length === 0)) continue;
         if (hit !== "outside") {
-          if (hit.id !== e.source) add(e.source, hit.id, "calls", "extracted");
+          const node = "scoped" in hit ? hit.scoped : hit;
+          if (node.id !== e.source) add(e.source, node.id, "calls", "scoped" in hit ? "inferred" : "extracted");
           continue;
         }
       }
@@ -647,8 +649,15 @@ export interface TsPaths {
   dir: string;
   base: string;
   paths: Record<string, string[]>;
-  /** The package these aliases belong to: an import of it is the repo's own, mapped or not. */
-  pkg?: string;
+  /** The config states `baseUrl`, so a bare import may read from `base`. */
+  baseUrl?: boolean;
+}
+
+/** A package in the repo, and for each subpath the files its manifest points at. */
+export interface TsPackage {
+  name: string;
+  dir: string;
+  entries: Record<string, string[]>;
 }
 
 interface TsCtx {
@@ -656,14 +665,35 @@ interface TsCtx {
   perFileName: Map<string, Map<string, NodeV1[]>>;
   byId: Map<string, NodeV1>;
   paths: TsPaths[];
+  packages: TsPackage[];
+  /** Every folder and extensionless file the graph holds, for a `baseUrl` to test against. */
+  repoPaths: Set<string>;
 }
 
-type TsName = NodeV1 | { module: string } | "outside" | "undecided" | "unmapped";
+type TsTarget = { module: string } | { packages: TsPackage[]; rest: string };
+/** `scoped`: found by name inside the imported package, not by following its exports. */
+type TsName = NodeV1 | TsTarget | { scoped: NodeV1 } | "outside" | "undecided" | "unmapped";
 
-function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
+function tsRepoPaths(byId: Map<string, NodeV1>): Set<string> {
+  const out = new Set<string>();
+  for (const id of byId.keys()) {
+    if (id.includes("#")) continue;
+    const parts = id.split("/");
+    for (let i = 1; i < parts.length; i++) out.add(parts.slice(0, i).join("/"));
+    out.add(id.replace(/\.[^./]+$/, ""));
+  }
+  return out;
+}
+
+/**
+ * What an import names. Only an import shown to be outside the repo answers "outside", which
+ * stops any guess: not a repo package, and not reached by a tsconfig `paths` or `baseUrl`.
+ */
+function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "outside" | "unmapped" {
   const target = resolveImport(specifier, file, ctx.byId);
   if (ctx.byId.has(target)) return { module: target };
   if (specifier.startsWith(".")) return "outside";
+  let inRepo = false;
   // The nearest configs above the file first, and each one's longest matching pattern.
   const configs = ctx.paths
     .filter((c) => c.dir === "" || file.startsWith(`${c.dir}/`))
@@ -672,14 +702,57 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
     const pattern = Object.keys(config.paths)
       .filter((p) => (p.endsWith("*") ? specifier.startsWith(p.slice(0, -1)) : p === specifier))
       .sort((a, b) => b.length - a.length)[0];
-    if (pattern === undefined) continue;
-    const rest = pattern.endsWith("*") ? specifier.slice(pattern.length - 1) : "";
-    for (const mapped of config.paths[pattern] ?? []) {
-      const found = resolveImport(`./${posix.normalize(posix.join(config.base, mapped.replace("*", rest)))}`, "repo-root", ctx.byId);
+    if (pattern !== undefined) {
+      const rest = pattern.endsWith("*") ? specifier.slice(pattern.length - 1) : "";
+      for (const mapped of config.paths[pattern] ?? []) {
+        const found = resolveImport(`./${posix.normalize(posix.join(config.base, mapped.replace("*", rest)))}`, "repo-root", ctx.byId);
+        if (ctx.byId.has(found)) return { module: found };
+      }
+      if (pattern !== "*") inRepo = true; // a catch-all states nothing about this name
+    }
+    if (config.baseUrl) {
+      const found = resolveImport(`./${posix.normalize(posix.join(config.base, specifier))}`, "repo-root", ctx.byId);
       if (ctx.byId.has(found)) return { module: found };
+      if (ctx.repoPaths.has(posix.normalize(posix.join(config.base, specifier.split("/")[0])))) inRepo = true;
     }
   }
-  return ctx.paths.some((c) => c.pkg && (specifier === c.pkg || specifier.startsWith(`${c.pkg}/`))) ? "unmapped" : "outside";
+  const owners = ctx.packages.filter((p) => specifier === p.name || specifier.startsWith(`${p.name}/`));
+  const longest = Math.max(0, ...owners.map((p) => p.name.length));
+  const packages = owners.filter((p) => p.name.length === longest);
+  if (packages.length) return { packages, rest: specifier.slice(longest + 1) };
+  return inRepo ? "unmapped" : "outside";
+}
+
+/**
+ * What an in-repo package exports as `name`, searched in order until something defines it: the
+ * files its manifest reaches, then its source tree by the import's own path, then the name
+ * anywhere in the package, which the caller marks as inferred. A manifest can point at a stub,
+ * a build product or nothing, so no one of them is the answer; "unmapped" says none held it.
+ */
+function followTsPackage(name: string, target: { packages: TsPackage[]; rest: string }, ctx: TsCtx, seen: Set<string>): TsName {
+  const { packages, rest } = target;
+  for (const pkg of packages) {
+    const tree = rest ? [`src/${rest}`, rest] : ["src/index", "index"];
+    for (const entry of [...(pkg.entries[rest ? `./${rest}` : "."] ?? []), ...tree]) {
+      const module = resolveImport(`./${posix.join(pkg.dir, entry)}`, "repo-root", ctx.byId);
+      if (!ctx.byId.has(module)) continue;
+      const hit = followTsExport(name, module, ctx, new Set(seen));
+      if (hit !== "undecided" && hit !== "unmapped") return hit;
+    }
+  }
+  const named = new Map<string, NodeV1>();
+  for (const pkg of packages) {
+    for (const [file, names] of ctx.perFileName) {
+      if (pkg.dir !== "." && !file.startsWith(`${pkg.dir}/`)) continue;
+      for (const n of names.get(name) ?? []) if ((n.kind === "function" || n.kind === "class") && n.id === `${file}#${name}`) named.set(n.id, n);
+    }
+  }
+  return named.size === 1 ? { scoped: [...named.values()][0] } : "unmapped";
+}
+
+/** `name` as read through what an import or re-export named. */
+function followTsTarget(name: string, target: TsTarget, ctx: TsCtx, seen: Set<string>): TsName {
+  return "packages" in target ? followTsPackage(name, target, ctx, seen) : followTsExport(name, target.module, ctx, seen);
 }
 
 /** What a name bound at the top of `file` is: its definition, or the import it came from. */
@@ -690,8 +763,8 @@ function followTsLocal(name: string, file: string, ctx: TsCtx, seen: Set<string>
   const bound = ctx.modules.get(file)?.imports.find((i) => i.local === name);
   if (own.length > 1 || !bound) return "undecided";
   const target = tsModuleOf(bound.specifier, file, ctx);
-  if (bound.name === "*" || typeof target === "string" || !("module" in target)) return target;
-  return followTsExport(bound.name, target.module, ctx, seen);
+  if (bound.name === "*" || typeof target === "string") return target;
+  return followTsTarget(bound.name, target, ctx, seen);
 }
 
 /** What `file` exports as `name`, through barrels and renames. */
@@ -703,8 +776,8 @@ function followTsExport(name: string, file: string, ctx: TsCtx, seen = new Set<s
   const forwarded = table?.reexports.find((r) => r.exported === name);
   if (forwarded) {
     const target = tsModuleOf(forwarded.specifier, file, ctx);
-    if (forwarded.name === "*" || typeof target === "string" || !("module" in target)) return target;
-    return followTsExport(forwarded.name, target.module, ctx, seen);
+    if (forwarded.name === "*" || typeof target === "string") return target;
+    return followTsTarget(forwarded.name, target, ctx, seen);
   }
   const listed = table?.exports.find((x) => x.exported === name);
   if (listed) return followTsLocal(listed.local, file, ctx, seen);
@@ -713,9 +786,11 @@ function followTsExport(name: string, file: string, ctx: TsCtx, seen = new Set<s
   if (typeof own !== "string") return own;
   const through = (table?.stars ?? []).map((spec) => {
     const target = tsModuleOf(spec, file, ctx);
-    return typeof target !== "string" && "module" in target ? followTsExport(name, target.module, ctx, new Set(seen)) : target;
+    return typeof target === "string" ? target : followTsTarget(name, target, ctx, new Set(seen));
   });
-  const found = new Map(through.filter((t) => typeof t !== "string").map((t) => [("id" in t ? t.id : t.module), t]));
+  const identity = (t: Exclude<TsName, string>): string =>
+    "id" in t ? t.id : "module" in t ? t.module : "scoped" in t ? t.scoped.id : `${t.packages[0].dir}\0${t.rest}`;
+  const found = new Map(through.filter((t) => typeof t !== "string").map((t) => [identity(t), t]));
   if (found.size === 1) return [...found.values()][0];
   if (found.size > 1) return "undecided";
   return through.includes("unmapped") ? "unmapped" : through.includes("outside") ? "outside" : "undecided";
@@ -723,20 +798,21 @@ function followTsExport(name: string, file: string, ctx: TsCtx, seen = new Set<s
 
 /** The definition a TS or JS call reaches through the import that binds its first name.
  * A dotted call that does not walk through whole modules is left to receiver typing. */
-function followTsCall(path: string[], name: string, file: string, ctx: TsCtx): NodeV1 | "outside" | "undecided" | "unmapped" {
+function followTsCall(path: string[], name: string, file: string, ctx: TsCtx): NodeV1 | { scoped: NodeV1 } | "outside" | "undecided" | "unmapped" {
   const seen = new Set<string>();
+  const called = (at: TsName) => typeof at !== "string" && ("id" in at || "scoped" in at);
   if (path.length === 0) {
     const hit = followTsLocal(name, file, ctx, seen);
-    return typeof hit === "string" ? hit : "id" in hit ? hit : "undecided";
+    return typeof hit === "string" ? hit : called(hit) ? hit as NodeV1 | { scoped: NodeV1 } : "undecided";
   }
   let at = followTsLocal(path[0], file, ctx, seen);
   for (const part of [...path.slice(1), name]) {
     if (at === "unmapped") return at;
-    if (typeof at === "string" || "id" in at) return "outside";
-    at = followTsExport(part, at.module, ctx);
+    if (typeof at === "string" || "id" in at || "scoped" in at) return "outside";
+    at = followTsTarget(part, at, ctx, new Set(seen));
   }
   if (at === "unmapped") return at;
-  return typeof at !== "string" && "id" in at ? at : "outside";
+  return called(at) ? at as NodeV1 | { scoped: NodeV1 } : "outside";
 }
 
 interface PythonCtx {
