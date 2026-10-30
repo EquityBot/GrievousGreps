@@ -117,7 +117,7 @@ export function unresolvedNoteFor(graph: GraphV1, direction: Direction, name: st
   if (direction !== "in") return null;
   const calls = (graph.unresolvedCalls ?? []).filter((c) => c.name === name);
   if (calls.length === 0) return null;
-  const named = calls.slice(0, 5).map((c) => (c.through ? `${c.source} (through ${c.through})` : `${c.source} (a conditional import rebinds it)`));
+  const named = calls.slice(0, 5).map((c) => (c.through ? `${c.source} (through ${c.through})` : `${c.source} (an assignment or a second import gives it more than one target)`));
   const more = calls.length > 5 ? ` and ${calls.length - 5} more` : "";
   return `  ⚠ may be incomplete: ${calls.length} call(s) to "${name}" did not resolve to one definition and are not listed: ${named.join(", ")}${more}`;
 }

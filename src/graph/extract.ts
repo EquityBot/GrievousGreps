@@ -107,8 +107,9 @@ export interface RawEdge {
   /** calls: the dotted path below `specifier` a Python call reaches its target by:
    * `from m import f; f()` is ["f"] on m, `import m as a; a.b.f()` is ["b", "f"] on m. */
   pythonChain?: string[];
-  /** calls: the Python name, first in a dotted call, that a conditional import rebinds,
-   * so it has no single binding. */
+  /** calls: the Python name, first in a dotted call, that has no one plain import. With
+   * `pythonChain`, resolve.ts walks it from this module's export table; without, an
+   * assignment rebinds it and there is no target to walk to. */
   pythonRebound?: string;
   name?: string; // symbol name to resolve (extends/implements/calls)
   viaMember?: boolean; // calls: was it `obj.foo()` (→ prefer method targets)?
@@ -351,8 +352,9 @@ export interface WalkCtx {
    * local name → imported name and module. Kept apart from importedSymbols so they
    * feed call resolution only, not identifier references. */
   pythonNamedImports: ReadonlyMap<string, { name: string; specifier: string }>;
-  /** Names a module-level import binds that a rebinding left with no single target. */
-  pythonReboundNames: ReadonlySet<string>;
+  /** Names a module-level import binds outside the plain one-import case → whether an
+   * assignment also rebinds them, which leaves no single target to look for. */
+  pythonReboundNames: ReadonlyMap<string, boolean>;
   /** Python only: names an import binds in scope, from module-level imports
    * (conditional ones included) and the enclosing defs' own imports. A call through
    * one that neither import map resolves here is dropped, never matched globally. */
@@ -416,8 +418,12 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
   const importedSymbols = collectImportedSymbols(root, lang);
   const rGenerics = lang === "r" ? collectRGenerics(root) : EMPTY_SET;
   const pythonExports = lang === "python" ? collectPythonExports(root) : null;
-  const pythonReboundNames = new Set(
-    [...pythonImportedNames].filter((name) => !pythonNamedImports.has(name) && !importedModules.has(name)),
+  const pythonModuleAssigned = new Set<string>();
+  if (lang === "python") collectPythonScopeBindings(root, pythonModuleAssigned, false);
+  const pythonReboundNames = new Map(
+    [...pythonImportedNames]
+      .filter((name) => !pythonNamedImports.has(name) && !importedModules.has(name))
+      .map((name) => [name, pythonModuleAssigned.has(name)]),
   );
 
   const nodes: NodeV1[] = [
@@ -846,7 +852,11 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
           const recvType = resolveRecvType(callee.receiver, ctx);
           edges.push(recvType ? { ...callEdge, recvType } : callEdge);
         } else if (ctx.pythonReboundNames.has(head!) && !pythonCallHasLocalBinding(node, head!)) {
-          edges.push({ ...callEdge, pythonRebound: head });
+          edges.push({
+            ...callEdge,
+            pythonRebound: head,
+            ...(ctx.pythonReboundNames.get(head!) ? {} : { pythonChain: parts!.slice(1) }),
+          });
         }
       }
     }
@@ -940,6 +950,7 @@ function collectPythonImportedModules(
   importNames: Set<string>,
 ): Map<string, string> {
   const out = new Map<string, string>();
+  const several = new Set<string>();
   const visit = (node: SyntaxNode, inDefinition: boolean): void => {
     if (node.type === "import_statement" || node.type === "import_from_statement") {
       const moduleNode = node.type === "import_from_statement"
@@ -947,10 +958,9 @@ function collectPythonImportedModules(
           node.namedChildren.find((c) => c.type === "dotted_name" || c.type === "relative_import"))
         : undefined;
       if (node.type === "import_from_statement" && !moduleNode) return;
-      // ponytail: only unconditional module-level imports resolve. Conditional ones
-      // need per-scope binding tables; until then their names are recorded so a call
-      // through them is dropped rather than guessed. Imports inside a def are added
-      // per function (withPythonLocalImportNames).
+      // Only a name's one unconditional module-level import is bound here. The rest are
+      // recorded so resolve.ts can judge them from the module's export table. Imports
+      // inside a def are added per function (withPythonLocalImportNames).
       const moduleLevel = node.parent?.type === "module";
       for (const child of node.namedChildren) {
         if (sameSyntaxNode(child, moduleNode)) continue;
@@ -958,7 +968,10 @@ function collectPythonImportedModules(
         const name = child.childForFieldName("name")?.text ?? child.text;
         // `import a.b` binds the top package `a`; every other form binds its alias or name.
         const local = child.childForFieldName("alias")?.text ?? (moduleNode ? name : name.split(".")[0]);
-        if (!inDefinition) importNames.add(local);
+        if (!inDefinition) {
+          if (importNames.has(local)) several.add(local);
+          importNames.add(local);
+        }
         if (!moduleLevel) continue;
         if (moduleNode) symbols.set(local, { name, specifier: moduleNode.text });
         else out.set(local, child.childForFieldName("alias") ? name : local); // `import a.b` binds the top package, `a`
@@ -969,6 +982,10 @@ function collectPythonImportedModules(
     for (const child of node.namedChildren) visit(child, inDefinition || definition);
   };
   visit(root, false);
+  for (const name of several) {
+    symbols.delete(name);
+    out.delete(name);
+  }
   return out;
 }
 
@@ -1206,7 +1223,11 @@ function collectPythonWalrusTargets(node: SyntaxNode, names: Set<string>): void 
  * Nested functions, classes and lambdas are not entered.
  */
 function collectPythonScopeBindings(body: SyntaxNode, names: Set<string>, withImports = true): void {
+  const moduleScope = body.type === "module";
   const visit = (node: SyntaxNode): void => {
+    // At module level `del` ends a binding rather than giving it a new target, and an
+    // `except` branch only runs when the import above it failed.
+    if (moduleScope && (node.type === "delete_statement" || node.type === "except_clause" || node.type === "except_group_clause")) return;
     if (node.type === "function_definition" || node.type === "class_definition" || node.type === "lambda") {
       const name = node.childForFieldName("name");
       if (name) names.add(name.text);
@@ -1271,7 +1292,7 @@ function withoutPythonShadowedModules<T>(
   const params = definition.childForFieldName("parameters");
   if (params) collectPythonBindingNames(params, shadowed);
   const body = definition.type === "module" ? definition : definition.childForFieldName("body");
-  if (body) collectPythonScopeBindings(body, shadowed);
+  if (body) collectPythonScopeBindings(body, shadowed, definition.type !== "module");
   if (![...shadowed].some((name) => modules.has(name))) return modules;
   const out = new Map(modules);
   for (const name of shadowed) out.delete(name);

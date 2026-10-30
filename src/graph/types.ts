@@ -137,6 +137,7 @@ export interface GraphV1 {
 export interface UnresolvedCallV1 {
   source: string;
   name: string;
-  /** The import the call went through, or null for one a conditional import rebinds. */
+  /** The import the call went through, or null for a name an assignment or second import
+   * leaves with more than one target. */
   through: string | null;
 }

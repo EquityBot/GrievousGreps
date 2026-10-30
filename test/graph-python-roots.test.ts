@@ -162,3 +162,43 @@ test("a call into an in-repo module whose name does not resolve is said, with th
   assert.match(callers("nowhere"), /may be incomplete.*"nowhere".*consumer\.py#run \(through pkg\)/, "no symbol of that name anywhere");
   assert.doesNotMatch(callers("visible"), /requests/, "a module outside the repo says nothing");
 });
+
+test("a name with one in-repo target keeps its edge, however the import is wrapped", () => {
+  const files = { "pkg/__init__.py": "", "pkg/impl.py": "def f():\n    pass\nclass C:\n    def m(self):\n        pass\n", "pkg/other.py": "def f():\n    pass\n" };
+  const keeps: [string, string[]][] = [
+    ["try:\n    from pkg.impl import f\nexcept ImportError:\n    f = None\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
+    ["try:\n    from pkg.impl import f\nexcept ImportError:\n    from thirdparty import f\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
+    ["try:\n    from thirdparty import f\nexcept ImportError:\n    from pkg.impl import f\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
+    ["try:\n    import pkg.impl as m\nexcept ImportError:\n    m = None\ndef run():\n    m.f()\n", ["pkg/impl.py#f"]],
+    ["try:\n    from pkg.impl import C\nexcept ImportError:\n    C = None\ndef run():\n    C.m()\n", ["pkg/impl.py#C.m"]],
+    ["from pkg.impl import f\ndef run():\n    f()\ndel f\n", ["pkg/impl.py#f"]],
+    ["from pkg.impl import f\nfrom pkg.impl import f\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
+    ["if flag:\n    from pkg.impl import f\ndef run():\n    f()\n", ["pkg/impl.py#f"]],
+  ];
+  for (const [consumer, want] of keeps) assert.deepEqual(calls({ ...files, "consumer.py": consumer }, "consumer.py#run"), want, consumer);
+  const drops = [
+    "from pkg.impl import f\nfrom pkg.other import f\ndef run():\n    f()\n",
+    "try:\n    from pkg.impl import f\nexcept ImportError:\n    from pkg.other import f\ndef run():\n    f()\n",
+    "from pkg.impl import f\nf = make()\ndef run():\n    f()\n",
+    "try:\n    from thirdparty import f\nexcept ImportError:\n    f = None\ndef run():\n    f()\n",
+  ];
+  for (const consumer of drops) assert.deepEqual(calls({ ...files, "consumer.py": consumer }, "consumer.py#run"), [], consumer);
+});
+
+test("the warning for a genuine rebinding says what happened", async () => {
+  const root = repo({
+    "pyproject.toml": "[project]\nname = \"x\"\n",
+    "pkg/__init__.py": "",
+    "pkg/a.py": "def f():\n    pass\n",
+    "pkg/b.py": "def f():\n    pass\n",
+    "consumer.py": "from pkg.a import f\nfrom pkg.b import f\ndef run():\n    f()\n",
+  });
+  await buildGraph(root);
+  const home = mkdtempSync(join(tmpdir(), "py-roots-home-"));
+  const r = spawnSync(process.execPath, ["--import", "tsx", join(process.cwd(), "src/cli.ts"), "callers", "f", root], {
+    encoding: "utf8",
+    env: { ...process.env, HOME: home, USERPROFILE: home, DO_NOT_TRACK: "1", TRAIL_CLOUD: "0", DOTENV_CONFIG_PATH: "NUL" },
+  });
+  assert.match(r.stdout + r.stderr, /consumer\.py#run \(an assignment or a second import gives it more than one target\)/);
+  assert.doesNotMatch(r.stdout + r.stderr, /conditional import/);
+});

@@ -315,15 +315,16 @@ export function resolveEdges(
       // class or a submodule; both resolve within their explicit import path.
       if (e.rustRoot && (RUST_STD_CRATES.has(e.rustRoot) || opts.rustExternalCrates?.has(e.rustRoot))) continue;
       if (e.pythonRebound && e.name) {
-        if (followPythonName(e.pythonRebound, toPosixPath(e.file), pythonCtx) !== "external") {
-          opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: null });
-        }
+        const start = followPythonName(e.pythonRebound, toPosixPath(e.file), pythonCtx);
+        const hit = e.pythonChain ? walkPythonChain(start, e.pythonChain, pythonCtx) : start === "external" ? "external" : "undecided";
+        if (hit === "undecided") opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: null });
+        else if (hit !== "external") add(e.source, hit.id, "calls", "extracted");
         continue;
       }
       // Python imports identify the target module; the dotted name walks from there.
       // Explicit imports must not fall through to an unrelated global name.
       if (e.pythonChain && e.specifier && e.name) {
-        const hit = followPythonChain(e.specifier, e.pythonChain, toPosixPath(e.file), pythonCtx);
+        const hit = walkPythonChain(pythonModuleName(e.specifier, toPosixPath(e.file), pythonCtx), e.pythonChain, pythonCtx);
         if (hit === "undecided") opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: e.specifier });
         else if (hit !== "external") add(e.source, hit.id, "calls", "extracted");
         continue;
@@ -628,16 +629,13 @@ function followPythonName(name: string, file: string, ctx: PythonCtx, seen = new
   return "undecided";
 }
 
-/** Walk a dotted name from the module `spec` names to the definition a call reaches. */
-function followPythonChain(spec: string, chain: string[], file: string, ctx: PythonCtx): NodeV1 | "external" | "undecided" {
-  let at = pythonModuleName(spec, file, ctx);
+/** Walk a dotted name from where its first part led to the definition a call reaches. */
+function walkPythonChain(start: PythonName, chain: string[], ctx: PythonCtx): NodeV1 | "external" | "undecided" {
+  let at = start;
   for (let i = 0; i < chain.length; i++) {
     if (typeof at === "string") return at;
-    if (!("module" in at)) return "undecided";
+    if ("id" in at) return at.kind === "class" && i === chain.length - 1 ? pythonClassMember(at, chain[i], ctx) : "undecided";
     at = followPythonName(chain[i], at.module, ctx);
-    if (typeof at !== "string" && "id" in at && at.kind === "class" && i === chain.length - 2) {
-      return pythonClassMember(at, chain[i + 1], ctx);
-    }
   }
   if (typeof at === "string") return at;
   return "id" in at ? at : "undecided";
