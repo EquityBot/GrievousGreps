@@ -743,6 +743,15 @@ function rustUsedAt(scopes: RustUseScope[], name: string, at: number): string | 
 /** Each struct's named fields and the types they plainly are. */
 function extractRustFields(root: TsNode, rel: string, rawEdges: RawEdge[]): void {
   const visit = (n: TsNode): void => {
+    const implOf = n.type === "impl_item" ? n.childForFieldName?.("trait") : undefined;
+    if (implOf) {
+      const trait = implOf.text.replace(/<.*$/s, "").replace(/^.*::/, "");
+      const written = (n.childForFieldName?.("type")?.text ?? "").replace(/^&\s*('\w+\s+)?(mut\s+)?/, "").replace(/^dyn\s+/, "");
+      const type = written.startsWith("[") ? "[]" : written.replace(/<.*$/s, "").replace(/^.*::/, "");
+      const params = n.childForFieldName?.("type_parameters")?.text ?? "";
+      const blanket = new RegExp(`[<,]\\s*${type}\\b`).test(params);
+      rawEdges.push({ source: rel, relation: "imports", file: rel, rustImpl: { trait, type: blanket ? "*" : type } });
+    }
     if (n.type === "struct_item") {
       const owner = n.childForFieldName?.("name")?.text;
       const body = n.childForFieldName?.("body");

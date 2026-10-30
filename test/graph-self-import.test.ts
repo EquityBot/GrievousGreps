@@ -175,7 +175,7 @@ test("Rust: an alias of a dependency's type stops there, and a type only a macro
   });
   assert.deepEqual(calls(graph, "src/a.rs#up"), []);
   const stated = (graph.unresolvedCalls ?? []).filter((u) => u.source.startsWith("src/a.rs")).map((u) => [u.source, u.name, u.through]);
-  assert.deepEqual(stated, [["src/a.rs#made", "from_err", "MadeByMacro"]]);
+  assert.deepEqual(stated, [["src/a.rs#up", "builder", "Request"], ["src/a.rs#made", "from_err", "MadeByMacro"]]);
 });
 
 test("a relative import of a file the graph lacks, such as a build's, is reported with no guess", async (t) => {
@@ -544,7 +544,9 @@ impl Other { pub fn push(&self) {} }
 `,
     "src/hidden.rs": "pub trait Tucked { fn tucked(&self); }\n",
   });
-  for (const f of ["param", "local", "outside"]) assert.deepEqual(calls(graph, `src/lib.rs#${f}`), ["src/lib.rs#ext_call"], f);
+  for (const f of ["param", "local"]) assert.deepEqual(calls(graph, `src/lib.rs#${f}`), ["src/lib.rs#ext_call"], f);
+  assert.deepEqual(calls(graph, "src/lib.rs#outside"), [], "no impl for that type");
+  assert.deepEqual(stated(graph, "src/lib.rs#outside"), [["ext_call", "Thing"]]);
   assert.deepEqual(calls(graph, "src/lib.rs#field"), ["src/lib.rs#ext_call"]);
   assert.deepEqual(calls(graph, "src/lib.rs#not_in_scope"), [], "a trait no `use` brings in provides nothing");
   assert.deepEqual(calls(graph, "src/lib.rs#plain"), [], "no trait provides it: the std type's own");
@@ -591,10 +593,42 @@ test("W3: a package's name counts only through what its manifest reaches, and ot
 test("Rust: a std type's own method beats a repo trait of that name, and `vec!` is a Vec", async (t) => {
   const graph = await build(t, {
     "src/lib.rs": `pub trait Stack { fn push(&mut self, n: u8); fn pile(&self); }
+impl<T> Stack for [T] { fn push(&mut self, _: u8) {} fn pile(&self) {} }
 pub fn own(v: &mut Vec<u8>) { v.push(1); }
 pub fn through_macro() { let v = vec![1, 2]; v.pile(); }
 `,
   });
   assert.deepEqual(calls(graph, "src/lib.rs#own"), [], "Vec's own push");
   assert.deepEqual(calls(graph, "src/lib.rs#through_macro"), ["src/lib.rs#pile"]);
+});
+
+test("Rust: a repo trait reaches a std or dependency receiver only through a blanket impl or one for that type", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n[dependencies]\ndep = "1"\n`,
+    "src/lib.rs": `pub mod far;
+use dep::Thing;
+pub struct Mine;
+pub trait Blanket { fn wide(&self); }
+impl<L> Blanket for L where L: Sized { fn wide(&self) {} }
+pub trait ForMine { fn narrow(&self); }
+impl ForMine for Mine { fn narrow(&self) {} }
+pub trait ForThing { fn exact(&self); }
+impl ForThing for dep::Thing { fn exact(&self) {} }
+pub trait NoImpl { fn nothing(&self); }
+pub fn std_blanket(v: &Vec<u8>) { v.wide(); }
+pub fn dep_blanket(x: Thing) { x.wide(); }
+pub fn std_other(v: &Vec<u8>) { v.narrow(); }
+pub fn dep_other(x: Thing) { x.narrow(); }
+pub fn no_impl(v: &Vec<u8>) { v.nothing(); }
+pub fn std_far(v: &Vec<u8>) { v.reach(); }
+`,
+    "src/far.rs": "pub trait Far { fn reach(&self); }\nimpl<T> Far for T { fn reach(&self) {} }\n",
+  });
+  const wide = graph.nodes.find((n) => n.name === "wide" && n.owner === "Blanket")!.id;
+  assert.deepEqual(calls(graph, "src/lib.rs#std_blanket"), [wide]);
+  assert.deepEqual(calls(graph, "src/lib.rs#dep_blanket"), [wide]);
+  for (const [f, name, through] of [["std_other", "narrow", "Vec"], ["dep_other", "narrow", "Thing"], ["no_impl", "nothing", "Vec"], ["std_far", "reach", "Vec"]] as const) {
+    assert.deepEqual(calls(graph, `src/lib.rs#${f}`), [], f);
+    assert.deepEqual(stated(graph, `src/lib.rs#${f}`), [[name, through]], f);
+  }
 });

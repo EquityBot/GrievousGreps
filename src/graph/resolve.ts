@@ -262,17 +262,32 @@ export function resolveEdges(
   };
   const rustUseNames = new Map<string, NonNullable<RawEdge["rustUseNames"]>>();
   for (const e of rawEdges) if (e.rustUseNames) rustUseNames.set(e.file, e.rustUseNames);
-  // A type the repo holds no such method for can still take one from a repo trait in scope:
-  // 1 is the edge, more are said. Returns whether any trait provides the name.
-  const rustTraitProvides = (e: RawEdge, through: string | null): boolean => {
+  const rustImpls = new Map<string, Set<string>>();
+  for (const e of rawEdges) {
+    if (!e.rustImpl) continue;
+    const types = rustImpls.get(e.rustImpl.trait) ?? new Set<string>();
+    types.add(e.rustImpl.type);
+    rustImpls.set(e.rustImpl.trait, types);
+  }
+  // A type the repo holds no such method for can still take one from a repo trait: one this file
+  // imports or defines, with a blanket impl or an impl for that type (what it derefs to counts).
+  // 1 is the edge, and otherwise a name the repo has is said.
+  const rustTraitProvides = (e: RawEdge, type: string | null): void => {
     const scope = rustUseNames.get(e.file);
+    const fits = (trait: string) => {
+      const impls = rustImpls.get(trait);
+      return !!impls && (impls.has("*") || (!!type && (impls.has(type) || impls.has(RUST_DEREFS_TO[type] ?? ""))));
+    };
     const found = (globalName.get(e.name!) ?? []).filter((n) => n.owner
       && (globalName.get(n.owner) ?? []).some((o) => o.kind === "interface")
       && reachable(e.file, n.path)
-      && (n.path === e.file || scope?.glob || scope?.names.includes(n.owner)));
-    if (found.length === 1 && found[0].id !== e.source) add(e.source, found[0].id, "calls", "inferred");
-    else if (found.length > 1) opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through });
-    return found.length > 0;
+      && (n.path === e.file || scope?.glob || scope?.names.includes(n.owner))
+      && fits(n.owner));
+    if (found.length === 1) {
+      if (found[0].id !== e.source) add(e.source, found[0].id, "calls", "inferred");
+    } else if (found.length > 1 || (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" && n.owner)) {
+      opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: type });
+    }
   };
   const rustPathCtx: RustPathCtx = { crates: opts.rustCrateDirs ?? new Map(), byId, perFileName, pubUses: rustPubUses };
   // The type a receiver is by the end of its chain, each step read off a signature. Undefined
@@ -500,9 +515,7 @@ export function resolveEdges(
           if (recv && (std || repoType || real.root || rustAliases.has(recv))) {
             // Rust takes a type's own method before any trait's.
             if (std && RUST_STD_OWN_METHODS.has(e.name!)) continue;
-            if (!rustTraitProvides(e, recvType) && repoType && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" && n.owner)) {
-              opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: recvType });
-            }
+            rustTraitProvides(e, recvType);
             continue;
           }
         } else if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!) && (owned || unseen)) {
@@ -777,6 +790,8 @@ const RUST_STD_OWN_METHODS = new Set(("iter iter_mut into_iter len is_empty push
   + "as_ref as_mut take chunks chunks_mut windows map filter filter_map collect sum product fold next next_back extend first last "
   + "sort reverse split_at concat join to_string to_owned unwrap expect ok err is_some is_none keys values lock read write load "
   + "store set replace borrow borrow_mut size_hint").split(" "));
+/** What a std value's methods also come from, through `Deref`. */
+const RUST_DEREFS_TO: Record<string, string> = { Vec: "[]", String: "str", PathBuf: "Path" };
 /** Types and traits every Rust file sees without a `use`. */
 const RUST_PRELUDE_TYPES = new Set(["Box", "Clone", "Default", "From", "Into", "Iterator", "IntoIterator", "Option", "Result", "String", "ToOwned", "ToString", "TryFrom", "TryInto", "Vec", "Extend", "FromIterator", "PartialEq", "PartialOrd", "Ord", "Eq", "Drop", "Fn", "FnMut", "FnOnce", "AsRef", "AsMut", "DoubleEndedIterator", "ExactSizeIterator", "Send", "Sync", "Sized", "Copy", "Self"]);
 const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "trait", "type", "class", "interface"]);
