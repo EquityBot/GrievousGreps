@@ -294,13 +294,13 @@ export function branchesStale(repo: string, now = Date.now(), maxAgeMs = REFRESH
  * already running. Never waits, never throws. A checkout with no origin gets
  * an empty cache.
  */
-export function maybeRefreshBranches(repo: string, now = Date.now(), maxAgeMs = REFRESH_MS): boolean {
+export function maybeRefreshBranches(repo: string, now = Date.now(), maxAgeMs = REFRESH_MS, asked = false): boolean {
   try {
     const cache = readBranchCache(repo);
     if (!branchesStale(repo, now, maxAgeMs)) return false;
     if (cache?.runningSince && now - cache.runningSince < STALE_RUN_MS) return false;
     writeJsonAtomic(cachePath(repo), { ...(cache ?? { fetchedAt: 0, base: null, branches: [] }), runningSince: now }, true);
-    const child = spawn(process.execPath, [graftCliPath(), "_trail-branches", repo], { detached: true, stdio: "ignore", windowsHide: true });
+    const child = spawn(process.execPath, [graftCliPath(), "_trail-branches", repo, ...(asked ? ["--asked"] : [])], { detached: true, stdio: "ignore", windowsHide: true });
     child.unref();
     return true;
   } catch {

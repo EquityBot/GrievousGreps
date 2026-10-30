@@ -357,8 +357,9 @@ program
   .command("_trail-branches", { hidden: true })
   .description("internal: fetch, then note which files teammates' open branches change and the learnings they carry")
   .argument("[dir]", "target repo directory", ".")
-  .action((dir: string) => {
-    refreshBranches(resolve(dir), { prs: true, fetch: cloudEnabled() });
+  .option("--asked", "a person asked for this read, so it may fetch with the workspace side off")
+  .action((dir: string, opts: { asked?: boolean }) => {
+    refreshBranches(resolve(dir), { prs: true, fetch: opts.asked === true || cloudEnabled() });
   });
 
 program
@@ -2586,7 +2587,7 @@ function branchOverlapTexts(repo: string, now = Date.now()): string[] {
  * branches overlap. Reuse and the team page need the workspace.
  */
 function localTeam(repo: string, days: number, json: boolean): void {
-  maybeRefreshBranches(repo);
+  maybeRefreshBranches(repo, undefined, undefined, true);
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const recent = listNotes(repo).filter((n) => n.scope === "repo" && n.date >= since);
   const byAuthor = new Map<string, Note[]>();

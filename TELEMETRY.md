@@ -6,7 +6,8 @@ row in the `trail init` picker turns on the usage events described here. Separat
 `GRAFT_UPDATE_CHECK=1` turns on the daily npm version check, and `TRAIL_CLOUD=1` or signing
 in turns on the workspace side, with its background `git fetch`, `gh` reads and sign-in
 link. Commands that exist to reach the network, such as `trail upgrade` and `trail
-version`, still do so when you run them, and an agent host started with an `npx` MCP entry
+version`, still do so when you run them, as does `trail team`, which fetches `origin`
+to read teammates' branches, and an agent host started with an `npx` MCP entry
 asks npm for the package itself.
 
 If you turn it on, Trail-code collects a small set of **anonymous** usage events so we can

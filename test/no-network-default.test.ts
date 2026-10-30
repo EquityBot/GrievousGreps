@@ -10,7 +10,7 @@ import { join } from "node:path";
 
 const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", ...args], { cwd, encoding: "utf8" });
 
-test("the hidden branch read fetches only with the workspace side on", (t) => {
+function scene(t: { after: (f: () => void) => void }) {
   const root = mkdtempSync(join(tmpdir(), "no-network-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const bare = join(root, "r.git");
@@ -29,14 +29,30 @@ test("the hidden branch read fetches only with the workspace side on", (t) => {
   git(theirs, "add", ".");
   git(theirs, "commit", "-q", "-m", "second");
   git(theirs, "push", "-q", "origin", "work");
-
   const home = join(root, "home");
   const env = { ...process.env, HOME: home, USERPROFILE: home, TRAIL_CLOUD: undefined, TRAIL_NO_FETCH: undefined, DO_NOT_TRACK: "1" };
-  const read = (extra: NodeJS.ProcessEnv) =>
-    execFileSync(process.execPath, ["--import", "tsx", "src/cli.ts", "_trail-branches", mine], { env: { ...env, ...extra } as NodeJS.ProcessEnv, stdio: "pipe" });
-  const seen = () => git(mine, "branch", "-r");
-  read({});
+  const run = (extra: NodeJS.ProcessEnv, ...args: string[]) =>
+    execFileSync(process.execPath, ["--import", "tsx", "src/cli.ts", ...args], { env: { ...env, ...extra } as NodeJS.ProcessEnv, stdio: "pipe" });
+  return { mine, run, seen: () => git(mine, "branch", "-r") };
+}
+
+test("the hidden branch read fetches only with the workspace side on, or when a person asked", (t) => {
+  const { mine, run, seen } = scene(t);
+  run({}, "_trail-branches", mine);
   assert.doesNotMatch(seen(), /origin\/work/, "not asked for: no fetch");
-  read({ TRAIL_CLOUD: "1" });
-  assert.match(seen(), /origin\/work/, "asked for: it fetches");
+  run({}, "_trail-branches", mine, "--asked");
+  assert.match(seen(), /origin\/work/, "asked: it fetches");
+});
+
+test("the workspace side on fetches too", (t) => {
+  const { mine, run, seen } = scene(t);
+  run({ TRAIL_CLOUD: "1" }, "_trail-branches", mine);
+  assert.match(seen(), /origin\/work/);
+});
+
+test("a person running `team` asked, so its background read fetches", async (t) => {
+  const { mine, run, seen } = scene(t);
+  run({ TRAIL_INVOKED_AS: "trail" }, "team", mine);
+  for (let i = 0; i < 80 && !/origin\/work/.test(seen()); i++) await new Promise((r) => setTimeout(r, 250));
+  assert.match(seen(), /origin\/work/);
 });
