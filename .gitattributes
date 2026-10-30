@@ -1,0 +1,3 @@
+README.md merge=ours
+SECURITY.md merge=ours
+.github/workflows/* merge=ours
