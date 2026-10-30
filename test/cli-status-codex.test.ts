@@ -60,7 +60,7 @@ test('trail init tells a Codex user to trust the hooks in /hooks, in its short o
     mkdirSync(repo);
     spawnSync('git', ['init', '-q'], { cwd: repo });
     for (const extra of [[], ['--verbose']]) {
-      const r = spawnSync(process.execPath, ['--import', 'tsx', join(process.cwd(), 'src', 'bin', 'trail.ts'), 'init', repo, '--agents', 'agents', '--no-build', ...extra], {
+      const r = spawnSync(process.execPath, ['--import', 'tsx', join(process.cwd(), 'src', 'bin', 'trail.ts'), 'init', repo, '--agents', 'agents', '--global', '--no-build', ...extra], {
         cwd: process.cwd(), encoding: 'utf8',
         env: { ...process.env, ...h.env, DO_NOT_TRACK: '1', TRAIL_NO_LOOK_BACK: '1', TRAIL_NO_FETCH: '1', CLAUDECODE: undefined, TRAIL_INVOKED_AS: undefined, TRAIL_CLOUD: undefined },
       });

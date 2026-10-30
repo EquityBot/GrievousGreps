@@ -37,7 +37,7 @@ test("init for other hosts leaves the user-level Claude and Codex wiring in plac
   const home = tmpRepo("keeps-global-home");
   mkdirSync(join(home, ".codex"));
   try {
-    const first = runCli(["init", a, "--agents", "claude", "agents", ...INIT], { home });
+    const first = runCli(["init", a, "--agents", "claude", "agents", "--global", ...INIT], { home });
     assert.equal(first.status, 0, first.describe());
     const settings = join(home, ".claude", "settings.json");
     const shim = join(home, ".claude", "helpers", "graft-hooks.cjs");

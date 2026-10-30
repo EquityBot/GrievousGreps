@@ -64,7 +64,7 @@ test("auto writes the main agents' repo files, and laptop settings only for the 
   mkdirSync(join(home, ".claude"));
   mkdirSync(join(home, ".cursor"));
   const repo = gitRepo();
-  const r = init(repo, home, ["--agents", "auto"], { CLAUDECODE: "1" });
+  const r = init(repo, home, ["--agents", "auto", "--global"], { CLAUDECODE: "1" });
   assert.equal(r.status, 0, r.stderr);
   for (const f of REPO_FILES) assert.ok(existsSync(join(repo, f)), `${f} missing\n${r.stderr}`);
   for (const f of OTHER_FILES) assert.ok(!existsSync(join(repo, f)), `${f} written for an agent nobody here uses`);

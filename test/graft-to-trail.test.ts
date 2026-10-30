@@ -64,7 +64,7 @@ test('a graft repo moves to trail once the trail command is installed, and only 
     assert.match(first.lines.join('\n'), /graft is now trail, and this repo just moved to it/);
     assert.ok(repoWiredForTrail(repo));
     assert.ok(existsSync(join(repo, '.trail', 'hook.cjs')), "trail's shared hook");
-    assert.ok(existsSync(join(home, '.claude', 'skills', 'trail', 'SKILL.md')), 'the skill is the person’s own');
+    assert.ok(!existsSync(join(home, '.claude', 'skills', 'trail', 'SKILL.md')), 'a move writes nothing to the home unless the stamp asked');
     assert.ok(!existsSync(join(repo, '.claude', 'skills')), 'no skill in the repo, under either name');
     assert.ok(existsSync(join(repo, '.trail')), 'the repo has its .trail/');
     assert.deepEqual(readStamp(repo)?.hosts, ['claude'], 'the same hosts as before');
