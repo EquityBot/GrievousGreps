@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Trail-Code itself
+    url: https://github.com/trailhq/Trail-Code/issues
+    about: For a problem in upstream's own code or its hosted workspace, use upstream's issues.

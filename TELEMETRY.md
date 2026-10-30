@@ -1,14 +1,15 @@
 # Telemetry
 
+This distribution's builds carry no telemetry key, so they send no usage events, and the rest
+of this page describes upstream's official builds.
+
 **Off by default.** Nothing below is recorded or sent, and no background network request
 is made, until you ask for it. `trail telemetry enable`, `GRAFT_TELEMETRY=1` or ticking the
 row in the `trail init` picker turns on the usage events described here. Separately,
 `GRAFT_UPDATE_CHECK=1` turns on the daily npm version check, and `TRAIL_CLOUD=1` or signing
 in turns on the workspace side, with its background `git fetch`, `gh` reads and sign-in
-link. Commands that exist to reach the network, such as `trail version`, still do so when you
-run them, as does `trail team`, which fetches `origin` to read teammates' branches.
-`trail upgrade` is not available for this distribution and does nothing, and an agent host started with an `npx` MCP entry
-asks npm for the package itself.
+link. Commands that exist to reach the network still do so when you run them, such as
+`trail team`, which fetches `origin` to read teammates' branches.
 
 If you turn it on, Trail-code collects a small set of **anonymous** usage events so we can
 tell whether the thing works: how many repos get past a build, whether an agent reaches for

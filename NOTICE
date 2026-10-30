@@ -1,0 +1,9 @@
+GrievousGreps
+Copyright 2026 Ryan Duguid (https://github.com/ryanduguid)
+
+Distributed under the MIT License; see LICENSE.
+
+GrievousGreps derives from Trail-Code (https://github.com/trailhq/Trail-Code),
+formerly Graft, copyright 2026 Context Graph Engine contributors, under the MIT
+License. Ported fixes keep their authors' credit in the commit history and in the
+README's Credits section.

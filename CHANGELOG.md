@@ -1,5 +1,27 @@
 # Changelog
 
+## GrievousGreps 0.28.0+gg
+
+Built on Trail-Code 0.28.0. Sections below this one are upstream's.
+
+### Added
+
+- **Caller resolution** for Python, TypeScript and Rust, with fixes ported from upstream pull requests and other forks. The README's Credits section names their authors.
+- **`benchmark/`**, which measures `callers` recall on 21 pinned public repositories.
+
+### Changed
+
+- **`trail init` and `trail login` write outside the repository only with `--global`.** Upkeep replays the same choice.
+- **Usage stats, the update check and workspace background reads are off** until you ask for them.
+- **Writes refuse a symlink** planted in a repository or output folder.
+- **`trail mcp` and `graft mcp`** are what agents' MCP entries run. Nothing launches through `npx`.
+- **`trail version`** prints the local version and compares nothing.
+
+### Removed
+
+- **`trail upgrade`**, which would have installed upstream's package over this build, now refuses.
+- **Upstream's deployment, blast workflows and branding images.** `.github/upstream-removed.txt` lists them.
+
 ## 0.28.0
 
 ### Added

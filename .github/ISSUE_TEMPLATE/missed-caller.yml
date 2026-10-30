@@ -1,0 +1,32 @@
+name: Missed caller
+description: callers left out a real call, or listed a wrong one, on a public repository
+labels: ["missed-caller"]
+body:
+  - type: input
+    id: repository
+    attributes:
+      label: Public repository and commit
+      description: A missed caller cannot be reproduced without both. Use a public repository only.
+      placeholder: https://github.com/owner/repo at 1a2b3c4
+    validations:
+      required: true
+  - type: input
+    id: symbol
+    attributes:
+      label: Symbol
+      description: The symbol you asked callers about, with its file and line.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected caller
+      description: The call that should be listed, with its file and line, and what the command printed instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: trail --version output
+    validations:
+      required: true

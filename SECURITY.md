@@ -1,10 +1,8 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+## Supported versions
 
-Trail-code (formerly graft) is pre-1.0 and ships continuously from `main`. Security
-fixes are made against the latest published npm release (`@trailhq/trail`, also
-published as `@nanonets/graft`); older versions are not separately patched.
+Security fixes are applied to the latest version on the default branch.
 
 ## Filesystem Safety
 
@@ -13,13 +11,12 @@ directory. The checks run before each write, so they do not cover a link swapped
 in between the check and the write: concurrent mutation by a process already
 running on the machine is out of scope, because that process needs no such route.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Please do not open a public GitHub issue for security vulnerabilities.
+Report it privately through GitHub's private vulnerability reporting:
+https://github.com/EquityBot/GrievousGreps/security/advisories/new. Do not open
+an issue for a suspected security vulnerability. Include a clear description,
+reproduction steps, impact and any suggested mitigation.
 
-Report vulnerabilities privately via
-[GitHub Security Advisories](https://github.com/trailhq/Graft/security/advisories/new),
-or email shrish@nanonets.com.
-
-We'll acknowledge your report within 3 business days and aim to ship a fix or
-mitigation within 30 days, depending on severity.
+Use public repositories or fabricated fixtures only. Do not submit private code,
+credentials, access tokens, secrets or `.env` content.
