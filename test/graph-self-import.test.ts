@@ -681,3 +681,13 @@ test("W3: a package with no entry to ask binds its one exporting definition as i
   const external = await build(t, { ...root, "packages/other/lib/inner.ts": "export function run() {}\n" });
   assert.deepEqual(stated(external, "apps/a.ts#go"), [], "a name no folder holds stays outside");
 });
+
+test("W3: an entry exporting a name it cannot be followed through still binds the package's one definition, as inferred", async (t) => {
+  const graph = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": { dev: "./src/index.ts" } } }),
+    "packages/core/src/index.ts": `import * as D from "./d";\nexport const run = process.env.X ? () => null : D.run;\n`,
+    "packages/core/src/d.ts": "export function run() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(edge(graph, "apps/a.ts#go"), [["packages/core/src/d.ts#run", "inferred"]]);
+});

@@ -1026,14 +1026,18 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "ou
 function followTsPackage(name: string, target: { packages: TsPackage[]; rest: string }, ctx: TsCtx, seen: Set<string>): TsName {
   const { packages, rest } = target;
   let outside = false; // one condition may forward the name out whilst another defines it
-  let mapped = false; // the manifest reaches a file, which then says what the package exports
+  let mapped = false; // the manifest reaches a file, which then says the package lacks the name
   for (const pkg of packages) {
     const tree = rest ? [`src/${rest}`, rest] : ["src/index", "index"];
     const stated = tsPackageEntries(pkg, rest ? `./${rest}` : ".");
     for (const entry of [...stated, ...tree]) {
       const module = resolveImport(`./${posix.join(pkg.dir, entry)}`, "repo-root", ctx.byId);
       if (!ctx.byId.has(module)) continue;
-      if (stated.includes(entry)) mapped = true;
+      // An entry that exports the name and could not be followed, as a `const` choosing between
+      // builds, has proved the name is the package's without saying which definition it is.
+      const table = ctx.modules.get(module);
+      const holds = table?.exports.some((x) => x.exported === name) || table?.reexports.some((r) => r.exported === name) || ctx.perFileName.get(module)?.get(name)?.some((n) => n.exported);
+      if (stated.includes(entry) && !holds) mapped = true;
       const hit = followTsExport(name, module, ctx, new Set(seen));
       if (hit === "outside") outside = true;
       else if (hit !== "undecided" && hit !== "unmapped") return hit;
@@ -1041,7 +1045,7 @@ function followTsPackage(name: string, target: { packages: TsPackage[]; rest: st
   }
   if (outside) return "outside";
   if (mapped) return "unmapped";
-  // No entry to ask, so the one definition in the package exporting that name, marked inferred.
+  // No entry to settle it, so the one definition in the package exporting that name, marked inferred.
   // A rename says nothing of where the name's definition is, and 2 definitions are no answer.
   const named = new Map<string, NodeV1>();
   for (const pkg of packages) {

@@ -1283,6 +1283,12 @@ function collectTsModule(root: SyntaxNode): TsModule | null {
         const exported = space.namedChildren.find((c) => c.type === "identifier")?.text;
         if (exported) out.reexports.push({ exported, name: "*", specifier });
       } else if (specifier && !clause) out.stars.push(specifier);
+      if (declared?.type === "lexical_declaration" || declared?.type === "variable_declaration") {
+        for (const item of declared.namedChildren) {
+          const bound = item.type === "variable_declarator" ? item.childForFieldName("name") : null;
+          if (bound?.type === "identifier") out.exports.push({ exported: bound.text, local: bound.text });
+        }
+      }
       if (node.children.some((c) => c.type === "default")) {
         const named = local?.type === "identifier" ? local.text : declared?.childForFieldName("name")?.text;
         if (named) out.exports.push({ exported: "default", local: named });
