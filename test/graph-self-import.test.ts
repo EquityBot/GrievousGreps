@@ -498,3 +498,27 @@ impl Sel for dep::Thing { fn accept(&self) { Self::accept(self) } }
   assert.deepEqual(calls(graph, accept), [], "a dependency's type may hold its own");
   assert.deepEqual(stated(graph, accept), [["accept", "Thing"]]);
 });
+
+test("Rust: an alias in one module does not redirect a sibling's type of that name", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n`,
+    "src/lib.rs": `pub mod a {
+  pub struct Foo;
+  impl Foo { pub fn f(&self) {} }
+  pub type Alias = Foo;
+  pub fn here(x: Alias) { x.f(); }
+}
+pub mod b {
+  pub struct Alias;
+  impl Alias { pub fn f(&self) {} }
+  pub fn there(x: Alias) { x.f(); }
+}
+pub mod c {
+  use crate::a::Alias;
+  pub fn brought(x: Alias) { x.f(); }
+}
+`,
+  });
+  assert.deepEqual(calls(graph, "src/lib.rs#here"), ["src/lib.rs#f"]);
+  assert.deepEqual(calls(graph, "src/lib.rs#there"), ["src/lib.rs#f~2"], "its own Alias, not a's");
+});

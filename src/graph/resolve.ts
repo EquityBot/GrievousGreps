@@ -285,12 +285,15 @@ export function resolveEdges(
       }
       const name = rustTextName(type);
       if (!name) return undefined;
-      const real = rustRealType(name, e.file, e.rustAt ?? 0, true).type;
+      const real = rustRealType(name, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true).type;
       const hit = resolveTypedMember(real, method, e.file, ownerMethod, classParents, classTraits, undefined);
       if (hit === "ambiguous") return undefined;
       const node = hit ? byId.get(hit.id) : undefined;
       // A constructor the index does not hold (`derive(Default)`, a macro's) is taken at its word.
-      type = node ? rustReturnText(node, real) : /^(new|default|empty|from|from_\w+|with_\w+|try_new)$/.test(method) ? real : undefined;
+      const returned = node && rustReturnText(node, real);
+      // A return type's alias belongs to the file that wrote it.
+      const alias = returned ? rustAliases.get(rustTextName(returned) ?? "")?.filter((a) => a.file === node!.path) : undefined;
+      type = alias?.length === 1 ? alias[0].target : node ? returned : /^(new|default|empty|from|from_\w+|with_\w+|try_new)$/.test(method) ? real : undefined;
     }
     return type && rustTextName(type);
   };

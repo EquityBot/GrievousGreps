@@ -126,6 +126,8 @@ export interface RawEdge {
   rustChain?: {
     type?: string;
     field?: { owner: string; field: string };
+    /** Its start's type is written as a path, so it need not be this module's. */
+    pathed?: boolean;
     /** A free function, as a whole path or a bare name. */
     fn?: string;
     /** The crate or module its start was brought from, when a `use` or its path says. */

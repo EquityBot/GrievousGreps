@@ -498,7 +498,7 @@ function rustValueChain(value: TsNode | null | undefined, owner: string | undefi
   const root = rustPathRoot(path, scopes, n.startIndex);
   const last = path.replace(/^.*::/, "");
   if (last === "Self" && owner) return { type: owner, methods: [name] };
-  if (/^[A-Z]/.test(last)) return { type: last, root, methods: [name] };
+  if (/^[A-Z]/.test(last)) return { type: last, root, ...(path.includes("::") ? { pathed: true } : {}), methods: [name] };
   return { fn: rustWholePath(path, name, scopes, n.startIndex) ?? `${path}::${name}`, root, methods: [] };
 }
 
@@ -520,7 +520,9 @@ function rustLocalChain(name: string, from: TsNode, owner: string | undefined, s
   const named = new RegExp(`\\b${name}\\b`);
   const typed = (type: TsNode | null | undefined): RustChain | undefined => {
     const t = rustTypeName(type, owner);
-    return t ? { type: t, root: rustPathRoot(undefined, scopes, from.startIndex, t), methods: [] } : undefined;
+    if (!t) return undefined;
+    const path = /^&?\s*(?:'\w+\s+)?(?:mut\s+)?((?:\w+::)+)/.exec(type?.text ?? "")?.[1]?.slice(0, -2);
+    return { type: t, root: rustPathRoot(path, scopes, from.startIndex, t), ...(path ? { pathed: true } : {}), methods: [] };
   };
   let child: TsNode = from;
   for (let n = from.parent; n; child = n, n = n.parent) {
@@ -1166,7 +1168,8 @@ function tagsExtract(
       : undefined;
     const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     if (chain) {
-      rawEdges.push({ source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name, viaMember: true, rustForm: "method", rustChain: chain, rustAt: c.at, rustOwnerBrought: true });
+      const brought = chain.pathed || (!!chain.type && rustOwnerBrought(chain.type, rustScopes, c.at, !!rustUsed?.anyGlob));
+      rawEdges.push({ source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name, viaMember: true, rustForm: "method", rustChain: chain, rustAt: c.at, ...(brought ? { rustOwnerBrought: true } : {}) });
       continue;
     }
     rawEdges.push(
