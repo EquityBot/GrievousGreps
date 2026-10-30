@@ -113,6 +113,22 @@ fn free() { assert!(parse("a")); assert!(rules::parse("b")); }
   assert.deepEqual(edges.filter((e) => e.startsWith("lib.rs#free ->")), ["lib.rs#free -> lib.rs#parse"]);
 });
 
+test("Rust: a bare call in a macro leaves its file only through a use", async () => {
+  await warmGenericGrammars(["rust"]);
+  const other = extractGeneric("b/src/other.rs", "pub fn measure() {}\n", "rust");
+  const edge = (src: string) => {
+    const here = extractGeneric("a/src/lib.rs", src, "rust");
+    return resolveEdges([...here.nodes, ...other.nodes], [...here.rawEdges, ...other.rawEdges])
+      .filter((e) => e.relation === "calls").map((e) => e.target);
+  };
+  assert.deepEqual(edge("fn t() { assert!(measure()); }\n"), [], "no route to it");
+  assert.deepEqual(edge("use b::other::measure;\nfn t() { assert!(measure()); }\n"), ["b/src/other.rs#measure"], "a use");
+  assert.deepEqual(edge("use b::other::*;\nfn t() { assert!(measure()); }\n"), ["b/src/other.rs#measure"], "a glob");
+  assert.deepEqual(edge("use c::unrelated::*;\nfn t() { assert!(measure()); }\n"), [], "a glob of another module");
+  assert.deepEqual(edge("mod tests {\n    use super::*;\n    fn t() { assert!(measure()); }\n}\n"), [], "a test module's glob of its own file");
+  assert.deepEqual(edge("fn t() { assert!(other::measure()); }\n"), ["b/src/other.rs#measure"], "a path");
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");

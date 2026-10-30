@@ -396,13 +396,36 @@ function rustCallEdge(source: string, rel: string, name: string, owner: string |
   };
 }
 
+/** The names a Rust file's `use` declarations mention, and the modules it globs. A
+ * rename's new name counts too, harmlessly: it matches no definition. `super::*` and
+ * `self::*` are left out, since in a `mod tests` they name this same file. */
+function rustUsedNames(root: TsNode): { names: Set<string>; globs: string[] } {
+  const names = new Set<string>();
+  const globs: string[] = [];
+  const visit = (n: TsNode): void => {
+    if (n.type === "use_declaration") {
+      const glob = /(\w+)::\*/.exec(n.text)?.[1];
+      if (glob && glob !== "super" && glob !== "self") globs.push(glob);
+      if (!n.text.includes("*")) for (const word of n.text.match(/\w+/g) ?? []) names.add(word);
+      return;
+    }
+    for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
+      const c = n.namedChild?.(i);
+      if (c) visit(c);
+    }
+  };
+  visit(root);
+  return { names, globs };
+}
+
 /** Rust macro arguments are a flat token tree, invisible to tags.scm, so a call inside
  * `assert!(parse(x))` or `vec![make()]` would have no edge. A name directly followed
  * by a `(…)` group there is a call; `a[0]` and `Foo { }` are not. Only targets the
- * tokens decide get an edge: `Type::f(…)` on that type alone, and `f(…)` or `module::f(…)`
- * on a free function. `x.f(…)` has no receiver type here, and a `cfg!` predicate is not
- * a call at all. */
+ * tokens decide get an edge: `Type::f(…)` on that type alone, `module::f(…)` on a free
+ * function, and bare `f(…)` on one this file defines or a `use` or glob brings in. `x.f(…)` has
+ * no receiver type here, and a `cfg!` predicate is not a call at all. */
 function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges: RawEdge[]): void {
+  const { names: usedNames, globs } = rustUsedNames(root);
   const scan = (tree: TsNode): void => {
     const count = tree.childCount ?? 0;
     for (let i = 0; i < count; i++) {
@@ -427,7 +450,8 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const source = enc ? enc.id : rel;
       rawEdges.push(owner
         ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner }
-        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true });
+        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true,
+            ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}) });
     }
   };
   const visit = (n: TsNode): void => {

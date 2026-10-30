@@ -98,6 +98,9 @@ export interface RawEdge {
   pythonExports?: PythonExports;
   /** calls: may only target a function with no owning type (a Rust call inside a macro). */
   freeFunction?: boolean;
+  /** calls, with freeFunction: beyond its own file, the name can only come from these
+   * glob-imported modules. Absent when a `use` names it or a path qualifies it. */
+  onlyModules?: string[];
   /** calls: a bare Python name a conditional import rebinds, so it has no single binding. */
   pythonRebound?: boolean;
   name?: string; // symbol name to resolve (extends/implements/calls)

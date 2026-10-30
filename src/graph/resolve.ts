@@ -419,7 +419,9 @@ export function resolveEdges(
       if (e.freeFunction) {
         const free = (list: NodeV1[] | undefined) => (list ?? []).filter((n) => n.kind === "function" && !n.owner);
         const local = free(perFileName.get(e.file)?.get(e.name!));
-        const global = free(globalName.get(e.name!)).filter((n) => reachable(e.file, n.path));
+        const inModule = (path: string) =>
+          !e.onlyModules || e.onlyModules.some((m) => path.endsWith(`/${m}.rs`) || path.includes(`/${m}/`));
+        const global = free(globalName.get(e.name!)).filter((n) => reachable(e.file, n.path) && inModule(n.path));
         const only = local.length === 1 ? local[0] : global.length === 1 ? global[0] : undefined;
         if (only) add(e.source, only.id, "calls", local.length === 1 ? "extracted" : "inferred");
         continue;
