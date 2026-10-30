@@ -70,3 +70,39 @@ test("a namespace import reaches the module's export", () => {
   assert.deepEqual(calls(ns(`import * as NS from "../a/impl";\nexport function run(NS: any) { NS.f(); }\n`), "c/use.ts#run"), [], "a parameter that shadows it");
   assert.deepEqual(calls(ns(`import * as NS from "external";\nexport function run() { NS.f(); }\n`), "c/use.ts#run"), [], "a module from outside");
 });
+
+test("an overloaded interface with a line-leading generic does not lose the file after it", () => {
+  const text = [
+    "export interface Make<E> {",
+    "  <I>(h: H): [H]",
+    "  <",
+    "    I,",
+    "    I2,",
+    "    R,",
+    "    E2,",
+    "    E3 = N<[E, E2]>,",
+    "  >(",
+    "    a: H,",
+    "    b: H",
+    "  ): [H, H]",
+    "}",
+    "",
+    "export class Factory {",
+    "  build() {",
+    "    return helper();",
+    "  }",
+    "}",
+    "",
+    "export const createFactory = () => new Factory();",
+    "function helper() {}",
+    "",
+  ].join("\n");
+  const out = extractFile("factory.ts", text, "typescript");
+  const ids = out.nodes.map((n) => n.id);
+  for (const id of ["factory.ts#Factory", "factory.ts#createFactory", "factory.ts#helper"]) assert.ok(ids.includes(id), id);
+  const factory = out.nodes.find((n) => n.id === "factory.ts#Factory")!;
+  assert.match(factory.span ?? "", /^L15/, "lines stay where they were");
+  // A file that stays broken keeps its own parse rather than a guess.
+  const broken = extractFile("b.ts", "export function ok() {}\n  <T>(\nfunction (\n", "typescript");
+  assert.ok(broken.nodes.some((n) => n.id === "b.ts#ok"));
+});

@@ -39,6 +39,7 @@ export interface Point {
 /** The syntax-node surface extract.ts and bindings.ts use. */
 export interface SyntaxNode {
   readonly type: string;
+  readonly hasError: boolean;
   readonly text: string;
   /** Unique within one tree; compare `tree` too (extract.ts `sameSyntaxNode`). */
   readonly id: number;

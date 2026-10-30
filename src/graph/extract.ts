@@ -430,7 +430,18 @@ interface DefDescriptor {
 /** Throws when `lang`'s grammar is unavailable: callers check `depthReady`
  * (depth-parser.ts) first and hand such a file to its breadth-tier stand-in instead. */
 export function extractFile(rel: string, source: string, lang: Language): ExtractResult {
-  return parseDepth(lang, source, (root) => extractTree(rel, source, lang, root));
+  return parseDepth(lang, source, (root) => {
+    // The TS grammar reads a line-leading `<` as continuing the member above, so one
+    // overloaded interface (`[H]\n  <I>(...)`) can turn the rest of the file into ERROR.
+    // Trying the indent's last space as a separator keeps every offset and line. A file
+    // this does not leave fully clean keeps its own parse.
+    if (lang === "typescript" && root.hasError) {
+      const separated = source.replace(/^( *) </gm, "$1;<");
+      const clean = separated === source ? null : parseDepth(lang, separated, (again) => (again.hasError ? null : extractTree(rel, source, lang, again)));
+      if (clean) return clean;
+    }
+    return extractTree(rel, source, lang, root);
+  });
 }
 
 /** {@link extractFile} over an already-parsed tree. */
