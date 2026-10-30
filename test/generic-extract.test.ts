@@ -254,6 +254,28 @@ test("Rust: a repo type with no single matching member is stated, not guessed", 
   assert.deepEqual(unresolved("fn t() { Vec::new(); }\n"), { edges: [], out: [] }, "a type outside the repo says nothing");
 });
 
+test("Rust: a type alias or generic bound reaches the real owner", async () => {
+  await warmGenericGrammars(["rust"]);
+  const edge = (body: string) => {
+    const here = extractGeneric("lib.rs", body, "rust");
+    const out: { name: string; through: string | null }[] = [];
+    const targets = resolveEdges(here.nodes, here.rawEdges, { unresolvedCalls: out as never })
+      .filter((e) => e.relation === "calls" && /#(W\.)?t$/.test(e.source)).map((e) => e.target);
+    return { targets, stated: out.map((c) => c.through) };
+  };
+  const engine = "struct Engine;\nimpl Engine { fn start() {} }\nstruct Other;\nimpl Other { fn start() {} }\n";
+  const started = { targets: ["lib.rs#start"], stated: [] };
+  assert.deepEqual(edge(`${engine}type Alias = Engine;\nfn t() { Alias::start(); }\n`), started, "a type alias");
+  assert.deepEqual(edge(`${engine}type Alias = crate::x::Engine;\nfn t() { Alias::start(); }\n`), started, "a path alias");
+  assert.deepEqual(edge(`${engine}use crate::Engine as E;\nfn t() { E::start(); }\n`), started, "a use rename");
+  const job = "trait Job { fn go(); }\nstruct Nope;\nimpl Nope { fn go() {} }\n";
+  const went = { targets: ["lib.rs#go"], stated: [] };
+  assert.deepEqual(edge(`${job}fn t<T: Job>() { T::go(); }\n`), went, "a bound");
+  assert.deepEqual(edge(`${job}fn t<T>() where T: Job { T::go(); }\n`), went, "a where clause");
+  assert.deepEqual(edge(`${job}struct W<T>(T);\nimpl<T: Job> W<T> { fn t() { T::go(); } }\n`), went, "an impl's bound");
+  assert.deepEqual(edge(`${job}fn t<T: Display>() { T::go(); }\n`), { targets: [], stated: [] }, "a bound from outside the repo");
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");

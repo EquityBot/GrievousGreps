@@ -217,6 +217,8 @@ export function resolveEdges(
     out.push({ source, target, relation, confidence });
   };
 
+  for (const e of rawEdges) if (e.rustAlias) push(classParents, e.rustAlias.alias, e.rustAlias.target);
+
   const pythonExports = new Map<string, PythonExports>();
   for (const e of rawEdges) if (e.pythonExports) pythonExports.set(e.file, e.pythonExports);
   const pythonModules = new PythonModules(
@@ -332,7 +334,10 @@ export function resolveEdges(
       }
       if (e.viaMember) {
         if (!e.recvType) continue;
-        const hit = resolveTypedMember(e.recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        let hit = resolveTypedMember(e.recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        for (const bound of e.rustBounds ?? []) {
+          hit ??= resolveTypedMember(bound, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        }
         // A Rust `Type::f` the repo's type holds no single `f` for says so, an enum
         // variant's capital name aside: several
         // `impl From<_>` need argument types to choose between, and a type alias or a

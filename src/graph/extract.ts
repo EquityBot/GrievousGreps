@@ -103,6 +103,10 @@ export interface RawEdge {
   /** calls: the crate a Rust path call starts in, when not this one. resolve.ts drops
    * it when that is `std` or a dependency. */
   rustRoot?: string;
+  /** calls with a generic owner: the traits the parameter is bound by. */
+  rustBounds?: string[];
+  /** A Rust `type Alias = Target;`, which is not itself a graph edge. */
+  rustAlias?: { alias: string; target: string };
   /** calls, with a free rustForm: beyond its own file, the name can only come from these
    * glob-imported modules. Absent when a `use` names it or a path qualifies it. */
   onlyModules?: string[];

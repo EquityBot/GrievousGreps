@@ -328,6 +328,7 @@ export function extractGeneric(rel: string, source: string, langName: string): E
   else if (langName === "rust") {
     extractUses(tree.rootNode as TsNode, rel, rawEdges);
     extractRustMacroCalls(tree.rootNode as TsNode, rel, defs, rawEdges);
+    extractRustAliases(tree.rootNode as TsNode, rel, rawEdges);
   }
   else if (langName === "php") extractPhpUses(tree.rootNode as TsNode, rel, rawEdges);
   else if (langName === "gleam") extractGleamModules(tree.rootNode as TsNode, rel, defs, rawEdges);
@@ -378,6 +379,38 @@ function rustOwnerOf(item: TsNode): string | undefined {
   return name?.text.replace(/^.*::/, "");
 }
 
+/** The type a Rust path's owner really is at `at`: a `use ... as` rename undone. */
+function rustRealOwner(owner: string | undefined, scopes: RustUseScope[], at: number): string | undefined {
+  if (!owner) return owner;
+  const around = scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => b.start - a.start);
+  for (const scope of around) {
+    const real = scope.renames.get(owner);
+    if (real) return real;
+    if (scope.closed) break;
+  }
+  return owner;
+}
+
+/** The traits a generic parameter is bound by where `from` sits: `T: Job + Clone` or a
+ * `where T: Job`, on the enclosing functions and impls. */
+function rustBounds(owner: string | undefined, from: TsNode | undefined): string[] {
+  const out: string[] = [];
+  if (!owner || !/^\w+$/.test(owner)) return out;
+  const pattern = new RegExp(`\\b${owner}\\s*:\\s*([^,>{;=]+)`, "g");
+  for (let n: TsNode | null | undefined = from; n; n = n.parent) {
+    if (n.type !== "function_item" && n.type !== "impl_item" && n.type !== "trait_item") continue;
+    const body = n.childForFieldName?.("body");
+    const header = body ? n.text.slice(0, body.startIndex - n.startIndex) : n.text;
+    for (const m of header.matchAll(pattern)) {
+      for (const bound of (m[1] ?? "").split("+")) {
+        const name = bound.trim().replace(/<.*$/, "").replace(/^.*::/, "");
+        if (/^[A-Z]/.test(name)) out.push(name);
+      }
+    }
+  }
+  return out;
+}
+
 /** Where a Rust path starts, through the `use` declarations in scope at `at`: `io::Error`
  * with `use std::io;` is `std`. Undefined for a bare name and for a path inside this
  * crate. resolve.ts drops a call whose path starts in `std` or a dependency. */
@@ -406,11 +439,13 @@ function rustCallEdge(
   owner: string | undefined,
   root: string | undefined,
   form: "free" | "method" | "macro",
+  bounds: string[] = [],
 ): RawEdge {
   return {
     source, relation: "calls", file: rel, name,
     ...(owner ? { viaMember: true, recvType: owner } : { rustForm: form }),
     ...(root ? { rustRoot: root } : {}),
+    ...(bounds.length ? { rustBounds: bounds } : {}),
   };
 }
 
@@ -458,6 +493,8 @@ interface RustUseScope {
   /** A `mod` body sees nothing of the module around it, unless it globs `super`. */
   closed: boolean;
   names: Map<string, string>;
+  /** `use a::Engine as E` → E: Engine. */
+  renames: Map<string, string>;
 }
 
 function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; globs: string[] } {
@@ -474,11 +511,12 @@ function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; g
         scope.names.set(name, first);
         names.add(name);
       }
+      for (const m of n.text.matchAll(/(\w+)\s+as\s+(\w+)/g)) scope.renames.set(m[2]!, m[1]!);
       return;
     }
     let inner = scope;
     if (n.type === "mod_item" || n.type === "block") {
-      inner = { start: n.startIndex, end: n.endIndex ?? n.startIndex, closed: n.type === "mod_item", names: new Map() };
+      inner = { start: n.startIndex, end: n.endIndex ?? n.startIndex, closed: n.type === "mod_item", names: new Map(), renames: new Map() };
       scopes.push(inner);
     }
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
@@ -486,7 +524,7 @@ function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; g
       if (c) visit(c, inner);
     }
   };
-  const top: RustUseScope = { start: 0, end: Number.POSITIVE_INFINITY, closed: true, names: new Map() };
+  const top: RustUseScope = { start: 0, end: Number.POSITIVE_INFINITY, closed: true, names: new Map(), renames: new Map() };
   scopes.push(top);
   visit(root, top);
   return { scopes, names, globs };
@@ -502,6 +540,24 @@ function rustUsedAt(scopes: RustUseScope[], name: string, at: number): string | 
     if (scope.closed) return undefined;
   }
   return undefined;
+}
+
+/** `type Alias = Engine;` → a raw edge resolve.ts reads as: Alias's members are Engine's. */
+function extractRustAliases(root: TsNode, rel: string, rawEdges: RawEdge[]): void {
+  const visit = (n: TsNode): void => {
+    if (n.type === "type_item") {
+      const alias = n.childForFieldName?.("name")?.text;
+      const type = n.childForFieldName?.("type");
+      const target = (type?.childForFieldName?.("type") ?? type?.childForFieldName?.("name") ?? type)?.text.replace(/^.*::/, "");
+      if (alias && target) rawEdges.push({ source: rel, relation: "imports", file: rel, rustAlias: { alias, target } });
+      return;
+    }
+    for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
+      const c = n.namedChild?.(i);
+      if (c) visit(c);
+    }
+  };
+  visit(root);
 }
 
 /** Rust macro arguments are a flat token tree, invisible to tags.scm, so a call inside
@@ -535,11 +591,11 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       for (let j = i - 1; j >= 1 && tree.child?.(j)?.type === "::"; j -= 2) {
         path = path ? `${tree.child?.(j - 1)?.text}::${path}` : tree.child?.(j - 1)?.text;
       }
-      const owner = rustCallOwner(path, enc);
+      const owner = rustRealOwner(rustCallOwner(path, enc), scopes, c.startIndex);
       const source = enc ? enc.id : rel;
       const pathRoot = rustPathRoot(path, scopes, c.startIndex);
       rawEdges.push({
-        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free"),
+        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c)),
         ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}),
       });
     }
@@ -815,7 +871,7 @@ function tagsExtract(
   // @reference.call too (Ruby tags `def foo`'s `foo` as both @name and a call),
   // producing bogus self-loops (foo→foo). Skip any call at a definition's name token.
   const defNameAt = new Set<number>();
-  const calls: Array<{ name: string; at: number; path?: string; form?: "free" | "method" | "macro" }> = [];
+  const calls: Array<{ name: string; at: number; path?: string; form?: "free" | "method" | "macro"; node?: TsNode }> = [];
   const rustScopes = langName === "rust" ? rustUses(root).scopes : [];
   const refs: Array<{ name: string; at: number }> = [];
   for (const m of matches) {
@@ -834,7 +890,7 @@ function tagsExtract(
           ? { path: cap.name.parent.childForFieldName?.("path")?.text }
           : {}),
         ...(langName === "rust"
-          ? { form: cap["reference.call"]?.type === "macro_invocation" ? "macro" as const : cap.name.parent?.type === "field_expression" ? "method" as const : "free" as const }
+          ? { node: cap.name, form: cap["reference.call"]?.type === "macro_invocation" ? "macro" as const : cap.name.parent?.type === "field_expression" ? "method" as const : "free" as const }
           : {}),
       });
     // Structural references the grammar already marks: a supertype (extends), an
@@ -851,9 +907,10 @@ function tagsExtract(
   for (const c of calls) {
     if (defNameAt.has(c.at)) continue;
     const enc = enclosingDef(defs, c.at);
+    const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc), rustPathRoot(c.path, rustScopes, c.at), c.form ?? "free")
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at), c.form ?? "free", rustBounds(owner, c.node))
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }
