@@ -276,6 +276,52 @@ test("Rust: a type alias or generic bound reaches the real owner", async () => {
   assert.deepEqual(edge(`${job}fn t<T: Display>() { T::go(); }\n`), { targets: [], stated: [] }, "a bound from outside the repo");
 });
 
+test("Rust: an import from outside the repo binds its name", async () => {
+  await warmGenericGrammars(["rust"]);
+  const edge = (body: string, opts = {}) => {
+    const files = [extractGeneric("src/lib.rs", body, "rust"), extractGeneric("src/other.rs", "pub fn f() {}\npub fn g() {}\npub struct S;\nimpl S { pub fn m() {} }\n", "rust")];
+    return resolveEdges(files.flatMap((x) => x.nodes), files.flatMap((x) => x.rawEdges), opts)
+      .filter((e) => e.relation === "calls" && e.source === "src/lib.rs#t").map((e) => e.target);
+  };
+  const outside = { rustExternalCrates: new Set(["dep"]) };
+  assert.deepEqual(edge("use dep::f;\nfn t() { f(); }\n", outside), [], "a dependency's function");
+  assert.deepEqual(edge("use dep::g as f;\nfn t() { f(); }\n", outside), [], "renamed");
+  assert.deepEqual(edge("use std::cmp::min as f;\nfn t() { f(); }\n"), [], "std, renamed");
+  assert.deepEqual(edge("use dep::S;\nfn t() { S::m(); }\n", outside), [], "a dependency's type");
+  assert.deepEqual(edge("use crate::other::f;\nfn t() { f(); }\n", outside), ["src/other.rs#f"], "the repo's own");
+});
+
+test("Rust: a plainly std receiver does not bind a repo method of that name", async () => {
+  await warmGenericGrammars(["rust"]);
+  const lib = "pub trait P { fn map(self); fn rev(self); fn sum(self); }\n";
+  const edge = (call: string) => {
+    const here = extractGeneric("lib.rs", `${lib}fn t(v: X) { ${call}; }\n`, "rust");
+    return resolveEdges(here.nodes, here.rawEdges, {}).filter((e) => e.relation === "calls" && e.source === "lib.rs#t").map((e) => e.target);
+  };
+  for (const call of ["v.iter().map(f)", "v.into_iter().map(f).sum()", "(0..3).rev()", "\"a\".chars().rev()", "Vec::new().iter().sum()", "Some(1).map(f)"]) {
+    assert.deepEqual(edge(call).filter((t) => /#(map|rev|sum)$/.test(t) || /\.(map|rev|sum)$/.test(t)), [], call);
+  }
+  assert.equal(edge("v.par_iter().map(f)").length, 1, "rayon's own adaptor keeps its edge");
+  assert.equal(edge("v.map(f)").length, 1, "an unknown receiver keeps its edge");
+});
+
+test("Rust: a type alias holds only where it is in scope", async () => {
+  await warmGenericGrammars(["rust"]);
+  const edge = (files: Record<string, string>, source: string) => {
+    const x = Object.entries(files).map(([p, t]) => extractGeneric(p, t, "rust"));
+    return resolveEdges(x.flatMap((f) => f.nodes), x.flatMap((f) => f.rawEdges), {}).filter((e) => e.relation === "calls" && e.source === source).map((e) => e.target);
+  };
+  const types = "pub struct One;\nimpl One { pub fn go() {} }\npub struct Two;\nimpl Two { pub fn go() {} }\n";
+  const two = { "src/t.rs": types, "src/a.rs": "type Alias = One;\nfn a() { Alias::go(); }\n", "src/b.rs": "type Alias = Two;\nfn b() { Alias::go(); }\n" };
+  const go = (type: string) => edge(two, type === "One" ? "src/a.rs#a" : "src/b.rs#b");
+  assert.equal(go("One").length, 1);
+  assert.equal(go("Two").length, 1);
+  assert.notDeepEqual(go("One"), go("Two"), "each file's alias reads its own type");
+  // Another module's alias lends a real type of the same name nothing.
+  const real = { "src/t.rs": "pub struct One;\nimpl One { pub fn only() {} }\n", "src/a.rs": "type Named = One;\n", "src/n.rs": "pub struct Named;\nimpl Named { pub fn own() {} }\nfn c() { Named::only(); }\n" };
+  assert.deepEqual(edge(real, "src/n.rs#c"), [], "a real type does not inherit a namesake alias");
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");

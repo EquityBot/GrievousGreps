@@ -219,7 +219,25 @@ export function resolveEdges(
     out.push({ source, target, relation, confidence });
   };
 
-  for (const e of rawEdges) if (e.rustAlias) push(classParents, e.rustAlias.alias, e.rustAlias.target);
+  // A Rust alias reads in its own file, or by a name only one alias and no type holds.
+  const rustAliases = new Map<string, { file: string; target: string }[]>();
+  for (const e of rawEdges) {
+    if (!e.rustAlias) continue;
+    const list = rustAliases.get(e.rustAlias.alias) ?? [];
+    list.push({ file: e.file, target: e.rustAlias.target });
+    rustAliases.set(e.rustAlias.alias, list);
+  }
+  const rustRealType = (type: string, file: string): string => {
+    let at = type;
+    for (let hops = 0; hops < 4; hops++) {
+      const list = rustAliases.get(at);
+      const here = list?.find((a) => a.file === file);
+      const next = here ?? (list?.length === 1 && !(globalName.get(at) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind)) ? list[0] : undefined);
+      if (!next) return at;
+      at = next.target;
+    }
+    return at;
+  };
 
   const tsModules = new Map<string, TsModule>();
   for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
@@ -351,7 +369,8 @@ export function resolveEdges(
       }
       if (e.viaMember) {
         if (!e.recvType) continue;
-        let hit = resolveTypedMember(e.recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        const recvType = e.file.endsWith(".rs") ? rustRealType(e.recvType, e.file) : e.recvType;
+        let hit = resolveTypedMember(recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
         for (const bound of e.rustBounds ?? []) {
           hit ??= resolveTypedMember(bound, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
         }

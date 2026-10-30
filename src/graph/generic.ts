@@ -385,6 +385,20 @@ function rustOwnerOf(item: TsNode): string | undefined {
   return name?.text.replace(/^.*::/, "");
 }
 
+/** Whether a method call's receiver is plainly a standard library value: a chain through
+ * `.iter()` or a range, a literal, or a std constructor. Its `.map()` is not the repo's,
+ * however few `map`s the repo has. A chain through rayon's `par_` adaptors is not one.
+ *
+ * shortcut: reads the receiver's text, so a std value held in a variable still binds a
+ * repo method with that name. The upgrade is receiver types from the bindings pass. */
+function rustStdReceiver(call: TsNode | undefined): boolean {
+  const text = call?.parent?.childForFieldName?.("value")?.text;
+  if (!text || /\bpar_|_par_/.test(text)) return false;
+  return /\.(iter|iter_mut|into_iter|chars|bytes|lines|keys|values|values_mut|drain|split_whitespace)\(\)/.test(text)
+    || /^\([^()]*\.\.[^()]*\)$/.test(text)
+    || /^(std::|Vec::|String::|Box::|vec!|format!|Some\(|Ok\(|Err\(|")/.test(text);
+}
+
 /** The type a Rust path's owner really is at `at`: a `use ... as` rename undone. */
 function rustRealOwner(owner: string | undefined, scopes: RustUseScope[], at: number): string | undefined {
   if (!owner) return owner;
@@ -420,7 +434,12 @@ function rustBounds(owner: string | undefined, from: TsNode | undefined): string
 /** Where a Rust path starts, through the `use` declarations in scope at `at`: `io::Error`
  * with `use std::io;` is `std`. Undefined for a bare name and for a path inside this
  * crate. resolve.ts drops a call whose path starts in `std` or a dependency. */
-function rustPathRoot(path: string | undefined, scopes: RustUseScope[], at: number): string | undefined {
+function rustPathRoot(path: string | undefined, scopes: RustUseScope[], at: number, name?: string): string | undefined {
+  // A bare `f()` has a root only if a `use` binds it: otherwise `f` is a name, not a crate.
+  if (!path) {
+    const used = name ? rustUsedAt(scopes, name, at) : undefined;
+    return used && !/^(crate|self|super)$/.test(used) ? used : undefined;
+  }
   const first = path?.split("::")[0];
   if (!first || /^(crate|self|super|Self)$/.test(first)) return undefined;
   const root = rustUsedAt(scopes, first, at) ?? first;
@@ -913,10 +932,11 @@ function tagsExtract(
   for (const c of calls) {
     if (defNameAt.has(c.at)) continue;
     const enc = enclosingDef(defs, c.at);
+    if (langName === "rust" && c.form === "method" && rustStdReceiver(c.node)) continue;
     const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at), c.form ?? "free", rustBounds(owner, c.node))
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node))
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }
