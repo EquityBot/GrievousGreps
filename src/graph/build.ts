@@ -282,7 +282,7 @@ function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[];
     for (const parent of parents.reverse()) {
       const target = posix.normalize(posix.join(dir, parent));
       const found = effective(present.has(target) ? target : `${target}.json`, seen);
-      if (found) return found;
+      if (found) return stated === undefined ? found : { ...found, base, baseUrl: true };
     }
     return stated === undefined ? null : { base, paths: {}, baseUrl: true };
   };

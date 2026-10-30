@@ -258,3 +258,14 @@ test("V5: an alias reaches another Rust module only through a `use`", async (t) 
   assert.equal(calls(graph, "src/user.rs#g").length, 1, "a `use` does");
   assert.equal(calls(graph, "src/globbed.rs#h").length, 1, "a glob may");
 });
+
+test("U4: a child's `baseUrl` outranks the one it inherits", async (t) => {
+  const graph = await build(t, {
+    "tsconfig.base.json": JSON.stringify({ compilerOptions: { baseUrl: "./wrong", paths: { "~/*": ["./*"] } } }),
+    "tsconfig.json": JSON.stringify({ extends: "./tsconfig.base.json", compilerOptions: { baseUrl: "./src" } }),
+    "src/lib/util.ts": "export function f() {}\nexport function h() {}\n",
+    "wrong/lib/util.ts": "export function f() {}\nexport function h() {}\n",
+    "a.ts": `import { f } from "lib/util";\nimport { h } from "~/lib/util";\nexport function run() { f(); h(); }\n`,
+  });
+  assert.deepEqual(calls(graph, "a.ts#run"), ["src/lib/util.ts#f", "src/lib/util.ts#h"]);
+});
