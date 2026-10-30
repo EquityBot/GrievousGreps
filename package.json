@@ -1,7 +1,8 @@
 {
-  "name": "@nanonets/graft",
-  "version": "0.28.0",
-  "description": "Build a repo's context graph as a folder of linked markdown files: a local, regenerable cache that every query keeps in sync with your code.",
+  "name": "@equitybot/grievousgreps",
+  "private": true,
+  "version": "0.28.0+gg",
+  "description": "A distribution of Trail-Code: a code graph for coding agents, with caller recall measured on public repositories.",
   "keywords": [
     "ai",
     "agents",
@@ -14,14 +15,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/trailhq/Trail-Code.git"
+    "url": "git+https://github.com/EquityBot/GrievousGreps.git"
   },
-  "homepage": "https://github.com/trailhq/Trail-Code#readme",
+  "homepage": "https://github.com/EquityBot/GrievousGreps#readme",
   "bugs": {
-    "url": "https://github.com/trailhq/Trail-Code/issues"
-  },
-  "publishConfig": {
-    "access": "public"
+    "url": "https://github.com/EquityBot/GrievousGreps/issues"
   },
   "type": "module",
   "main": "./dist/index.js",
@@ -34,6 +32,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
+    "trail": "dist/bin/trail.js",
     "graft": "dist/bin/graft.js"
   },
   "files": [
