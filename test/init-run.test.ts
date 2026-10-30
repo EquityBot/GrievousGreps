@@ -200,6 +200,7 @@ const posixOnly = { skip: process.platform === "win32" ? "shebang stand-ins" : f
 test("the person at their terminal: one naming call, the screen, and enter keeps the ticked items (J01)", posixOnly, async () => {
   await inWorld("person", async (w, env, claude) => {
     skillsOn(env);
+    env.TRAIL_CLOUD = "1"; // the naming call goes out only once asked for
     const said: string[] = [];
     const t = fakeTty([" ", "\r"]);
     const { reads } = beginLookBack(w.repo, { env, deps: deps(true) });
