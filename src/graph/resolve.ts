@@ -102,6 +102,8 @@ export interface ResolveOptions {
   tsPackages?: TsPackage[];
   /** The crates the repo's Cargo.toml files depend on from outside it, `-` as `_`. */
   rustExternalCrates?: ReadonlySet<string>;
+  /** Each of the repo's crates, `-` as `_`, to its folder. */
+  rustCrateDirs?: ReadonlyMap<string, string>;
   /** The Python roots the repo's configuration states (see python-roots.ts). */
   pythonRoots?: string[];
   /** Filled with the Python calls an import names but no edge carries. */
@@ -220,24 +222,24 @@ export function resolveEdges(
     out.push({ source, target, relation, confidence });
   };
 
-  // A Rust alias reads in its own file, or by a name only one alias and no type holds.
-  const rustAliases = new Map<string, { file: string; target: string }[]>();
+  // A Rust alias reads in its own module, or by a name only one alias and no type holds.
+  const rustAliases = new Map<string, (NonNullable<RawEdge["rustAlias"]> & { file: string })[]>();
   for (const e of rawEdges) {
     if (!e.rustAlias) continue;
     const list = rustAliases.get(e.rustAlias.alias) ?? [];
-    list.push({ file: e.file, target: e.rustAlias.target });
+    list.push({ ...e.rustAlias, file: e.file });
     rustAliases.set(e.rustAlias.alias, list);
   }
-  const rustRealType = (type: string, file: string): string => {
-    let at = type;
+  const rustRealType = (type: string, file: string, at: number): { type: string; root?: string } => {
+    let real: { type: string; root?: string } = { type };
     for (let hops = 0; hops < 4; hops++) {
-      const list = rustAliases.get(at);
-      const here = list?.find((a) => a.file === file);
-      const next = here ?? (list?.length === 1 && !(globalName.get(at) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind)) ? list[0] : undefined);
-      if (!next) return at;
-      at = next.target;
+      const list = rustAliases.get(real.type);
+      const here = list?.filter((a) => a.file === file && a.start <= at && at < a.end).sort((x, y) => (x.end - x.start) - (y.end - y.start))[0];
+      const next = here ?? (list?.length === 1 && !(globalName.get(real.type) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind) && n.path !== list[0].file) ? list[0] : undefined);
+      if (!next) return real;
+      real = { type: next.target, root: next.root };
     }
-    return at;
+    return real;
   };
 
   const tsModules = new Map<string, TsModule>();
@@ -376,8 +378,15 @@ export function resolveEdges(
       }
       if (e.viaMember) {
         if (!e.recvType) continue;
-        const recvType = e.file.endsWith(".rs") ? rustRealType(e.recvType, e.file) : e.recvType;
-        let hit = resolveTypedMember(recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        const real = e.file.endsWith(".rs") ? rustRealType(e.recvType, e.file, e.rustAt ?? 0) : { type: e.recvType };
+        if (real.root && opts.rustExternalCrates?.has(real.root)) continue; // an alias of a dependency's type
+        const recvType = real.type;
+        // An alias names its crate, which picks between the repo's types of that name.
+        const crateDir = real.root ? opts.rustCrateDirs?.get(real.root) : undefined;
+        const inCrate = crateDir ? (ownerMethod.get(`${recvType}.${e.name}`) ?? []).filter((c) => c.path.startsWith(`${crateDir}/`)) : [];
+        let hit = inCrate.length === 1
+          ? { id: inCrate[0].id, confidence: "inferred" as const }
+          : resolveTypedMember(recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
         for (const bound of e.rustBounds ?? []) {
           hit ??= resolveTypedMember(bound, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
         }
@@ -385,8 +394,12 @@ export function resolveEdges(
         // variant's capital name aside: several
         // `impl From<_>` need argument types to choose between, and a type alias or a
         // trait's default method needs more than the owner index holds.
-        if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!)
-          && (globalName.get(e.recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind))) {
+        // So does a type nothing in the repo declares and no `use` takes from elsewhere, such
+        // as a macro's, when the repo defines the name: only the macro knows if it is that one.
+        const owned = (globalName.get(e.recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
+        const unseen = !owned && !hit && !e.rustBounds?.length && !RUST_PRELUDE_TYPES.has(e.recvType) && !rustAliases.has(e.recvType)
+          && e.recvType.length > 1 && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" || n.kind === "method");
+        if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!) && (owned || unseen)) {
           opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: e.recvType });
         }
         if (hit === "ambiguous") continue; // drop — never guess past an ambiguous owner
@@ -637,6 +650,8 @@ function resolveTraitMember(
  * left unresolved: picking one would invent an edge the source does not state.
  */
 const RUST_STD_CRATES = new Set(["std", "core", "alloc"]);
+/** Types and traits every Rust file sees without a `use`. */
+const RUST_PRELUDE_TYPES = new Set(["Box", "Clone", "Default", "From", "Into", "Iterator", "IntoIterator", "Option", "Result", "String", "ToOwned", "ToString", "TryFrom", "TryInto", "Vec", "Extend", "FromIterator", "PartialEq", "PartialOrd", "Ord", "Eq", "Drop", "Fn", "FnMut", "FnOnce", "AsRef", "AsMut", "DoubleEndedIterator", "ExactSizeIterator", "Send", "Sync", "Sized", "Copy", "Self"]);
 const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "trait", "type", "class", "interface"]);
 
 /** Where a name in a Python module leads: its definition, a module it binds, or why

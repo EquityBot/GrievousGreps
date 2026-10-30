@@ -118,7 +118,10 @@ export interface RawEdge {
   /** calls with a generic owner: the traits the parameter is bound by. */
   rustBounds?: string[];
   /** A Rust `type Alias = Target;`, which is not itself a graph edge. */
-  rustAlias?: { alias: string; target: string };
+  /** Readable between `start` and `end`, the alias's module. `root`: the crate its target came from. */
+  rustAlias?: { alias: string; target: string; start: number; end: number; root?: string };
+  /** Where a Rust call sits, for the module its aliases read in. */
+  rustAt?: number;
   /** calls, with a free rustForm: beyond its own file, the name can only come from these
    * glob-imported modules. Absent when a `use` names it or a path qualifies it. */
   onlyModules?: string[];

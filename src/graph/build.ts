@@ -300,7 +300,8 @@ function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[];
   return { tsPaths, tsPackages };
 }
 
-function readRustExternalCrates(root: string, repoFiles: string[]): Set<string> {
+function readRustCrates(root: string, repoFiles: string[]): { rustExternalCrates: Set<string>; rustCrateDirs: Map<string, string> } {
+  const rustCrateDirs = new Map<string, string>();
   const deps = new Set<string>();
   const internal = new Set<string>();
   const norm = (name: string) => name.replace(/-/g, "_");
@@ -323,7 +324,11 @@ function readRustExternalCrates(root: string, repoFiles: string[]): Set<string> 
       }
       const key = /^\s*([\w-]+)\s*=\s*(.*)$/.exec(line);
       if (!key) continue;
-      if (section === "package" && key[1] === "name") internal.add(norm(key[2].replace(/["'\s]/g, "")));
+      if (section === "package" && key[1] === "name") {
+        const crate = norm(key[2].replace(/["'\s]/g, ""));
+        internal.add(crate);
+        rustCrateDirs.set(crate, posix.dirname(relPosix(root, f)));
+      }
       if (/(?:^|\.)(?:dev-|build-)?dependencies$/.test(section)) {
         deps.add(norm(key[1]));
         if (/\bpath\s*=/.test(key[2])) internal.add(norm(key[1]));
@@ -333,7 +338,7 @@ function readRustExternalCrates(root: string, repoFiles: string[]): Set<string> 
     }
   }
   for (const name of internal) deps.delete(name);
-  return deps;
+  return { rustExternalCrates: deps, rustCrateDirs };
 }
 
 export async function buildGraph(
@@ -493,7 +498,7 @@ export async function buildGraph(
   const edges = resolveEdges(nodes, rawEdges, {
     goModules: readGoModules(root, repoFiles),
     pythonRoots: readPythonRoots(root, repoFiles),
-    rustExternalCrates: readRustExternalCrates(root, repoFiles),
+    ...readRustCrates(root, repoFiles),
     ...readTsImports(root, repoFiles),
     unresolvedCalls,
   });

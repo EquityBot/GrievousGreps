@@ -471,11 +471,12 @@ function rustCallEdge(
   owner: string | undefined,
   root: string | undefined,
   form: "free" | "method" | "macro",
-  bounds: string[] = [],
+  bounds: string[],
+  at: number,
 ): RawEdge {
   return {
     source, relation: "calls", file: rel, name,
-    ...(owner ? { viaMember: true, recvType: owner } : { rustForm: form }),
+    ...(owner ? { viaMember: true, recvType: owner, rustAt: at } : { rustForm: form }),
     ...(root ? { rustRoot: root } : {}),
     ...(bounds.length ? { rustBounds: bounds } : {}),
   };
@@ -576,20 +577,25 @@ function rustUsedAt(scopes: RustUseScope[], name: string, at: number): string | 
 
 /** `type Alias = Engine;` → a raw edge resolve.ts reads as: Alias's members are Engine's. */
 function extractRustAliases(root: TsNode, rel: string, rawEdges: RawEdge[]): void {
-  const visit = (n: TsNode): void => {
+  const { scopes } = rustUses(root);
+  const visit = (n: TsNode, start: number, end: number): void => {
+    if (n.type === "impl_item" || n.type === "trait_item") return; // an associated type is no alias
     if (n.type === "type_item") {
       const alias = n.childForFieldName?.("name")?.text;
       const type = n.childForFieldName?.("type");
-      const target = (type?.childForFieldName?.("type") ?? type?.childForFieldName?.("name") ?? type)?.text.replace(/^.*::/, "");
-      if (alias && target) rawEdges.push({ source: rel, relation: "imports", file: rel, rustAlias: { alias, target } });
+      const full = (type?.childForFieldName?.("type") ?? type)?.text;
+      const target = full?.replace(/^.*::/, "");
+      const crate = target ? rustPathRoot(full?.includes("::") ? full : undefined, scopes, n.startIndex, target) : undefined;
+      if (alias && target) rawEdges.push({ source: rel, relation: "imports", file: rel, rustAlias: { alias, target, start, end, ...(crate ? { root: crate } : {}) } });
       return;
     }
+    const inner = n.type === "mod_item";
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
       const c = n.namedChild?.(i);
-      if (c) visit(c);
+      if (c) visit(c, inner ? n.startIndex : start, inner ? n.endIndex : end);
     }
   };
-  visit(root);
+  visit(root, 0, Number.POSITIVE_INFINITY);
 }
 
 /** Rust macro arguments are a flat token tree, invisible to tags.scm, so a call inside
@@ -627,7 +633,7 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const source = enc ? enc.id : rel;
       const pathRoot = rustPathRoot(path, scopes, c.startIndex);
       rawEdges.push({
-        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c)),
+        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c), c.startIndex),
         ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}),
       });
     }
@@ -943,7 +949,7 @@ function tagsExtract(
     const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node))
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at)
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }

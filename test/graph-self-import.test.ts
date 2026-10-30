@@ -142,3 +142,38 @@ test("Rust: `crate::` and a workspace member's own name both reach it", async (t
   assert.deepEqual(calls(graph, "crates/grep-printer/src/lib.rs#run"), ["crates/grep-printer/src/util.rs#f"]);
   assert.deepEqual(calls(graph, "crates/app/src/main.rs#main"), ["crates/grep-printer/src/util.rs#f"]);
 });
+
+const types = "pub struct One;\npub struct Two;\nimpl One { pub fn go() {} }\nimpl Two { pub fn run() {} }\n";
+
+test("Rust: an alias reads in its inline module, so 2 modules may share its name", async (t) => {
+  const graph = await build(t, {
+    "src/t.rs": types,
+    "src/a.rs": "mod a { type R = crate::t::One; pub fn x() { R::go(); } }\nmod b { type R = crate::t::Two; pub fn y() { R::run(); } }\n",
+  });
+  assert.equal(calls(graph, "src/a.rs#x").length, 1, "the first module's alias");
+  assert.equal(calls(graph, "src/a.rs#y").length, 1, "the second module's alias");
+});
+
+test("Rust: an alias names its crate, which picks between the repo's types of that name (ripgrep's Range)", async (t) => {
+  const graph = await build(t, {
+    "crates/matcher/Cargo.toml": `[package]\nname = "grep-matcher"\n`,
+    "crates/matcher/src/lib.rs": "pub struct Match;\nimpl Match { pub fn new() {} }\n",
+    "crates/ignore/Cargo.toml": `[package]\nname = "ignore"\n`,
+    "crates/ignore/src/lib.rs": "pub struct Match;\nimpl Match { pub fn new() {} }\n",
+    "crates/searcher/Cargo.toml": `[package]\nname = "grep-searcher"\n[dependencies]\ngrep-matcher = { path = "../matcher" }\n`,
+    "crates/searcher/src/lib.rs": "use grep_matcher::Match;\npub type Range = Match;\n",
+    "crates/searcher/src/core.rs": "use crate::Range;\nfn f() { Range::new(); }\n",
+  });
+  assert.deepEqual(calls(graph, "crates/searcher/src/core.rs#f").map((x) => x.split("#")[0]), ["crates/matcher/src/lib.rs"]);
+});
+
+test("Rust: an alias of a dependency's type stops there, and a type only a macro makes is stated", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n[dependencies]\nhttp = "1"\n`,
+    "src/lib.rs": "pub struct Other;\nimpl Other { pub fn from_err() {} pub fn builder() {} }\ndefine!(MadeByMacro);\n",
+    "src/a.rs": "type Req = http::Request;\npub fn up() { Req::builder(); }\npub fn made() { MadeByMacro::from_err(); }\n",
+  });
+  assert.deepEqual(calls(graph, "src/a.rs#up"), []);
+  const stated = (graph.unresolvedCalls ?? []).filter((u) => u.source.startsWith("src/a.rs")).map((u) => [u.source, u.name, u.through]);
+  assert.deepEqual(stated, [["src/a.rs#made", "from_err", "MadeByMacro"]]);
+});
