@@ -33,7 +33,7 @@ function scene(t: { after: (f: () => void) => void }) {
   const env = { ...process.env, HOME: home, USERPROFILE: home, TRAIL_CLOUD: undefined, TRAIL_NO_FETCH: undefined, DO_NOT_TRACK: "1" };
   const run = (extra: NodeJS.ProcessEnv, ...args: string[]) =>
     execFileSync(process.execPath, ["--import", "tsx", "src/cli.ts", ...args], { env: { ...env, ...extra } as NodeJS.ProcessEnv, stdio: "pipe" });
-  return { mine, home, env, run, seen: () => git(mine, "branch", "-r") };
+  return { root, mine, env, run, seen: () => git(mine, "branch", "-r") };
 }
 
 test("the hidden branch read fetches only with the workspace side on, or when a person asked", (t) => {
@@ -51,16 +51,16 @@ test("the workspace side on fetches too", (t) => {
 });
 
 test("a person running `team` asked, so its background read fetches", async (t) => {
-  const { mine, home, env, seen } = scene(t);
+  const { root, mine, env, seen } = scene(t);
   // Through the build: the detached read starts dist/cli.js, which a run from src/ has no way to.
   execFileSync(process.execPath, ["dist/bin/trail.js", "team", mine], { env: env as NodeJS.ProcessEnv, stdio: "pipe" });
   for (let i = 0; i < 80 && !/origin\/work/.test(seen()); i++) await new Promise((r) => setTimeout(r, 250));
   assert.match(seen(), /origin\/work/);
   // The read goes on past the fetch: its cache marks it running until it ends, and on Windows
   // the folder cannot go whilst it holds files there.
-  const running = () => readdirSync(home, { recursive: true, encoding: "utf8" }).some((f) => {
+  const running = () => readdirSync(root, { recursive: true, encoding: "utf8" }).some((f) => {
     try {
-      return f.endsWith(".json") && readFileSync(join(home, f), "utf8").includes('"runningSince"');
+      return f.endsWith("trail-branches.json") && readFileSync(join(root, f), "utf8").includes('"runningSince"');
     } catch {
       return false;
     }
