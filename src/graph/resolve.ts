@@ -498,6 +498,8 @@ export function resolveEdges(
           const std = RUST_STD_TYPES.has(recvType) || RUST_PRELUDE_TYPES.has(recvType);
           const repoType = (globalName.get(recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
           if (recv && (std || repoType || real.root || rustAliases.has(recv))) {
+            // Rust takes a type's own method before any trait's.
+            if (std && RUST_STD_OWN_METHODS.has(e.name!)) continue;
             if (!rustTraitProvides(e, recvType) && repoType && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" && n.owner)) {
               opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: recvType });
             }
@@ -764,6 +766,17 @@ function resolveTraitMember(
 const RUST_STD_CRATES = new Set(["std", "core", "alloc"]);
 /** The standard library's types a value is most often of; a repo's `push` is not on these. */
 const RUST_STD_TYPES = new Set(["Vec", "String", "Option", "Result", "HashMap", "HashSet", "BTreeMap", "BTreeSet", "VecDeque", "Mutex", "RwLock", "Cell", "RefCell", "PathBuf", "Path", "Duration", "Instant", "str", "Cow"]);
+/**
+ * Methods the common std types hold themselves or through a prelude trait, which win over a repo
+ * trait of that name.
+ *
+ * shortcut: a fixed list, since the index holds no std. A std method missing here can bind a
+ * same-named repo trait in scope, as an inferred edge. A compiler-grade answer is `build --lsp`.
+ */
+const RUST_STD_OWN_METHODS = new Set(("iter iter_mut into_iter len is_empty push pop get get_mut insert remove contains clear clone "
+  + "as_ref as_mut take chunks chunks_mut windows map filter filter_map collect sum product fold next next_back extend first last "
+  + "sort reverse split_at concat join to_string to_owned unwrap expect ok err is_some is_none keys values lock read write load "
+  + "store set replace borrow borrow_mut size_hint").split(" "));
 /** Types and traits every Rust file sees without a `use`. */
 const RUST_PRELUDE_TYPES = new Set(["Box", "Clone", "Default", "From", "Into", "Iterator", "IntoIterator", "Option", "Result", "String", "ToOwned", "ToString", "TryFrom", "TryInto", "Vec", "Extend", "FromIterator", "PartialEq", "PartialOrd", "Ord", "Eq", "Drop", "Fn", "FnMut", "FnOnce", "AsRef", "AsMut", "DoubleEndedIterator", "ExactSizeIterator", "Send", "Sync", "Sized", "Copy", "Self"]);
 const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "trait", "type", "class", "interface"]);

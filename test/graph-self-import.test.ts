@@ -587,3 +587,14 @@ test("W3: a package's name counts only through what its manifest reaches, and ot
   });
   assert.deepEqual(calls(reached, "apps/a.ts#go"), ["packages/core/src/inner.ts#run"]);
 });
+
+test("Rust: a std type's own method beats a repo trait of that name, and `vec!` is a Vec", async (t) => {
+  const graph = await build(t, {
+    "src/lib.rs": `pub trait Stack { fn push(&mut self, n: u8); fn pile(&self); }
+pub fn own(v: &mut Vec<u8>) { v.push(1); }
+pub fn through_macro() { let v = vec![1, 2]; v.pile(); }
+`,
+  });
+  assert.deepEqual(calls(graph, "src/lib.rs#own"), [], "Vec's own push");
+  assert.deepEqual(calls(graph, "src/lib.rs#through_macro"), ["src/lib.rs#pile"]);
+});

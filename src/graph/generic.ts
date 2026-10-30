@@ -472,6 +472,7 @@ function rustValueChain(value: TsNode | null | undefined, owner: string | undefi
     return rustValueChain(n.childForFieldName?.("value") ?? n.namedChild?.(0), owner, scopes, depth + 1);
   }
   if (n.type === "self") return owner ? { type: owner, methods: [] } : undefined;
+  if (n.type === "macro_invocation" && n.childForFieldName?.("macro")?.text === "vec") return { type: "Vec", methods: [] };
   if (n.type === "identifier") return rustLocalChain(n.text, n, owner, scopes, depth + 1);
   if (n.type === "struct_expression") {
     const type = rustTypeName(n.childForFieldName?.("name"), owner);
