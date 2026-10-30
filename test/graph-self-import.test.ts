@@ -77,7 +77,7 @@ test("without `exports`, a workspace package's `main` reaches its source", async
   assert.deepEqual(edge(graph, "apps/a.ts#run"), [["packages/core/src/entry.ts#make", "extracted"]]);
 });
 
-test("a name no path reaches is found inside its package and marked inferred, whatever the map says", async (t) => {
+test("a name no path reaches is found inside its package and marked inferred; a wildcard path reaches its own", async (t) => {
   const graph = await build(t, {
     "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { "./features/*": "./dist/impl/*.js", "./gen": "./generated/gen.js" } }),
     "packages/core/src/impl/one.ts": "export function one() {}\n",
@@ -87,7 +87,7 @@ test("a name no path reaches is found inside its package and marked inferred, wh
   });
   assert.deepEqual(edge(graph, "apps/a.ts#run").sort(), [
     ["packages/core/src/gen-source.ts#gen", "inferred"],
-    ["packages/core/src/impl/one.ts#one", "inferred"],
+    ["packages/core/src/impl/one.ts#one", "extracted"],
   ]);
 });
 
