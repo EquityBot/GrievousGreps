@@ -207,3 +207,29 @@ test("V3: an entry forwarding the name outside does not end the search past one 
   assert.deepEqual(calls(out, "apps/a.ts#go"), [], "only outside: T1 holds");
   assert.deepEqual(stated(out, "apps/a.ts#go"), []);
 });
+
+test("V2: a package name found outside its entries must be exported under that name", async (t) => {
+  const renamed = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": "./dist/unmapped/entry.js" } }),
+    "packages/core/src/barrel.ts": `export { execute as run } from "./impl";\n`,
+    "packages/core/src/impl.ts": "export function execute() {}\n",
+    "packages/core/src/other.ts": "export function run() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(calls(renamed, "apps/a.ts#go"), [], "2 things export that name: no guess");
+  assert.deepEqual(stated(renamed, "apps/a.ts#go"), [["run", "@acme/core"]]);
+  const hidden = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": "./dist/unmapped/entry.js" } }),
+    "packages/core/src/private.ts": "function run() {}\nrun();\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(calls(hidden, "apps/a.ts#go"), [], "a private function of that name proves nothing");
+  assert.deepEqual(stated(hidden, "apps/a.ts#go"), [["run", "@acme/core"]]);
+  const proven = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": "./dist/unmapped/entry.js" } }),
+    "packages/core/src/barrel.ts": `export { execute as run } from "./impl";\n`,
+    "packages/core/src/impl.ts": "export function execute() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(edge(proven, "apps/a.ts#go"), [["packages/core/src/impl.ts#execute", "inferred"]], "the rename is the provenance");
+});

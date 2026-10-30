@@ -758,11 +758,17 @@ function followTsPackage(name: string, target: { packages: TsPackage[]; rest: st
     }
   }
   if (outside) return "outside";
+  // Found by name only if something in the package exports it as that: a rename is the
+  // provenance, a private function of that name proves nothing, and 2 definitions are no answer.
   const named = new Map<string, NodeV1>();
   for (const pkg of packages) {
-    for (const [file, names] of ctx.perFileName) {
+    for (const file of new Set([...ctx.perFileName.keys(), ...ctx.modules.keys()])) {
       if (pkg.dir !== "." && !file.startsWith(`${pkg.dir}/`)) continue;
-      for (const n of names.get(name) ?? []) if ((n.kind === "function" || n.kind === "class") && n.id === `${file}#${name}`) named.set(n.id, n);
+      const hit = followTsExport(name, file, ctx, new Set(seen));
+      if (typeof hit === "string" || !("id" in hit)) continue;
+      const table = ctx.modules.get(file);
+      const listed = table?.exports.some((x) => x.exported === name) || table?.reexports.some((r) => r.exported === name);
+      if ((listed || hit.exported) && (hit.kind === "function" || hit.kind === "class")) named.set(hit.id, hit);
     }
   }
   return named.size === 1 ? { scoped: [...named.values()][0] } : "unmapped";
