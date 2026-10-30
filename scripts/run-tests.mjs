@@ -24,7 +24,7 @@ const testDir = join(repoRoot, "test");
 const files = readdirSync(testDir)
   .filter((f) => f.endsWith(".test.ts"))
   .sort()
-  .map((f) => join(testDir, f));
+  .map((f) => join("test", f)); // relative: 480 absolute paths overflow Windows' 32,767-character command line
 
 if (files.length === 0) {
   console.error(`✗ no test files found in ${testDir}`);
