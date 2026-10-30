@@ -835,7 +835,7 @@ function resolveImport(spec: string, file: string, byId: Map<string, NodeV1>): s
   // Belt-and-braces: `node.path` is posix by construction (`../util/paths.ts`),
   // but this also accepts a hand-written or hand-edited graph.
   const dir = posix.dirname(toPosixPath(file));
-  const base = posix.normalize(posix.join(dir, spec));
+  const base = posix.normalize(posix.join(dir, spec)).replace(/\/$/, ""); // `./` names the folder's index, as `.` does
   const noExt = base.replace(/\.(js|jsx|mjs|cjs|ts|tsx|py)$/, "");
   const candidates = [
     base,

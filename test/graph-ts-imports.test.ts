@@ -32,6 +32,13 @@ test("a bare call follows its named import when the name alone is ambiguous", ()
   assert.deepEqual(calls(consumer(`import { default as d } from "../a/impl";\nexport function run() { d(); }\n`), "c/use.ts#run"), ["a/impl.ts#dflt"], "default by name");
 });
 
+test("`./` and `../` name the folder's index, as `.` and `..` do", () => {
+  const files = (spec: string, at: string) => ({ ...defs, "a/index.ts": `export { f } from "./impl";\n`, [at]: `import { f } from "${spec}";\nexport function run() { f(); }\n` });
+  assert.deepEqual(calls(files("./", "a/use.ts"), "a/use.ts#run"), ["a/impl.ts#f"]);
+  assert.deepEqual(calls(files("../", "a/b/use.ts"), "a/b/use.ts#run"), ["a/impl.ts#f"]);
+  assert.deepEqual(calls(files(".", "a/use.ts"), "a/use.ts#run"), ["a/impl.ts#f"]);
+});
+
 test("a call chases barrels and export renames to the definition", () => {
   const barrels = {
     ...defs,
