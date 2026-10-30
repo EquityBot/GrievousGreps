@@ -222,16 +222,36 @@ function readGoModules(root: string, repoFiles: string[]): GoModule[] {
   return mods;
 }
 
+/** A package's `exports` as path aliases: each subpath to where its targets' source can be. */
+function readExportPaths(pkg: string, exports: unknown): Record<string, string[]> {
+  const targets = (value: unknown): string[] =>
+    typeof value === "string" ? [value] : value && typeof value === "object" ? Object.values(value).flatMap(targets) : [];
+  const isMap = !!exports && typeof exports === "object" && !Array.isArray(exports) && Object.keys(exports).some((k) => k.startsWith("."));
+  const entries = isMap ? Object.entries(exports as Record<string, unknown>) : [[".", exports] as [string, unknown]];
+  const paths: Record<string, string[]> = {};
+  for (const [subpath, value] of entries) {
+    const found = targets(value).flatMap((target) => {
+      const bare = posix.normalize(target).replace(/\.(d\.)?[cm]?[jt]sx?$/, "");
+      const rest = bare.replace(/^((dist|lib|build|out|esm|es|cjs|mjs|types)\/)+/, "");
+      return [bare, `src/${rest}`, rest];
+    });
+    if (found.length) paths[posix.join(pkg, subpath)] = [...new Set(found)];
+  }
+  return paths;
+}
+
 /** The crates Cargo.toml files depend on from outside the repo, `-` as `_`: every
  * dependency, less the repo's own packages and anything named by a `path`. */
 /**
  * The path aliases the repo states, so an import written through one
  * (`jotai/vanilla/internals`) still names an in-repo file: each tsconfig's `paths`,
- * through `extends`, and each workspace package's name.
+ * through `extends`, and each package's name and `exports` map, read back to its source.
  *
- * shortcut: a package's name maps to `src/` or its root and its `exports` map is not read,
- * and an `extends` naming an npm package is not followed. An import those would have
- * connected has no edge. The upgrade is reading `exports` and node_modules-style `extends`.
+ * shortcut: an `exports` target maps to source by dropping its leading output folders
+ * (`dist/`, `lib/`, `cjs/` and the like) and looking in `src/` and the package root; a layout
+ * that moves more than that reads as unresolved. An `extends` naming an npm package is not
+ * followed, and that import has no edge. The upgrade is the build's own rootDir and outDir,
+ * and node_modules-style `extends`.
  */
 function readTsPaths(root: string, repoFiles: string[]): TsPaths[] {
   const out: TsPaths[] = [];
@@ -269,10 +289,12 @@ function readTsPaths(root: string, repoFiles: string[]): TsPaths[] {
   for (const rel of [...present].sort((a, b) => posix.basename(a).length - posix.basename(b).length)) {
     const name = posix.basename(rel);
     if (name === "package.json") {
-      const pkg = parse(rel)?.name;
+      const manifest = parse(rel);
+      const pkg = manifest?.name;
       if (typeof pkg !== "string" || !pkg) continue;
       const dir = posix.dirname(rel);
-      out.push({ dir: "", base: dir, paths: { [pkg]: ["src/index", "index"], [`${pkg}/*`]: ["src/*", "*"] } });
+      const paths = { [pkg]: ["src/index", "index"], [`${pkg}/*`]: ["src/*", "*"], ...readExportPaths(pkg, manifest?.exports) };
+      out.push({ dir: "", base: dir, paths, pkg });
     } else if (name === "tsconfig.json" || name === "tsconfig.base.json") {
       const found = effective(rel, new Set());
       const dir = posix.dirname(rel);

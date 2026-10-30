@@ -342,6 +342,11 @@ export function resolveEdges(
       // not hold. A dotted call that is not a walk through modules is left to receiver typing.
       if (e.tsPath) {
         const hit = followTsCall(e.tsPath, e.name!, toPosixPath(e.file), tsCtx);
+        if (hit === "unmapped") {
+          const bound = tsCtx.modules.get(toPosixPath(e.file))?.imports.find((i) => i.local === (e.tsPath![0] ?? e.name));
+          opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: bound?.specifier ?? null });
+          continue;
+        }
         if (hit === "undecided" || (hit === "outside" && e.tsPath.length === 0)) continue;
         if (hit !== "outside") {
           if (hit.id !== e.source) add(e.source, hit.id, "calls", "extracted");
@@ -642,6 +647,8 @@ export interface TsPaths {
   dir: string;
   base: string;
   paths: Record<string, string[]>;
+  /** The package these aliases belong to: an import of it is the repo's own, mapped or not. */
+  pkg?: string;
 }
 
 interface TsCtx {
@@ -651,7 +658,7 @@ interface TsCtx {
   paths: TsPaths[];
 }
 
-type TsName = NodeV1 | { module: string } | "outside" | "undecided";
+type TsName = NodeV1 | { module: string } | "outside" | "undecided" | "unmapped";
 
 function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
   const target = resolveImport(specifier, file, ctx.byId);
@@ -672,7 +679,7 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
       if (ctx.byId.has(found)) return { module: found };
     }
   }
-  return "outside";
+  return ctx.paths.some((c) => c.pkg && (specifier === c.pkg || specifier.startsWith(`${c.pkg}/`))) ? "unmapped" : "outside";
 }
 
 /** What a name bound at the top of `file` is: its definition, or the import it came from. */
@@ -711,12 +718,12 @@ function followTsExport(name: string, file: string, ctx: TsCtx, seen = new Set<s
   const found = new Map(through.filter((t) => typeof t !== "string").map((t) => [("id" in t ? t.id : t.module), t]));
   if (found.size === 1) return [...found.values()][0];
   if (found.size > 1) return "undecided";
-  return through.includes("outside") ? "outside" : "undecided";
+  return through.includes("unmapped") ? "unmapped" : through.includes("outside") ? "outside" : "undecided";
 }
 
 /** The definition a TS or JS call reaches through the import that binds its first name.
  * A dotted call that does not walk through whole modules is left to receiver typing. */
-function followTsCall(path: string[], name: string, file: string, ctx: TsCtx): NodeV1 | "outside" | "undecided" {
+function followTsCall(path: string[], name: string, file: string, ctx: TsCtx): NodeV1 | "outside" | "undecided" | "unmapped" {
   const seen = new Set<string>();
   if (path.length === 0) {
     const hit = followTsLocal(name, file, ctx, seen);
@@ -724,9 +731,11 @@ function followTsCall(path: string[], name: string, file: string, ctx: TsCtx): N
   }
   let at = followTsLocal(path[0], file, ctx, seen);
   for (const part of [...path.slice(1), name]) {
+    if (at === "unmapped") return at;
     if (typeof at === "string" || "id" in at) return "outside";
     at = followTsExport(part, at.module, ctx);
   }
+  if (at === "unmapped") return at;
   return typeof at !== "string" && "id" in at ? at : "outside";
 }
 
