@@ -11,7 +11,7 @@
  * Enumerating the files here instead means `npm test` behaves identically in
  * cmd.exe, PowerShell, bash and CI, on any supported Node.
  */
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
@@ -50,13 +50,34 @@ const gitEnv = {
 const runTmp = mkdtempSync(join(tmpdir(), "trail-test-run-"));
 const tmpEnv = { TMPDIR: runTmp, TEMP: runTmp, TMP: runTmp };
 
+// The suite runs `init`, hook and skill code that writes to the person's home, so
+// no test may see the real one: a run once rewrote ~/.claude/settings.json. Every
+// way the code finds a home points inside the run's temp folder, set here before
+// any test loads, so it goes with that folder at the end.
+const home = join(runTmp, "home");
+mkdirSync(home);
+// With no global git config of their own, the tests' commits still need a name.
+writeFileSync(join(home, ".gitconfig"), "[user]\n\tname = Trail Tests\n\temail = tests@example.invalid\n[init]\n\tdefaultBranch = main\n");
+const homeEnv = {
+  HOME: home,
+  USERPROFILE: home,
+  APPDATA: join(home, "AppData", "Roaming"),
+  LOCALAPPDATA: join(home, "AppData", "Local"),
+  XDG_CONFIG_HOME: join(home, ".config"),
+  XDG_DATA_HOME: join(home, ".local", "share"),
+  XDG_CACHE_HOME: join(home, ".cache"),
+  TRAIL_HOME: join(home, ".trail"),
+  CLAUDE_CONFIG_DIR: join(home, ".claude"),
+  CODEX_HOME: join(home, ".codex"),
+};
+
 // A graft repo moves to trail when a session opens on a machine with the trail
 // command, so a contributor who has trail installed would see test repos move.
 // Off for the run; the tests of the move turn it back on.
 const result = spawnSync(process.execPath, ["--import", "tsx", "--test", ...files], {
   cwd: repoRoot,
   stdio: "inherit",
-  env: { ...process.env, ...gitEnv, ...tmpEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
+  env: { ...process.env, ...gitEnv, ...tmpEnv, ...homeEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
 });
 try {
   rmSync(runTmp, { recursive: true, force: true });
