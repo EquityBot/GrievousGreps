@@ -132,7 +132,14 @@ function bundledFile(rel: string): string {
   return existsSync(vendored) ? vendored : require.resolve(`tree-sitter-wasm/${rel}`);
 }
 
+/** Test seam: grammars to treat as deleted. */
+let hiddenGrammars: ReadonlySet<string> = new Set();
+export function hideGenericGrammarsForTest(wasm: Iterable<string>): void {
+  hiddenGrammars = new Set(wasm);
+}
+
 function requireWasm(wasm: string): Buffer | null {
+  if (hiddenGrammars.has(wasm)) return null;
   try {
     const p = bundledFile(`${wasm}/tree-sitter-${wasm}.wasm`);
     return readFileSync(p);

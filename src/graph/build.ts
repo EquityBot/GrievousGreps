@@ -18,8 +18,8 @@ import { basename, dirname, join, posix, resolve } from "node:path";
 import { walkDir } from "../ingest/fs.js";
 import { assertRealContextDir, contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
 import { extractFile, languageLabelOf, languageOf, type Language, type RawEdge } from "./extract.js";
-import { extractGeneric, fallbackLangOf, genericLangOf, warmGenericGrammars, type GenericLang } from "./generic.js";
-import { containerLangOf, extractContainer, warmContainerGrammars, type ContainerLang } from "./container.js";
+import { extractGeneric, fallbackLangOf, genericLangOf, isWarm, warmGenericGrammars, type GenericLang } from "./generic.js";
+import { containerLangOf, isContainerWarm, extractContainer, warmContainerGrammars, type ContainerLang } from "./container.js";
 import { depthReady, missingDepthPackages, warmDepthGrammars } from "./depth-parser.js";
 import type { NativeFallback } from "./native.js";
 import { contentHash } from "../util/id.js";
@@ -102,7 +102,18 @@ export async function warmGrammarsFor(paths: Iterable<string>): Promise<void> {
   }
   await warmGenericGrammars(generic);
   await warmContainerGrammars(containers);
+  const missing = [
+    ...[...generic].filter((name) => !isWarm(name)),
+    ...[...containers].filter((name) => !isContainerWarm(name)),
+  ];
+  for (const name of missing) {
+    if (warnedGrammars.has(name)) continue;
+    warnedGrammars.add(name);
+    console.error(`⚠ the ${name} grammar is missing or would not load, so ${name} files get no symbols. Reinstalling restores it.`);
+  }
 }
+
+const warnedGrammars = new Set<string>();
 
 /** Minimum non-file node count for a discovered sub-scope to stand on its own
  * (over-split guard 3). A scope with fewer nodes than this is folded into the
