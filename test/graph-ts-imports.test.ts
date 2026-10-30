@@ -106,3 +106,8 @@ test("an overloaded interface with a line-leading generic does not lose the file
   const broken = extractFile("b.ts", "export function ok() {}\n  <T>(\nfunction (\n", "typescript");
   assert.ok(broken.nodes.some((n) => n.id === "b.ts#ok"));
 });
+
+test("a JSX element follows its import like a call", () => {
+  const widgets = { "a/w.tsx": "export function Card() { return null; }\n", "z/w.tsx": "export function Card() { return null; }\n", "b/i.ts": `export { Card as Panel } from "../a/w";\n` };
+  assert.deepEqual(calls({ ...widgets, "c/p.tsx": `import { Panel } from "../b/i";\nexport function Page() { return <Panel />; }\n` }, "c/p.tsx#Page"), ["a/w.tsx#Card"]);
+});
