@@ -253,9 +253,10 @@ function readPackageEntries(manifest: Record<string, unknown>): Record<string, s
  * followed. resolve.ts falls back to the name inside the package, as inferred. The upgrade is
  * the build's own rootDir and outDir, and node_modules-style `extends`.
  */
-function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[]; tsPackages: TsPackage[] } {
+function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[]; tsPackages: TsPackage[]; tsUnmanifested: Set<string> } {
   const tsPaths: TsPaths[] = [];
   const tsPackages: TsPackage[] = [];
+  const workspaces: string[] = [];
   const present = new Set(repoFiles.map((f) => relPosix(root, f)));
   const parse = (rel: string): Record<string, unknown> | null => {
     try {
@@ -291,13 +292,31 @@ function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[];
     if (name === "package.json") {
       const manifest = parse(rel);
       if (typeof manifest?.name === "string" && manifest.name) tsPackages.push({ name: manifest.name, dir: posix.dirname(rel), entries: readPackageEntries(manifest) });
+      const stated = manifest?.workspaces;
+      const list = Array.isArray(stated) ? stated : (stated as { packages?: unknown } | undefined)?.packages;
+      if (Array.isArray(list)) for (const w of list) if (typeof w === "string") workspaces.push(posix.join(posix.dirname(rel), w));
     } else if (name === "tsconfig.json" || name === "tsconfig.base.json") {
       const found = effective(rel, new Set());
       const dir = posix.dirname(rel);
       if (found) tsPaths.push({ dir: dir === "." ? "" : dir, ...found });
     }
   }
-  return { tsPaths, tsPackages };
+  if (present.has("pnpm-workspace.yaml")) {
+    for (const m of (readFileInside(root, join(root, "pnpm-workspace.yaml")) ?? "").matchAll(/^\s*-\s*['"]?([^'"\s#!]+)/gm)) workspaces.push(m[1]);
+  }
+  // A workspace folder holding files and no package.json: its name is in the repo, unprovably.
+  const manifested = new Set(tsPackages.map((p) => p.dir).concat([...present].filter((f) => posix.basename(f) === "package.json").map((f) => posix.dirname(f))));
+  const tsUnmanifested = new Set<string>();
+  for (const pattern of workspaces) {
+    if (!pattern.endsWith("/*")) continue;
+    const prefix = `${pattern.slice(0, -1)}`;
+    for (const file of present) {
+      if (!file.startsWith(prefix)) continue;
+      const name = file.slice(prefix.length).split("/");
+      if (name.length > 1 && !manifested.has(`${prefix}${name[0]}`)) tsUnmanifested.add(name[0]);
+    }
+  }
+  return { tsPaths, tsPackages, tsUnmanifested };
 }
 
 function readRustCrates(root: string, repoFiles: string[]): { rustExternalCrates: Set<string>; rustCrateDirs: Map<string, string> } {

@@ -100,6 +100,8 @@ export interface ResolveOptions {
   /** The path aliases the repo's tsconfig files state. */
   tsPaths?: TsPaths[];
   tsPackages?: TsPackage[];
+  /** Folders a workspace pattern covers that have no package.json, by folder name. */
+  tsUnmanifested?: ReadonlySet<string>;
   /** The crates the repo's Cargo.toml files depend on from outside it, `-` as `_`. */
   rustExternalCrates?: ReadonlySet<string>;
   /** Each of the repo's crates, `-` as `_`, to its folder. */
@@ -329,7 +331,7 @@ export function resolveEdges(
 
   const tsModules = new Map<string, TsModule>();
   for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
-  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId, paths: opts.tsPaths ?? [], packages: opts.tsPackages ?? [], repoPaths: tsRepoPaths(byId) };
+  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId, paths: opts.tsPaths ?? [], packages: opts.tsPackages ?? [], unmanifested: opts.tsUnmanifested ?? new Set(), repoPaths: tsRepoPaths(byId) };
 
   const pythonExports = new Map<string, PythonExports>();
   for (const e of rawEdges) if (e.pythonExports) pythonExports.set(e.file, e.pythonExports);
@@ -955,6 +957,7 @@ interface TsCtx {
   byId: Map<string, NodeV1>;
   paths: TsPaths[];
   packages: TsPackage[];
+  unmanifested: ReadonlySet<string>;
   /** Every folder and extensionless file the graph holds, for a `baseUrl` to test against. */
   repoPaths: Set<string>;
 }
@@ -1009,30 +1012,50 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "ou
   const longest = Math.max(0, ...owners.map((p) => p.name.length));
   const packages = owners.filter((p) => p.name.length === longest);
   if (packages.length) return { packages, rest: specifier.slice(longest + 1) };
-  return inRepo ? "unmapped" : "outside";
+  // `@acme/core` and a workspace folder `core` no manifest names: in the repo, though unprovable.
+  const named = specifier.split("/")[specifier.startsWith("@") ? 1 : 0] ?? "";
+  return inRepo || ctx.unmanifested.has(named) ? "unmapped" : "outside";
 }
 
 /**
  * What an in-repo package exports as `name`, searched in order until something defines it: the
  * files its manifest reaches, then its source tree by the import's own path. A manifest can
- * point at a stub, a build product or nothing, so neither alone is the answer; "unmapped" says
- * none held it, and a file elsewhere in the package exporting that name proves nothing.
+ * point at a stub, a build product or nothing, so neither alone is the answer. With a mapped
+ * entry that lacks it, "unmapped" says so; with none, see below.
  */
 function followTsPackage(name: string, target: { packages: TsPackage[]; rest: string }, ctx: TsCtx, seen: Set<string>): TsName {
   const { packages, rest } = target;
   let outside = false; // one condition may forward the name out whilst another defines it
+  let mapped = false; // the manifest reaches a file, which then says what the package exports
   for (const pkg of packages) {
     const tree = rest ? [`src/${rest}`, rest] : ["src/index", "index"];
-    for (const entry of [...tsPackageEntries(pkg, rest ? `./${rest}` : "."), ...tree]) {
+    const stated = tsPackageEntries(pkg, rest ? `./${rest}` : ".");
+    for (const entry of [...stated, ...tree]) {
       const module = resolveImport(`./${posix.join(pkg.dir, entry)}`, "repo-root", ctx.byId);
       if (!ctx.byId.has(module)) continue;
+      if (stated.includes(entry)) mapped = true;
       const hit = followTsExport(name, module, ctx, new Set(seen));
       if (hit === "outside") outside = true;
       else if (hit !== "undecided" && hit !== "unmapped") return hit;
     }
   }
   if (outside) return "outside";
-  return "unmapped";
+  if (mapped) return "unmapped";
+  // No entry to ask, so the one definition in the package exporting that name, marked inferred.
+  // A rename says nothing of where the name's definition is, and 2 definitions are no answer.
+  const named = new Map<string, NodeV1>();
+  for (const pkg of packages) {
+    for (const file of new Set([...ctx.perFileName.keys(), ...ctx.modules.keys()])) {
+      if (pkg.dir !== "." && !file.startsWith(`${pkg.dir}/`)) continue;
+      const hit = followTsExport(name, file, ctx, new Set(seen));
+      if (typeof hit === "string" || !("id" in hit)) continue;
+      const table = ctx.modules.get(file);
+      const listed = table?.exports.some((x) => x.exported === name) || table?.reexports.some((r) => r.exported === name);
+      if ((listed || hit.exported) && (hit.kind === "function" || hit.kind === "class")) named.set(hit.id, hit);
+    }
+  }
+  const only = named.size === 1 ? [...named.values()][0] : undefined;
+  return only?.name === name ? { scoped: only } : "unmapped";
 }
 
 /** The files a package's manifest gives a subpath: its own key, or the longest `*` key that fits. */
