@@ -97,6 +97,8 @@ export interface ResolveOptions {
    * (`example.com/app/pkg/util`) to the in-repo directory they name, relative to the
    * owning module's `go.mod` location. Empty/absent → Go imports stay external strings. */
   goModules?: GoModule[];
+  /** The path aliases the repo's tsconfig files state. */
+  tsPaths?: TsPaths[];
   /** The crates the repo's Cargo.toml files depend on from outside it, `-` as `_`. */
   rustExternalCrates?: ReadonlySet<string>;
   /** The Python roots the repo's configuration states (see python-roots.ts). */
@@ -221,7 +223,7 @@ export function resolveEdges(
 
   const tsModules = new Map<string, TsModule>();
   for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
-  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId };
+  const tsCtx: TsCtx = { modules: tsModules, perFileName, byId, paths: opts.tsPaths ?? [] };
 
   const pythonExports = new Map<string, PythonExports>();
   for (const e of rawEdges) if (e.pythonExports) pythonExports.set(e.file, e.pythonExports);
@@ -616,17 +618,43 @@ const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "tr
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */
 type PythonName = NodeV1 | { module: string } | "external" | "undecided";
 
+/** One tsconfig's `paths`, relative to the repo root's `dir`. */
+export interface TsPaths {
+  dir: string;
+  baseUrl: string;
+  paths: Record<string, string[]>;
+}
+
 interface TsCtx {
   modules: Map<string, TsModule>;
   perFileName: Map<string, Map<string, NodeV1[]>>;
   byId: Map<string, NodeV1>;
+  paths: TsPaths[];
 }
 
 type TsName = NodeV1 | { module: string } | "outside" | "undecided";
 
 function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsName {
   const target = resolveImport(specifier, file, ctx.byId);
-  return ctx.byId.has(target) ? { module: target } : "outside";
+  if (ctx.byId.has(target)) return { module: target };
+  if (specifier.startsWith(".")) return "outside";
+  // The nearest tsconfig above the file with paths, and its longest matching pattern.
+  const config = ctx.paths
+    .filter((c) => c.dir === "" || file.startsWith(`${c.dir}/`))
+    .sort((a, b) => b.dir.length - a.dir.length)[0];
+  if (!config) return "outside";
+  const patterns = Object.keys(config.paths)
+    .filter((p) => (p.endsWith("*") ? specifier.startsWith(p.slice(0, -1)) : p === specifier))
+    .sort((a, b) => b.length - a.length);
+  const pattern = patterns[0];
+  if (pattern === undefined) return "outside";
+  const rest = pattern.endsWith("*") ? specifier.slice(pattern.length - 1) : "";
+  for (const mapped of config.paths[pattern] ?? []) {
+    const relative = posix.normalize(posix.join(config.dir, config.baseUrl, mapped.replace("*", rest)));
+    const found = resolveImport(`./${relative}`, "repo-root", ctx.byId);
+    if (ctx.byId.has(found)) return { module: found };
+  }
+  return "outside";
 }
 
 /** What a name bound at the top of `file` is: its definition, or the import it came from. */

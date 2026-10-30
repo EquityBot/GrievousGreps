@@ -36,7 +36,7 @@ import { writeFingerprint } from "./fingerprint.js";
 import { seedGraph, type SeedResult } from "./seed.js";
 import { filterByOnlyDirs, listSourceStats } from "./source-files.js";
 import { readPythonRoots } from "./python-roots.js";
-import { resolveEdges, type GoModule } from "./resolve.js";
+import { resolveEdges, type GoModule, type TsPaths } from "./resolve.js";
 import { readFileInside } from "../util/safe-fs.js";
 import { enrichGraph, type EnrichStats } from "./enrich.js";
 import { readGraph, writeGraph, wiringPath } from "./write.js";
@@ -213,6 +213,34 @@ function readGoModules(root: string, repoFiles: string[]): GoModule[] {
 
 /** The crates Cargo.toml files depend on from outside the repo, `-` as `_`: every
  * dependency, less the repo's own packages and anything named by a `path`. */
+/**
+ * The `paths` each tsconfig.json in the repo states, so an import written through an alias
+ * (`jotai/vanilla/internals`) still names an in-repo file.
+ *
+ * shortcut: reads each tsconfig on its own and does not follow `extends`, so paths inherited
+ * from a shared config are not seen and those imports keep the name lookup. The upgrade is
+ * walking `extends`, as tsc does.
+ */
+function readTsPaths(root: string, repoFiles: string[]): TsPaths[] {
+  const out: TsPaths[] = [];
+  for (const f of repoFiles) {
+    if (basename(f) !== "tsconfig.json") continue;
+    try {
+      const text = readFileInside(root, f) ?? "";
+      const plain = text
+        .replace(/"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|\/\/.*$/gm, (m) => (m.startsWith('"') ? m : ""))
+        .replace(/,(\s*[}\]])/g, "$1");
+      const options = JSON.parse(plain).compilerOptions;
+      if (!options?.paths) continue;
+      const dir = relPosix(root, dirname(f));
+      out.push({ dir: dir === "." ? "" : dir, baseUrl: typeof options.baseUrl === "string" ? options.baseUrl : ".", paths: options.paths });
+    } catch {
+      /* a link out of the repo or an unreadable tsconfig states nothing */
+    }
+  }
+  return out;
+}
+
 function readRustExternalCrates(root: string, repoFiles: string[]): Set<string> {
   const deps = new Set<string>();
   const internal = new Set<string>();
@@ -407,6 +435,7 @@ export async function buildGraph(
     goModules: readGoModules(root, repoFiles),
     pythonRoots: readPythonRoots(root, repoFiles),
     rustExternalCrates: readRustExternalCrates(root, repoFiles),
+    tsPaths: readTsPaths(root, repoFiles),
     unresolvedCalls,
   });
 

@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { warmDepthGrammars } from "../src/graph/depth-parser.js";
 import { extractFile } from "../src/graph/extract.js";
 import { resolveEdges } from "../src/graph/resolve.js";
+import { buildGraph } from "../src/graph/build.js";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 await warmDepthGrammars(["typescript", "tsx"]);
 
@@ -110,4 +114,27 @@ test("an overloaded interface with a line-leading generic does not lose the file
 test("a JSX element follows its import like a call", () => {
   const widgets = { "a/w.tsx": "export function Card() { return null; }\n", "z/w.tsx": "export function Card() { return null; }\n", "b/i.ts": `export { Card as Panel } from "../a/w";\n` };
   assert.deepEqual(calls({ ...widgets, "c/p.tsx": `import { Panel } from "../b/i";\nexport function Page() { return <Panel />; }\n` }, "c/p.tsx#Page"), ["a/w.tsx#Card"]);
+});
+
+test("an import through a tsconfig path alias reaches the in-repo export", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ts-paths-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const files: Record<string, string> = {
+    // A comment, a `/*` inside a string and a trailing comma, as a real tsconfig has them.
+    "tsconfig.json": `{\n  /* compiler */\n  "compilerOptions": {\n    "paths": {\n      "pkg": ["./src/index.ts"],\n      "pkg/*": ["./src/*.ts"], // subpaths\n    },\n  },\n}\n`,
+    "src/internals.ts": "function build() {}\nexport { build as INTERNAL_build };\n",
+    "src/index.ts": "export function top() {}\n",
+    "other/internals.ts": "export function build() {}\nexport function top() {}\n",
+    "tests/a.test.ts": `import { INTERNAL_build as make } from "pkg/internals";\nexport function run() { make(); }\n`,
+    "tests/b.test.ts": `import { top } from "pkg";\nexport function go() { top(); }\n`,
+  };
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  await buildGraph(root);
+  const graph = JSON.parse(readFileSync(join(root, "graft", ".graph", "wiring.json"), "utf8"));
+  const from = (source: string) => graph.edges.filter((e: { relation: string; source: string }) => e.relation === "calls" && e.source === source).map((e: { target: string }) => e.target);
+  assert.deepEqual(from("tests/a.test.ts#run"), ["src/internals.ts#build"]);
+  assert.deepEqual(from("tests/b.test.ts#go"), ["src/index.ts#top"]);
 });
