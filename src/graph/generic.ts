@@ -396,13 +396,20 @@ function rustCallOwner(path: string | undefined, enc: Def | undefined): string |
   return last && /^[A-Z]/.test(last) ? last : undefined;
 }
 
-/** A Rust path call: a typed member reading first (`Engine::new` among several `new`s
- * in a file), then the bare-name reading when no such type or member exists, as for
- * `Vec::new`, an enum variant or a generic `T::new`. */
-function rustCallEdge(source: string, rel: string, name: string, owner: string | undefined, root: string | undefined): RawEdge {
+/** A Rust call by what its syntax says the target is: `Engine::new` on that type alone,
+ * so `Vec::new` or an enum variant finds nothing; `x.f()` on some type's method; `f!()` on
+ * a macro; `f()` and `module::f()` on a free function. */
+function rustCallEdge(
+  source: string,
+  rel: string,
+  name: string,
+  owner: string | undefined,
+  root: string | undefined,
+  form: "free" | "method" | "macro",
+): RawEdge {
   return {
     source, relation: "calls", file: rel, name,
-    ...(owner ? { viaMember: true, recvType: owner, implicitSelf: true } : {}),
+    ...(owner ? { viaMember: true, recvType: owner } : { rustForm: form }),
     ...(root ? { rustRoot: root } : {}),
   };
 }
@@ -531,10 +538,10 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const owner = rustCallOwner(path, enc);
       const source = enc ? enc.id : rel;
       const pathRoot = rustPathRoot(path, scopes, c.startIndex);
-      rawEdges.push(owner
-        ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner, ...(pathRoot ? { rustRoot: pathRoot } : {}) }
-        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true, ...(pathRoot ? { rustRoot: pathRoot } : {}),
-            ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}) });
+      rawEdges.push({
+        ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free"),
+        ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}),
+      });
     }
   };
   const visit = (n: TsNode): void => {
@@ -808,7 +815,7 @@ function tagsExtract(
   // @reference.call too (Ruby tags `def foo`'s `foo` as both @name and a call),
   // producing bogus self-loops (foo→foo). Skip any call at a definition's name token.
   const defNameAt = new Set<number>();
-  const calls: Array<{ name: string; at: number; path?: string }> = [];
+  const calls: Array<{ name: string; at: number; path?: string; form?: "free" | "method" | "macro" }> = [];
   const rustScopes = langName === "rust" ? rustUses(root).scopes : [];
   const refs: Array<{ name: string; at: number }> = [];
   for (const m of matches) {
@@ -825,6 +832,9 @@ function tagsExtract(
         at: cap.name.startIndex,
         ...(langName === "rust" && cap.name.parent?.type === "scoped_identifier" && cap["reference.call"]?.type === "call_expression"
           ? { path: cap.name.parent.childForFieldName?.("path")?.text }
+          : {}),
+        ...(langName === "rust"
+          ? { form: cap["reference.call"]?.type === "macro_invocation" ? "macro" as const : cap.name.parent?.type === "field_expression" ? "method" as const : "free" as const }
           : {}),
       });
     // Structural references the grammar already marks: a supertype (extends), an
@@ -843,7 +853,7 @@ function tagsExtract(
     const enc = enclosingDef(defs, c.at);
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc), rustPathRoot(c.path, rustScopes, c.at))
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc), rustPathRoot(c.path, rustScopes, c.at), c.form ?? "free")
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }

@@ -332,6 +332,14 @@ export function resolveEdges(
       if (e.viaMember) {
         if (!e.recvType) continue;
         const hit = resolveTypedMember(e.recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        // A Rust `Type::f` the repo's type holds no single `f` for says so, an enum
+        // variant's capital name aside: several
+        // `impl From<_>` need argument types to choose between, and a type alias or a
+        // trait's default method needs more than the owner index holds.
+        if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!)
+          && (globalName.get(e.recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind))) {
+          opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: e.recvType });
+        }
         if (hit === "ambiguous") continue; // drop — never guess past an ambiguous owner
         if (hit) {
           add(e.source, hit.id, "calls", hit.confidence);
@@ -378,8 +386,11 @@ export function resolveEdges(
           : e.file.endsWith(".java")
             ? ["class", "struct", "enum", "interface"]
             : ["function"]);
-      if (e.freeFunction) {
-        const free = (list: NodeV1[] | undefined) => (list ?? []).filter((n) => n.kind === "function" && !n.owner);
+      if (e.rustForm) {
+        const isMacro = (n: NodeV1) => !!n.signature?.startsWith("macro_rules!");
+        const fits = (n: NodeV1) => n.kind === "function"
+          && (e.rustForm === "macro" ? isMacro(n) : e.rustForm === "method" ? !!n.owner : !n.owner && !isMacro(n));
+        const free = (list: NodeV1[] | undefined) => (list ?? []).filter(fits);
         const local = free(perFileName.get(e.file)?.get(e.name!));
         const inModule = (path: string) =>
           !e.onlyModules || e.onlyModules.some((m) => path.endsWith(`/${m}.rs`) || path.includes(`/${m}/`));
@@ -512,6 +523,9 @@ function resolveTypedMember(
         // below would pick whichever overload appears first in the file and
         // stamp it `extracted`, a confidently wrong edge. Drop instead.
         if (SWIFT_EXT.test(file)) return "ambiguous";
+        // Rust is the same within a file, where each `impl From<_>` holds its own `from`.
+        // The tiebreak below still chooses this file's type over another crate's namesake.
+        if (file.endsWith(".rs") && candidates.filter((c) => c.path === file).length > 1) return "ambiguous";
         const sameFile = candidates.find((c) => c.path === file);
         if (sameFile) return { id: sameFile.id, confidence: "extracted" };
         return "ambiguous"; // several, none same-file — drop and stop
@@ -574,6 +588,7 @@ function resolveTraitMember(
  * left unresolved: picking one would invent an edge the source does not state.
  */
 const RUST_STD_CRATES = new Set(["std", "core", "alloc"]);
+const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "trait", "type", "class", "interface"]);
 
 /** Where a name in a Python module leads: its definition, a module it binds, or why
  * there is neither. `external`: bound from outside the repo, so no in-repo node is its

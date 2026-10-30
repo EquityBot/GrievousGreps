@@ -211,6 +211,49 @@ test("Rust: a use reaches only the module that holds it, and each group item has
   assert.deepEqual(edge("use std::fs::{self};\nfn t() { fs::copy(); }\n"), [], "self in a group binds its parent");
 });
 
+test("Rust: a call's syntax says what its target can be", async () => {
+  await warmGenericGrammars(["rust"]);
+  const edge = (body: string, source = "lib.rs#t") => {
+    const here = extractGeneric("lib.rs", body, "rust");
+    return resolveEdges(here.nodes, here.rawEdges).filter((e) => e.relation === "calls" && e.source === source).map((e) => e.target);
+  };
+  const freeWrite = "fn write() {}\n";
+  assert.deepEqual(edge(`${freeWrite}fn t(f: F) { write!(f, "x"); }\n`), [], "a std macro is not the free function");
+  assert.deepEqual(edge(`${freeWrite}fn t(f: F) { f.write(); }\n`), [], "a method call is not the free function");
+  assert.deepEqual(edge(`${freeWrite}fn t() { write(); }\n`), ["lib.rs#write"], "a bare call is");
+  assert.deepEqual(edge("macro_rules! tell { () => {} }\nfn t() { tell!(); }\n"), ["lib.rs#tell"], "a repo macro is a target");
+  assert.deepEqual(edge("struct S;\nimpl S { fn write(&self) {} }\nfn t(s: S) { s.write(); }\n"), ["lib.rs#write"], "a method call can reach a method");
+  assert.deepEqual(edge("struct S;\nimpl S { fn write(&self) {} }\nfn t() { write(); }\n"), [], "a bare call cannot");
+  // A type path holds to that type.
+  const section = "struct SectionNumber;\nimpl SectionNumber { fn new() {} }\n";
+  for (const other of ["Vec::new();", "PathBuf::new();", "Other::new();", "T::new();"]) {
+    assert.deepEqual(edge(`${section}fn t() { ${other} }\n`), [], other);
+  }
+  assert.deepEqual(edge(`${section}fn t() { SectionNumber::new(); }\n`), ["lib.rs#new"]);
+});
+
+test("Rust: a repo type with no single matching member is stated, not guessed", async () => {
+  await warmGenericGrammars(["rust"]);
+  const unresolved = (body: string) => {
+    const here = extractGeneric("lib.rs", body, "rust");
+    const out: { source: string; name: string; through: string | null }[] = [];
+    const edges = resolveEdges(here.nodes, here.rawEdges, { unresolvedCalls: out }).filter((e) => e.relation === "calls" && e.source === "lib.rs#t");
+    return { edges: edges.map((e) => e.target), out };
+  };
+  const line = "struct LineRange;\nimpl From<A> for LineRange { fn from(a: A) -> Self { LineRange } }\nimpl From<B> for LineRange { fn from(b: B) -> Self { LineRange } }\n";
+  const missed = [{ source: "lib.rs#t", name: "from", through: "LineRange" }];
+  assert.deepEqual(unresolved(`${line}fn t() { LineRange::from(a); }\n`), { edges: [], out: missed }, "several impls");
+  const namesake = extractGeneric("other.rs", "pub struct Date;\nimpl Date { pub fn new() {} }\n", "rust");
+  const here = extractGeneric("lib.rs", "struct Date;\nimpl Date { fn new() {} }\nfn t() { Date::new(); }\n", "rust");
+  assert.deepEqual(
+    resolveEdges([...namesake.nodes, ...here.nodes], [...namesake.rawEdges, ...here.rawEdges]).filter((e) => e.relation === "calls").map((e) => e.target),
+    ["lib.rs#new"],
+    "this file's type over another crate's namesake",
+  );
+  assert.deepEqual(unresolved("struct S;\nfn t() { S::missing(); }\n"), { edges: [], out: [{ source: "lib.rs#t", name: "missing", through: "S" }] }, "no such member");
+  assert.deepEqual(unresolved("fn t() { Vec::new(); }\n"), { edges: [], out: [] }, "a type outside the repo says nothing");
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");
