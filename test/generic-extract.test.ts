@@ -52,6 +52,39 @@ test("genericLangOf routes .rs to the breadth tier (and not depth-tier extension
   assert.equal(genericLangOf("README.md"), null);
 });
 
+test("Rust: a path call picks its type's associated function among same-named ones, and calls inside macros count", async () => {
+  await warmGenericGrammars(["rust"]);
+  const src = `struct Engine;
+struct Store;
+impl<'a> Engine<'a> {
+    fn new() -> Self { Self::make() }
+    fn make() -> Self { Engine }
+}
+impl Store {
+    fn new() -> Self { Store }
+}
+fn evaluate() { let e = Engine::new(); let v = Vec::new(); }
+fn other() { let s = crate::store::Store::new(); }
+fn parse(x: &str) -> bool { true }
+fn only_in_macro() {
+    assert!(parse("a"));
+    assert_eq!(Engine::make(), vec![one(two[0]), Store { x: 1 }]);
+}
+fn one(x: i32) {}
+`;
+  const { nodes, rawEdges } = extractGeneric("lib.rs", src, "rust");
+  assert.equal(nodes.find((n) => n.id === "lib.rs#new")?.owner, "Engine");
+  assert.equal(nodes.find((n) => n.id === "lib.rs#new~2")?.owner, "Store");
+  const edges = resolveEdges(nodes, rawEdges).filter((e) => e.relation === "calls").map((e) => `${e.source} -> ${e.target}`);
+  assert.ok(edges.includes("lib.rs#evaluate -> lib.rs#new"), edges.join("\n"));
+  assert.ok(edges.includes("lib.rs#other -> lib.rs#new~2"), edges.join("\n"));
+  assert.ok(edges.includes("lib.rs#new -> lib.rs#make"), "Self:: is the enclosing impl");
+  assert.ok(edges.includes("lib.rs#only_in_macro -> lib.rs#parse"), "a call inside assert!");
+  assert.ok(edges.includes("lib.rs#only_in_macro -> lib.rs#make"), "a path call inside a macro");
+  assert.ok(edges.includes("lib.rs#only_in_macro -> lib.rs#one"), "a call inside a nested macro");
+  assert.ok(!edges.some((e) => e.startsWith("lib.rs#evaluate ->") && e.endsWith("#new~2")), "Vec::new is not Store::new");
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");

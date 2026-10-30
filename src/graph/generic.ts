@@ -248,7 +248,7 @@ function fileNode(rel: string, source: string): NodeV1 {
   };
 }
 
-interface Def { id: string; startIndex: number; endIndex: number }
+interface Def { id: string; startIndex: number; endIndex: number; owner?: string }
 
 /** The innermost definition whose span covers the token at byte offset `at` —
  * the caller a reference found there belongs to. Shared by the tags.scm path and
@@ -303,15 +303,17 @@ export function extractGeneric(rel: string, source: string, langName: string): E
     minted.add(id);
     const startRow = whole.startPosition.row, endRow = whole.endPosition.row;
     const sigLine = (lines[startRow] ?? "").trim().replace(/\s*\{?\s*$/, "");
+    const owner = langName === "rust" ? rustOwnerOf(whole) : undefined;
     nodes.push({
       id, name, kind, path: rel,
       span: `L${startRow + 1}-L${endRow + 1}`,
       signature: sigLine || null, exported: true, origin: "generic",
+      ...(owner ? { owner } : {}),
       body_hash: contentHash(source.slice(whole.startIndex, whole.endIndex)),
       body_text: source.slice(whole.startIndex, whole.endIndex).replace(/\s+/g, " ").slice(0, 5000),
       summary_state: "pending", summary: null, crux: null,
     });
-    defs.push({ id, startIndex: whole.startIndex, endIndex: whole.endIndex });
+    defs.push({ id, startIndex: whole.startIndex, endIndex: whole.endIndex, ...(owner ? { owner } : {}) });
   };
 
   if (entry.query) {
@@ -323,7 +325,10 @@ export function extractGeneric(rel: string, source: string, langName: string): E
   // IS the dependency graph — capture it as a file→file import. Likewise a Rust
   // `use crate::…` is an in-crate module dependency.
   if (langName === "c" || langName === "cpp") extractIncludes(tree.rootNode as TsNode, rel, rawEdges);
-  else if (langName === "rust") extractUses(tree.rootNode as TsNode, rel, rawEdges);
+  else if (langName === "rust") {
+    extractUses(tree.rootNode as TsNode, rel, rawEdges);
+    extractRustMacroCalls(tree.rootNode as TsNode, rel, defs, rawEdges);
+  }
   else if (langName === "php") extractPhpUses(tree.rootNode as TsNode, rel, rawEdges);
   else if (langName === "gleam") extractGleamModules(tree.rootNode as TsNode, rel, defs, rawEdges);
   return { nodes, rawEdges };
@@ -360,6 +365,72 @@ function phpUseNames(text: string): string[] {
       .map((m) => `${prefix}\\${m}`);
   }
   return s.split(",").map((c) => c.trim().replace(/\s+as\s+\w+$/i, "").trim()).filter(Boolean);
+}
+
+/** The type a Rust `impl` or `trait` block's item belongs to, with its generics off. */
+function rustOwnerOf(item: TsNode): string | undefined {
+  const list = item.parent;
+  const block = list?.type === "declaration_list" ? list.parent : null;
+  if (block?.type === "trait_item") return block.childForFieldName?.("name")?.text;
+  if (block?.type !== "impl_item") return undefined;
+  const type = block.childForFieldName?.("type");
+  const name = type?.childForFieldName?.("type") ?? type?.childForFieldName?.("name") ?? type;
+  return name?.text.replace(/^.*::/, "");
+}
+
+/** `Engine::new` → `Engine`, `Self::new` → the enclosing impl's type. Undefined for a
+ * module path (`rules::parse`), which says nothing about an owner. */
+function rustCallOwner(path: string | undefined, enc: Def | undefined): string | undefined {
+  const last = path?.replace(/::<.*>$/, "").replace(/<.*>$/, "").split("::").pop();
+  if (last === "Self") return enc?.owner;
+  return last && /^[A-Z]/.test(last) ? last : undefined;
+}
+
+/** A Rust path call: a typed member reading first (`Engine::new` among several `new`s
+ * in a file), then the bare-name reading when no such type or member exists, as for
+ * `Vec::new`, an enum variant or a generic `T::new`. */
+function rustCallEdge(source: string, rel: string, name: string, owner: string | undefined): RawEdge {
+  return {
+    source, relation: "calls", file: rel, name,
+    ...(owner ? { viaMember: true, recvType: owner, implicitSelf: true } : {}),
+  };
+}
+
+/** Rust macro arguments are a flat token tree, invisible to tags.scm, so a call inside
+ * `assert!(parse(x))` or `vec![make()]` would have no edge. A name directly followed
+ * by a `(…)` group there is a call; `a[0]` and `Foo { }` are not. */
+function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges: RawEdge[]): void {
+  const scan = (tree: TsNode): void => {
+    const count = tree.childCount ?? 0;
+    for (let i = 0; i < count; i++) {
+      const c = tree.child?.(i);
+      if (!c) continue;
+      if (c.type === "token_tree") {
+        scan(c);
+        continue;
+      }
+      if (c.type !== "identifier" || i + 1 >= count) continue;
+      const next = tree.child?.(i + 1);
+      if (next?.type !== "token_tree" || !next.text.startsWith("(")) continue;
+      const enc = enclosingDef(defs, c.startIndex);
+      const path = i >= 2 && tree.child?.(i - 1)?.type === "::" ? tree.child?.(i - 2)?.text : undefined;
+      rawEdges.push(rustCallEdge(enc ? enc.id : rel, rel, c.text, rustCallOwner(path, enc)));
+    }
+  };
+  const visit = (n: TsNode): void => {
+    if (n.type === "macro_invocation") {
+      for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
+        const c = n.namedChild?.(i);
+        if (c?.type === "token_tree") scan(c);
+      }
+      return;
+    }
+    for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
+      const c = n.namedChild?.(i);
+      if (c) visit(c);
+    }
+  };
+  visit(root);
 }
 
 /** Rust `use crate::a::b::Item` → a file→module `imports` raw edge whose specifier is the
@@ -616,7 +687,7 @@ function tagsExtract(
   // @reference.call too (Ruby tags `def foo`'s `foo` as both @name and a call),
   // producing bogus self-loops (foo→foo). Skip any call at a definition's name token.
   const defNameAt = new Set<number>();
-  const calls: Array<{ name: string; at: number }> = [];
+  const calls: Array<{ name: string; at: number; path?: string }> = [];
   const refs: Array<{ name: string; at: number }> = [];
   for (const m of matches) {
     const cap: Record<string, TsNode> = {};
@@ -627,7 +698,13 @@ function tagsExtract(
       mkDef(cap.name.text, KIND[defKey.slice("definition.".length)] ?? "function", defScope(cap[defKey], langName));
     }
     if (("reference.call" in cap || "reference.send" in cap) && cap.name)
-      calls.push({ name: cap.name.text, at: cap.name.startIndex });
+      calls.push({
+        name: cap.name.text,
+        at: cap.name.startIndex,
+        ...(langName === "rust" && cap.name.parent?.type === "scoped_identifier" && cap["reference.call"]?.type === "call_expression"
+          ? { path: cap.name.parent.childForFieldName?.("path")?.text }
+          : {}),
+      });
     // Structural references the grammar already marks: a supertype (extends), an
     // implemented interface, an object creation (`new Foo`), a module alias. Grammars
     // label these @reference.class/.interface/.implementation/.module — heterogeneous
@@ -642,7 +719,11 @@ function tagsExtract(
   for (const c of calls) {
     if (defNameAt.has(c.at)) continue;
     const enc = enclosingDef(defs, c.at);
-    rawEdges.push({ source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name });
+    rawEdges.push(
+      langName === "rust"
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc))
+        : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
+    );
   }
   for (const r of refs) {
     if (defNameAt.has(r.at)) continue;
@@ -717,6 +798,8 @@ export interface TsNode {
   parent: TsNode | null;
   namedChildCount?: number;
   namedChild?(i: number): TsNode | null;
+  childCount?: number;
+  child?(i: number): TsNode | null;
   childForFieldName?(field: string): TsNode | null;
 }
 

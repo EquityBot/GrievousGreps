@@ -181,7 +181,8 @@ export function resolveEdges(
     let fileMap = perFileName.get(n.path);
     if (!fileMap) perFileName.set(n.path, (fileMap = new Map()));
     push(fileMap, n.name, n);
-    if (n.kind === "method") {
+    // A generic-tier Rust `impl` item is a `function` that knows its owner.
+    if (n.kind === "method" || (n.kind === "function" && n.owner)) {
       const owner = n.owner ?? ownerFromMethodId(n.id);
       if (owner) push(ownerMethod, `${owner}.${n.name}`, n);
     }
