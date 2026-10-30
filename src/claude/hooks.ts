@@ -1,3 +1,4 @@
+import { cloudEnabled } from "../cloud/workspace.js";
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, basename, isAbsolute, relative, resolve } from 'node:path';
@@ -403,7 +404,7 @@ function trailAtStart(dir: string): void {
   if (brand() !== 'trail' || !keepsNotes(dir)) return;
   try {
     const top = repoPlace(dir);
-    if (top.git && branchesStale(top.checkout, Date.now(), SESSION_REFRESH_MS)) refreshBranches(top.checkout, { fetchTimeoutMs: BRANCH_FETCH_CAP_MS });
+    if (top.git && branchesStale(top.checkout, Date.now(), SESSION_REFRESH_MS)) refreshBranches(top.checkout, { fetch: cloudEnabled(), fetchTimeoutMs: BRANCH_FETCH_CAP_MS });
   } catch {
     // Without it, the first prompt sees what the last refresh saw.
   }

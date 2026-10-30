@@ -24,7 +24,7 @@ export const TELEMETRY_DOC_URL = 'https://github.com/trailhq/Trail-Code/blob/mai
 
 export const NOTICE = [
   '· graft collects anonymous usage stats (no code, no file paths, no queries).',
-  `  What exactly: ${TELEMETRY_DOC_URL}. Turn it off with \`graft telemetry disable\`.`,
+  `  What exactly: ${TELEMETRY_DOC_URL}. You turned it on; turn it off with \`graft telemetry disable\`.`,
 ].join('\n');
 
 /**
@@ -54,14 +54,14 @@ export function formatStatus(home?: string, env?: NodeJS.ProcessEnv): string {
       : `telemetry: ${explainOff(reason)}`,
     `  contract:  ${TELEMETRY_DOC_URL}`,
   ];
-  if (doNotTrack(env)) lines.push('  update check: off — DO_NOT_TRACK is set');
+  lines.push(`  update check: ${(env ?? process.env).GRAFT_UPDATE_CHECK === '1' && !doNotTrack(env) ? 'on' : 'off (GRAFT_UPDATE_CHECK=1 turns it on)'}`);
   if (reason === null || reason === 'disabled') {
     lines.push(`  endpoint:  ${posthogHost()}`);
     lines.push(`  queued:    ${pending} event${pending === 1 ? '' : 's'} waiting for the next daily flush`);
   }
   lines.push(
     reason === 'disabled'
-      ? `  enable:    ${cmd('graft telemetry enable')}`
+      ? `  enable:    ${cmd('graft telemetry enable')}  (nothing is sent until you do)`
       : `  disable:   ${cmd('graft telemetry disable')}  (or set DO_NOT_TRACK=1)`,
   );
   lines.push(`  inspect:   ${cmd('graft telemetry debug')}   (prints the exact batch, sends nothing)`);

@@ -63,29 +63,17 @@ function stateOf(): { pending?: { state: string } } {
   return JSON.parse(readFileSync(join(process.env.TRAIL_HOME!, "cloud-nudge.json"), "utf8"));
 }
 
-test("on by default wherever telemetry is on; off where it's off, in CI, or with TRAIL_CLOUD=0", () => {
+test("the sign-in link stays off until asked for, whatever telemetry says", () => {
   freshHome();
   const { dir } = repo();
   let s = 0;
-  const offer = (env: NodeJS.ProcessEnv) => cloudLines(dir, { command: "ask", agent: true, env: { ...process.env, CLAUDE_CODE_SESSION_ID: `default-${++s}`, ...env }, startWait: noWait });
-  // This file runs with DO_NOT_TRACK=1 and no telemetry key: telemetry is off.
-  assert.deepEqual(offer({ TRAIL_CLOUD: undefined }), [], "telemetry off: no link");
-  const saved = { GRAFT_POSTHOG_KEY: process.env.GRAFT_POSTHOG_KEY, HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
-  // A key, and an OS home with no telemetry choice in it: telemetry on.
-  process.env.GRAFT_POSTHOG_KEY = "phc_test_key";
-  process.env.HOME = process.env.USERPROFILE = mkdtempSync(join(tmpdir(), "nudge-os-home-"));
-  try {
-    const on: NodeJS.ProcessEnv = { TRAIL_CLOUD: undefined, DO_NOT_TRACK: undefined };
-    for (const v of CI_ENV_VARS) on[v] = undefined;
-    assert.equal(offer(on).length, 2, "nothing set: the link");
-    assert.deepEqual(offer({ ...on, TRAIL_CLOUD: "0" }), [], "TRAIL_CLOUD=0 turns it off");
-    assert.deepEqual(offer({ ...on, CI: "true" }), [], "never in CI");
-  } finally {
-    for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
-    }
-  }
+  const offer = (env: NodeJS.ProcessEnv) => cloudLines(dir, { command: "ask", agent: true, env: { ...process.env, ...env }, session: `s${++s}` } as never);
+  const on: NodeJS.ProcessEnv = { TRAIL_CLOUD: undefined, DO_NOT_TRACK: undefined, GRAFT_POSTHOG_KEY: "phc_test_key", GRAFT_TELEMETRY: "1" };
+  for (const v of CI_ENV_VARS) on[v] = undefined;
+  assert.deepEqual(offer(on), [], "telemetry on is not a request for the workspace");
+  assert.deepEqual(offer({ TRAIL_CLOUD: undefined }), [], "nothing set: no link");
+  assert.deepEqual(offer({ TRAIL_CLOUD: "0" }), [], "TRAIL_CLOUD=0");
+  assert.equal(offer({ TRAIL_CLOUD: "1" }).length, 2, "TRAIL_CLOUD=1: the link");
 });
 
 test("no learning yet: nobody is asked to sign in", () => {

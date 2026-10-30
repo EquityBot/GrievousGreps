@@ -12,11 +12,12 @@ import { EVENTS, VALUES } from "../src/telemetry/contract.js";
 import { track } from "../src/telemetry/track.js";
 import { tmpRepo } from "./helpers.js";
 
-const OPEN: NodeJS.ProcessEnv = {};
+const OPEN: NodeJS.ProcessEnv = { GRAFT_TELEMETRY: '1' };
 function sandbox(tag: string): string {
   const home = tmpRepo(tag);
   mkdirSync(join(home, ".graft"), { recursive: true });
   process.env.GRAFT_POSTHOG_KEY = "phc_test_key";
+  process.env.GRAFT_TELEMETRY = '1';
   return home;
 }
 

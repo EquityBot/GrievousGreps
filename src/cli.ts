@@ -358,7 +358,7 @@ program
   .description("internal: fetch, then note which files teammates' open branches change and the learnings they carry")
   .argument("[dir]", "target repo directory", ".")
   .action((dir: string) => {
-    refreshBranches(resolve(dir), { prs: true });
+    refreshBranches(resolve(dir), { prs: true, fetch: cloudEnabled() });
   });
 
 program
@@ -1553,6 +1553,7 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
       const reason = offReason();
       const picked = await runPicker(plan, repo, home, {
         offerTelemetry: reason === null || reason === "disabled",
+        telemetryChecked: reason === null,
       });
       if (picked === null) {
         console.error("· cancelled, nothing written");

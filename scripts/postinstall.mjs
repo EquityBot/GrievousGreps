@@ -26,8 +26,9 @@ if (isTrail) process.env.TRAIL_INVOKED_AS = 'trail';
  * child is detached with stdio ignored, so npm waits on no socket and an offline
  * install looks like any other.
  *
- * Every gate still applies — a fork or a local build has no key, and CI,
- * `DO_NOT_TRACK` and `graft telemetry disable` all close it. See TELEMETRY.md.
+ * Every gate still applies — telemetry stays off until asked for, a fork or a local
+ * build has no key, and CI, `DO_NOT_TRACK` and `graft telemetry disable` all close it.
+ * See TELEMETRY.md.
  */
 async function recordInstall() {
   // `dist/` is absent when this runs from a clone, where `prepare` builds AFTER

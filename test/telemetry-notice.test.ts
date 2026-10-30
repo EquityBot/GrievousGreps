@@ -19,13 +19,14 @@ import { tmpRepo } from './helpers.js';
  * to suppress the notice — which is the correct product behaviour, and exactly
  * what a test of the notice must not be subject to.
  */
-const OPEN: NodeJS.ProcessEnv = {};
+const OPEN: NodeJS.ProcessEnv = { GRAFT_TELEMETRY: '1' };
 
 function home(tag: string, state?: Record<string, unknown>): string {
   const dir = tmpRepo(tag);
   mkdirSync(join(dir, '.graft'), { recursive: true });
   if (state) writeFileSync(join(dir, '.graft', 'telemetry.json'), JSON.stringify(state));
   process.env.GRAFT_POSTHOG_KEY = 'phc_test_key';
+  process.env.GRAFT_TELEMETRY = '1';
   return dir;
 }
 
@@ -87,6 +88,7 @@ test('debug prints the exact batch and sends nothing', () => {
 test('debug never prints the project key — this output is written to be pasted into an issue', () => {
   const h = home('notice-debug-key', { installId: 'x' });
   process.env.GRAFT_POSTHOG_KEY = 'phc_do_not_print_me';
+  process.env.GRAFT_TELEMETRY = '1';
   enqueue({ event: 'query', properties: { command: 'ask' }, distinct_id: 'abc' }, h);
   const out = formatDebug(h);
   assert.equal(out.includes('phc_do_not_print_me'), false, 'the ingestion key leaked into terminal output');
@@ -96,6 +98,7 @@ test('debug never prints the project key — this output is written to be pasted
 
 test('buildBatch itself carries no key, so no logging path can reach one', () => {
   process.env.GRAFT_POSTHOG_KEY = 'phc_do_not_print_me';
+  process.env.GRAFT_TELEMETRY = '1';
   const batch = buildBatch([{ event: 'query', properties: {}, distinct_id: 'abc' }]);
   assert.equal('api_key' in batch, false);
   assert.equal(JSON.stringify(batch).includes('phc_do_not_print_me'), false);
@@ -104,6 +107,7 @@ test('buildBatch itself carries no key, so no logging path can reach one', () =>
 test('status prints the endpoint but never the key', () => {
   const h = home('notice-status-key', { installId: 'x' });
   process.env.GRAFT_POSTHOG_KEY = 'phc_do_not_print_me';
+  process.env.GRAFT_TELEMETRY = '1';
   assert.equal(formatStatus(h, OPEN).includes('phc_do_not_print_me'), false);
 });
 

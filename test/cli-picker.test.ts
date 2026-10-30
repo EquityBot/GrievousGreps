@@ -287,7 +287,7 @@ test('formatNonInteractiveHelp still helps when nothing was detected', () => {
 
 /** Same driver, but with the consent row offered. */
 function driveWithConsent(repo: string, home: string, keys: PickerKey[]) {
-  let state = initialPickerState(planInit(repo, { home }), repo, home, { offerTelemetry: true });
+  let state = initialPickerState(planInit(repo, { home }), repo, home, { offerTelemetry: true, telemetryChecked: true });
   for (const k of keys) state = reducePicker(state, k);
   return state;
 }
@@ -299,9 +299,15 @@ test('the consent row is absent unless it is offered', () => {
   assert.equal(pickedTelemetry(state), undefined, 'not offered means no answer, not "no"');
 });
 
-test('when offered, the consent row is last and starts checked', () => {
+test('when offered with telemetry off, the consent row starts unchecked', () => {
   const repo = fresh(); const home = fullHome();
   const state = initialPickerState(planInit(repo, { home }), repo, home, { offerTelemetry: true });
+  assert.equal(pickedTelemetry(state), false);
+});
+
+test('when offered with telemetry already on, the consent row is last and starts checked', () => {
+  const repo = fresh(); const home = fullHome();
+  const state = initialPickerState(planInit(repo, { home }), repo, home, { offerTelemetry: true, telemetryChecked: true });
   assert.equal(state.rows.at(-1)?.id, TELEMETRY_ROW_ID);
   assert.equal(state.rows.at(-1)?.kind, 'setting');
   assert.equal(pickedTelemetry(state), true);
@@ -340,7 +346,7 @@ test('a (toggle all) is about agents and leaves the consent answer alone', () =>
 
 test('the rendered row shows the label, a rule, and what is not collected', () => {
   const repo = fresh(); const home = fullHome();
-  const out = renderPicker(initialPickerState(planInit(repo, { home }), repo, home, { offerTelemetry: true }), false);
+  const out = renderPicker(initialPickerState(planInit(repo, { home }), repo, home, { offerTelemetry: true, telemetryChecked: true }), false);
   assert.match(out, /\[✓\] anonymous usage stats/);
   assert.match(out, /no code, no file paths, no queries/);
   assert.equal(out.includes(TELEMETRY_ROW_ID), false, 'the internal id must never be shown');

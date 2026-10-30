@@ -30,14 +30,16 @@ const table = (ancestor?: string): PsRow[] => [
 const deps = (tty: boolean, ancestor?: string) => ({ stdinTTY: tty, stdoutTTY: tty, ps: () => table(ancestor), pid: ME });
 
 test("mayCallClaude: only the person at their own terminal, look-back on, without --plain (0 rule 4)", () => {
-  assert.equal(mayCallClaude({}, { plain: false }, deps(true)), true);
-  assert.equal(mayCallClaude({}, { plain: false }, deps(false)), false, "no TTY");
-  assert.equal(mayCallClaude({ CLAUDECODE: "1" }, { plain: false }, deps(true)), false, "CLAUDECODE");
-  assert.equal(mayCallClaude({}, { plain: false }, deps(true, "claude")), false, "a claude ancestor");
-  assert.equal(mayCallClaude({}, { plain: false }, deps(true, "/usr/bin/script")), false, "a pty wrapper ancestor");
-  assert.equal(mayCallClaude({ TRAIL_NO_LOOK_BACK: "1" }, { plain: false }, deps(true)), false, "TRAIL_NO_LOOK_BACK");
-  assert.equal(mayCallClaude({}, { plain: true }, deps(true)), false, "--plain");
-  assert.equal(mayCallClaude({}, { plain: false }, { stdinTTY: true, stdoutTTY: true, ps: () => null, pid: ME }), false, "an unreadable process table is no");
+  const ASKED = { TRAIL_CLOUD: "1" };
+  assert.equal(mayCallClaude({}, { plain: false }, deps(true)), false, "not asked for");
+  assert.equal(mayCallClaude(ASKED, { plain: false }, deps(true)), true);
+  assert.equal(mayCallClaude(ASKED, { plain: false }, deps(false)), false, "no TTY");
+  assert.equal(mayCallClaude({ ...ASKED, CLAUDECODE: "1" }, { plain: false }, deps(true)), false, "CLAUDECODE");
+  assert.equal(mayCallClaude(ASKED, { plain: false }, deps(true, "claude")), false, "a claude ancestor");
+  assert.equal(mayCallClaude(ASKED, { plain: false }, deps(true, "/usr/bin/script")), false, "a pty wrapper ancestor");
+  assert.equal(mayCallClaude({ ...ASKED, TRAIL_NO_LOOK_BACK: "1" }, { plain: false }, deps(true)), false, "TRAIL_NO_LOOK_BACK");
+  assert.equal(mayCallClaude(ASKED, { plain: true }, deps(true)), false, "--plain");
+  assert.equal(mayCallClaude(ASKED, { plain: false }, { stdinTTY: true, stdoutTTY: true, ps: () => null, pid: ME }), false, "an unreadable process table is no");
 });
 
 test("agentRun: CLAUDECODE or a claude/pty ancestor, with or without a TTY; the person's own script is not an agent (R17)", () => {

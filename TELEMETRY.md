@@ -1,7 +1,16 @@
 # Telemetry
 
-Trail-code collects a small set of **anonymous** usage events so we can tell whether
-the thing works: how many repos get past a build, whether an agent reaches for
+**Off by default.** Nothing below is recorded or sent, and no background network request
+is made, until you ask for it. `trail telemetry enable`, `GRAFT_TELEMETRY=1` or ticking the
+row in the `trail init` picker turns on the usage events described here. Separately,
+`GRAFT_UPDATE_CHECK=1` turns on the daily npm version check, and `TRAIL_CLOUD=1` or signing
+in turns on the workspace side, with its background `git fetch`, `gh` reads and sign-in
+link. Commands that exist to reach the network, such as `trail upgrade` and `trail
+version`, still do so when you run them, and an agent host started with an `npx` MCP entry
+asks npm for the package itself.
+
+If you turn it on, Trail-code collects a small set of **anonymous** usage events so we can
+tell whether the thing works: how many repos get past a build, whether an agent reaches for
 Trail-code or falls back to grep, which commands earn their place, and what breaks in
 the wild.
 
@@ -172,14 +181,16 @@ variables, API keys, model names, hostnames, usernames, or email addresses.
 - IP-based geolocation is used only to derive a country for aggregate stats;
   PostHog does not retain the IP on the event.
 
-## Opting out
+## Opting in and out
 
-Any one of these fully disables telemetry:
+Telemetry stays off unless you turn it on. Any one of these keeps it off, or turns it
+off again:
 
-1. **Uncheck "anonymous usage stats" in the `trail init` picker.** Takes effect
-   immediately and is remembered for this machine.
-2. **`trail telemetry disable`** at any time. `trail telemetry status` shows the
-   current state, and `trail telemetry enable` turns it back on.
+1. **Leave "anonymous usage stats" unchecked in the `trail init` picker.** The answer
+   is remembered for this machine.
+2. **`trail telemetry disable`** at any time. It outranks `GRAFT_TELEMETRY=1`.
+   `trail telemetry status` shows the current state, and `trail telemetry enable`
+   turns it on.
 3. **Set [`DO_NOT_TRACK`](https://web.archive.org/web/20251005054121/https://consoledonottrack.com/)** to any value other
    than `0`. Respected unconditionally: it outranks Trail-code's own setting.
 4. **Run in CI.** `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` and friends switch it off

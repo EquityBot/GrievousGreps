@@ -132,6 +132,8 @@ export function maybeRefreshInBackground(
   now = Date.now(),
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
+  // Off until asked for. `graft upgrade` and `graft version` still ask npm when run.
+  if (env.GRAFT_UPDATE_CHECK !== '1') return false;
   const doNotTrack = env.DO_NOT_TRACK;
   if (doNotTrack !== undefined && doNotTrack !== '' && doNotTrack !== '0') return false;
   const cache = readUpdateCache(home);

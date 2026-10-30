@@ -98,6 +98,7 @@ test("trail init with telemetry on leaves no graft/ folder behind", () => {
     USERPROFILE: home,
     TRAIL_HOME: join(home, ".trail"),
     GRAFT_POSTHOG_KEY: "phc_test_key",
+    GRAFT_TELEMETRY: "1",
     GRAFT_POSTHOG_HOST: "https://127.0.0.1:9",
   };
   for (const k of [...CI_ENV_VARS, "DO_NOT_TRACK", "TRAIL_NO_FETCH", "CLAUDECODE", "TRAIL_INVOKED_AS"]) delete env[k];

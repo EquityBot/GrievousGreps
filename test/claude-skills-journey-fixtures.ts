@@ -137,7 +137,7 @@ export const reply = (s: Session, iso: string, text: string) => grow(s, [said(te
 
 const SAVED_KEYS = ['PATH', 'HOME', 'USERPROFILE', 'TRAIL_HOME', 'CLAUDE_CODE_ENTRYPOINT', 'TRAIL_TEST_NOW', 'CLAUDE_PROJECT_DIR', 'GRAFT_TEST_STDIN', 'GRAFT_TEST_CLI',
   'TRAIL_HOST_FACTS', 'CLAUDE_CONFIG_DIR', 'CI', 'GITHUB_ACTIONS', 'TRAIL_NO_HOOKS', 'TRAIL_LAB_INTERACTIVE', 'TRAIL_INVOKED_AS', 'DO_NOT_TRACK',
-  'CODEX_HOME', 'TRAIL_TIER_CODEX', 'GRAFT_POSTHOG_KEY', 'GRAFT_POSTHOG_HOST'];
+  'CODEX_HOME', 'TRAIL_TIER_CODEX', 'GRAFT_POSTHOG_KEY', 'GRAFT_POSTHOG_HOST', 'GRAFT_TELEMETRY'];
 
 /** Runs one hook in this process the way the shim does (`main(event)`), with its stdout captured. */
 export async function hook(s: Session, event: string, payload: Record<string, unknown>, nowIso: string, env: Record<string, string> = {}): Promise<string> {

@@ -22,6 +22,7 @@
  * are kept as #662 keeps them, and the agent is told to ask about the commit
  * (D184).
  */
+import { cloudEnabled } from "../cloud/workspace.js";
 import { createHash } from 'node:crypto';
 import { anchoredReviews, finishReviewRead, beginReviewRead, type ReviewFinding, type ReviewRead, type ReviewResult } from '../notes/pr-reviews.js';
 import { beginSessionRead, finishSessionRead, offeredSessions, type SessionRead, type SessionResult } from '../learn/sessions.js';
@@ -58,7 +59,7 @@ export function agentRun(env: NodeJS.ProcessEnv, deps: PersonDeps = {}, person?:
 
 /** 0 rule 4: the person at their own terminal, the look-back on, and no `--plain`. Never starts anything itself. */
 export function mayCallClaude(env: NodeJS.ProcessEnv, flags: { plain: boolean }, deps: PersonDeps = {}, person?: PersonCheck): boolean {
-  if (flags.plain || lookBackOff(env)) return false;
+  if (flags.plain || lookBackOff(env) || !cloudEnabled(env)) return false;
   return (person ?? personAtTerminal(env, deps)).ok;
 }
 

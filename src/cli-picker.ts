@@ -141,14 +141,14 @@ export function visibleRows(state: PickerState): PickerRow[] {
 /**
  * Claude Code starts checked — it's the deep integration — everything else off.
  *
- * `offerTelemetry` appends the consent row, checked. Default false so every
+ * `offerTelemetry` appends the consent row, checked only if it is already on. Default false so every
  * existing caller (and every test) sees exactly the host rows it always did.
  */
 export function initialPickerState(
   plan: HostPlan[],
   repo: string,
   home: string,
-  opts: { offerTelemetry?: boolean } = {},
+  opts: { offerTelemetry?: boolean; telemetryChecked?: boolean } = {},
 ): PickerState {
   const rows: PickerRow[] = plan.map((p) => ({
     id: p.id,
@@ -168,7 +168,7 @@ export function initialPickerState(
       summary: 'no code, no file paths, no queries',
       hasGlobal: false,
     });
-    checked.add(TELEMETRY_ROW_ID);
+    if (opts.telemetryChecked) checked.add(TELEMETRY_ROW_ID);
   }
   return { rows, cursor: 0, checked, done: false, aborted: false };
 }
@@ -347,7 +347,7 @@ export async function runPicker(
   plan: HostPlan[],
   repo: string,
   home: string,
-  opts: { offerTelemetry?: boolean; title?: string | null } = {},
+  opts: { offerTelemetry?: boolean; telemetryChecked?: boolean; title?: string | null } = {},
 ): Promise<Picked | null> {
   const state = await drivePicker(initialPickerState(plan, repo, home, opts), opts.title);
   return state ? { hosts: pickedHostIds(state), telemetry: pickedTelemetry(state) } : null;

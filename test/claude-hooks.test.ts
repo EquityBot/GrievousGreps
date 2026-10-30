@@ -637,11 +637,12 @@ test('cursor-session-end force-closes THIS conversation even though its file was
   // also reads GITHUB_ACTIONS, GITLAB_CI and six more. Clearing `CI` alone passed on
   // a laptop and failed on GitHub Actions, where GITHUB_ACTIONS is set — so the list
   // comes from `CI_ENV_VARS` rather than being copied here, and cannot drift from it.
-  const scrubbed = ['HOME', 'USERPROFILE', 'GRAFT_POSTHOG_KEY', 'DO_NOT_TRACK', ...CI_ENV_VARS];
+  const scrubbed = ['HOME', 'USERPROFILE', 'GRAFT_POSTHOG_KEY', 'GRAFT_TELEMETRY', 'DO_NOT_TRACK', ...CI_ENV_VARS];
   const saved = Object.fromEntries(scrubbed.map((k) => [k, process.env[k]]));
   for (const k of [...CI_ENV_VARS, 'DO_NOT_TRACK']) delete process.env[k];
   process.env.HOME = home; process.env.USERPROFILE = home;
   process.env.GRAFT_POSTHOG_KEY = 'phc_test_key';
+  process.env.GRAFT_TELEMETRY = '1';
   process.env.CLAUDE_PROJECT_DIR = d;
   try {
     await runWithStdin(JSON.stringify({ conversation_id: 'c1' }), () => main('cursor-session-end'));

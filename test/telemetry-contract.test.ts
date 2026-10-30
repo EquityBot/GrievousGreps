@@ -25,12 +25,13 @@ import { peek } from '../src/telemetry/queue.js';
 import { tmpRepo } from './helpers.js';
 
 /** An env where every gate is open, so the allowlist is what's under test. */
-const OPEN: NodeJS.ProcessEnv = {};
+const OPEN: NodeJS.ProcessEnv = { GRAFT_TELEMETRY: '1' };
 
 function sandbox(tag: string): string {
   const home = tmpRepo(tag);
   mkdirSync(join(home, '.graft'), { recursive: true });
   process.env.GRAFT_POSTHOG_KEY = 'phc_test_key';
+  process.env.GRAFT_TELEMETRY = '1';
   return home;
 }
 

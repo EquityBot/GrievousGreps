@@ -43,13 +43,14 @@ test("skill_changed{op:'delete'} goes out with no op; a skill's name never rides
   const home = tmp("tel");
   mkdirSync(join(home, ".graft"), { recursive: true });
   process.env.GRAFT_POSTHOG_KEY = "phc_test_key";
-  const bad = track("skill_changed", { op: "delete", name: "release-npm" }, { home, env: {} });
+  process.env.GRAFT_TELEMETRY = '1';
+  const bad = track("skill_changed", { op: "delete", name: "release-npm" }, { home, env: { GRAFT_TELEMETRY: '1' } });
   assert.ok(bad);
   assert.equal(Object.hasOwn(bad.properties, "op"), false);
   assert.equal(JSON.stringify(bad.properties).includes("release-npm"), false);
-  const good = track("skill_changed", { op: "restore-version" }, { home, env: {} });
+  const good = track("skill_changed", { op: "restore-version" }, { home, env: { GRAFT_TELEMETRY: '1' } });
   assert.equal(good?.properties.op, "restore-version");
-  assert.equal(track("skill_value", { channel: "context" }, { home, env: {} })?.properties.channel, "context");
+  assert.equal(track("skill_value", { channel: "context" }, { home, env: { GRAFT_TELEMETRY: '1' } })?.properties.channel, "context");
 });
 
 test("TELEMETRY.md documents skill_changed and skill_value with their values, and retire", () => {

@@ -32,7 +32,7 @@ import { cleanSubject } from "../notes/edit-overlap.js";
 import { changedFiles, ownPath } from "../notes/git-facts.js";
 import { repoName, repoPlace } from "../notes/home.js";
 import { listNotes, sectionLead, type Note } from "../notes/notes.js";
-import { DEFAULT_TRAIL_URL, isError, trailUrl, type ApiError, type Cloud } from "./workspace.js";
+import { cloudEnabled, DEFAULT_TRAIL_URL, isError, trailUrl, type ApiError, type Cloud } from "./workspace.js";
 
 type Fetch = typeof fetch;
 
@@ -595,6 +595,7 @@ function changeLine(repo: string, base: string, ref: string): string {
  * set up their own ssh command (then theirs is used as is).
  */
 function fetchQuietly(repo: string): void {
+  if (!cloudEnabled()) return;
   try {
     const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
     if (!env.GIT_SSH_COMMAND && !git(repo, ["config", "core.sshCommand"])?.trim()) env.GIT_SSH_COMMAND = "ssh -o BatchMode=yes";

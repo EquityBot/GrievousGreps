@@ -11,7 +11,7 @@ import { peek } from '../src/telemetry/queue.js';
 import { readSession } from '../src/claude/state.js';
 import { tmpRepo } from './helpers.js';
 
-const OPEN: NodeJS.ProcessEnv = {};
+const OPEN: NodeJS.ProcessEnv = { GRAFT_TELEMETRY: '1' };
 
 function fixture(tag: string): { repo: string; home: string } {
   const repo = tmpRepo(tag);
@@ -19,6 +19,7 @@ function fixture(tag: string): { repo: string; home: string } {
   mkdirSync(join(home, '.graft'), { recursive: true });
   mkdirSync(join(repo, 'graft', '.cache', 'session'), { recursive: true });
   process.env.GRAFT_POSTHOG_KEY = 'phc_test_key';
+  process.env.GRAFT_TELEMETRY = '1';
   return { repo, home };
 }
 

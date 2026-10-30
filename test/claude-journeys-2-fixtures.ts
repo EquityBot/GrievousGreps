@@ -73,7 +73,7 @@ export function cliUpd(b: Box, nowIso: string, command: string, sink?: { lines: 
 }
 
 /** Telemetry the hooks queued for this box (GRAFT_POSTHOG_KEY set, DO_NOT_TRACK off, the queue in the box's home). */
-export const TELEMETRY_ENV = { GRAFT_POSTHOG_KEY: 'phc_test_key', GRAFT_POSTHOG_HOST: 'http://127.0.0.1:9', DO_NOT_TRACK: '0' };
+export const TELEMETRY_ENV = { GRAFT_TELEMETRY: '1', GRAFT_POSTHOG_KEY: 'phc_test_key', GRAFT_POSTHOG_HOST: 'http://127.0.0.1:9', DO_NOT_TRACK: '0' };
 export function queued(b: Box): Array<[string, Record<string, string>]> {
   try {
     return readFileSync(join(b.home, '.graft', 'telemetry-queue.ndjson'), 'utf8').trim().split('\n').filter(Boolean)

@@ -12,7 +12,7 @@
  *   3. CI — a build server is not a user. Counting it would inflate every number
  *      we care about and tell us nothing about a person.
  *   4. The user's own choice, from the `graft init` picker or
- *      `graft telemetry disable`. Default on when never set.
+ *      `graft telemetry enable`, or GRAFT_TELEMETRY=1. Off until they make it.
  *
  * Re-checked at every append rather than cached at boot, so `graft telemetry
  * disable` in one terminal takes effect in a long-lived MCP server in another
@@ -63,7 +63,8 @@ export function offReason(home?: string, env: NodeJS.ProcessEnv = process.env): 
   if (!posthogKey()) return 'no-key';
   if (doNotTrack(env)) return 'do-not-track';
   if (inCi(env)) return 'ci';
-  if (readState(home)?.enabled === false) return 'disabled';
+  const chosen = readState(home)?.enabled;
+  if (chosen === false || (chosen !== true && env.GRAFT_TELEMETRY !== '1')) return 'disabled';
   return null;
 }
 
@@ -78,6 +79,6 @@ export function explainOff(reason: OffReason): string {
     case 'no-key':        return 'off: this build has no telemetry key (a fork, or a local `npm run build`), so nothing can be sent';
     case 'do-not-track':  return 'off: DO_NOT_TRACK is set in this environment';
     case 'ci':            return 'off: this looks like CI';
-    case 'disabled':      return `off: you disabled it (\`${cmd('graft telemetry enable')}\` to turn it back on)`;
+    case 'disabled':      return `off: it stays off unless you turn it on (\`${cmd('graft telemetry enable')}\`)`;
   }
 }

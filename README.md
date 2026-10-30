@@ -26,7 +26,7 @@ Trail-code gives Claude Code, Cursor, Codex and other coding agents a map of you
   <a href="https://nodejs.org"><img src="https://img.shields.io/node/v/%40trailhq%2Ftrail-code?style=for-the-badge&logo=nodedotjs&logoColor=white" /></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/License-MIT-20C997?style=for-the-badge" />
-  <a href="TELEMETRY.md"><img src="https://img.shields.io/badge/telemetry-anonymous%2C%20opt--out-546FFF?style=for-the-badge" /></a>
+  <a href="TELEMETRY.md"><img src="https://img.shields.io/badge/telemetry-off%20by%20default-546FFF?style=for-the-badge" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/trailhq/Trail-Code"><img src="https://img.shields.io/ossf-scorecard/github.com/trailhq/Trail-Code?style=for-the-badge&label=openssf%20scorecard" /></a>
 </p>
 
@@ -313,7 +313,7 @@ Coming soon: a Trail workspace, for your team's view across repos. A team page w
 - **Your past sessions.** `trail init` reads your own messages from Claude Code's transcripts for the repo, on your machine. Your own Claude Code does the reading, with Claude Sonnet under your login, so your messages go only to Anthropic, and it counts toward your Claude usage. None of it goes to Trail.
 - **Your PR reviews.** When `gh` is installed and signed in, `trail init` reads the review comments on the repo's last 50 merged PRs with it, under your GitHub login. Anything that looks like a secret is taken out, and your own Claude Code reads them the same way. None of it goes to Trail.
 - **If you connect a Trail workspace.** No learning goes to Trail until you do, and the sign-in link tells Trail only the repo it was offered in. Once connected, the learnings committed in the repos you added go to Trail, including those on teammates' pushed branches. An edit you haven't committed, or a file git doesn't track, stays on your machine. Each search and check that used them sends which learnings were shown and whose they are, never what you typed or which files you were in. That is how the team page counts reuse.
-- **Anonymous usage stats.** Buckets and fixed labels only, never the title, text or paths of a learning. [`TELEMETRY.md`](TELEMETRY.md) lists every field. Turn it off with `trail telemetry disable` or `DO_NOT_TRACK=1`.
+- **Anonymous usage stats, off by default.** `trail telemetry enable` turns them on. Buckets and fixed labels only, never the title, text or paths of a learning. [`TELEMETRY.md`](TELEMETRY.md) lists every field.
 
 ---
 
@@ -530,7 +530,7 @@ _Summary, sources, links, and your text ship today in markdown nodes. The crux s
 - **On your machine, no key, no network:** the structural code graph. `trail build` (wiring graph + per-file cards), `trail build --check`, `trail ask`, learnings and `trail check` are deterministic. They never call a model.
 - **Through your provider key:** the LLM-written parts. `trail build --deep` adds the concept nodes (file summaries + node synthesis) and the per-symbol summaries and cruxes. The graft map is vendor-neutral: set `GRAFT_PROVIDER` (`openai` for any OpenAI-compatible endpoint, `anthropic` for the native API, or `litellm` / `orcarouter` for a gateway that speaks the OpenAI-compatible format), your `GRAFT_API_KEY`, `GRAFT_MODEL`, and, for the `openai` wire format, `GRAFT_BASE_URL` to point at OpenRouter, Fireworks, Groq, a LiteLLM proxy, a local server, or OpenAI itself. Or pass `--provider/--model/--api-key/--base-url` on the command line. (`OPENROUTER_API_KEY` still works as a deprecated fallback, and `ORCAROUTER_API_KEY` as a second one.)
 - **Through Trail, only if you connect a workspace:** the learnings committed in the repos you added, and which of them each search and check showed. See [What stays on your machine](#what-stays-on-your-machine).
-- **Anonymous usage stats:** a daily npm version check and one batched usage ping. The ping carries buckets and fixed labels only: never your code, file paths, repo name, symbols, queries, learnings or error messages. [`TELEMETRY.md`](TELEMETRY.md) is the complete list and `trail telemetry debug` prints exactly what your machine would send. `DO_NOT_TRACK=1` disables both network calls; `trail telemetry disable` or unchecking the box in `trail init` disables only the usage ping. The ping is off in CI and in any build from source.
+- **Anonymous usage stats, only if you turn them on:** nothing is sent by default. `trail telemetry enable`, or ticking the box in `trail init`, turns on one batched usage ping, and `GRAFT_UPDATE_CHECK=1` a daily npm version check. The ping carries buckets and fixed labels only: never your code, file paths, repo name, symbols, queries, learnings or error messages. [`TELEMETRY.md`](TELEMETRY.md) is the complete list and `trail telemetry debug` prints exactly what your machine would send. `DO_NOT_TRACK=1` overrides both, and the ping is off in CI and in any build from source.
 
 Settings keep their `GRAFT_` names. See [`.env.example`](.env.example) for the full list (model, base URL, graph directory).
 

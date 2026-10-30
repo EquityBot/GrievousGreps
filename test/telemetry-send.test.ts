@@ -35,6 +35,7 @@ before(async () => {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   port = (server.address() as { port: number }).port;
   process.env.GRAFT_POSTHOG_KEY = 'phc_send_test';
+  process.env.GRAFT_TELEMETRY = '1';
   process.env.GRAFT_POSTHOG_HOST = `http://127.0.0.1:${port}`;
 });
 

@@ -20,6 +20,7 @@ process.env.HOME = HOME;
 process.env.USERPROFILE = HOME;
 process.env.TRAIL_HOME = join(HOME, ".trail");
 process.env.GRAFT_POSTHOG_KEY = "phc_test_key";
+process.env.GRAFT_TELEMETRY = '1';
 for (const k of ["DO_NOT_TRACK", ...CI_ENV_VARS]) delete process.env[k];
 
 function git(d: string, args: string[]) {

@@ -143,11 +143,12 @@ test("a shell command running trail counts as a retrieval, like graft", () => {
 
 test("every telemetry event says which name ran it", () => {
   process.env.GRAFT_POSTHOG_KEY = "phc_test_key";
+  process.env.GRAFT_TELEMETRY = '1';
   const home = scratchHome();
-  const open = { HOME: home, USERPROFILE: home } as NodeJS.ProcessEnv;
+  const open = { HOME: home, USERPROFILE: home, GRAFT_TELEMETRY: "1" } as NodeJS.ProcessEnv;
   const viaTrail = track("first_run", {}, { home, env: { ...open, TRAIL_INVOKED_AS: "trail" } });
   const other = scratchHome();
-  const viaGraft = track("first_run", {}, { home: other, env: { HOME: other, USERPROFILE: other } });
+  const viaGraft = track("first_run", {}, { home: other, env: { HOME: other, USERPROFILE: other, GRAFT_TELEMETRY: "1" } });
   assert.equal(viaTrail?.properties.cli_name, "trail");
   assert.equal(viaGraft?.properties.cli_name, "graft");
 });
