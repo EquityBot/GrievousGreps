@@ -114,9 +114,9 @@ function ambiguousRepo(): string {
   mkdirSync(join(d, 'src'), { recursive: true });
   writeFileSync(join(d, 'src', 'a.ts'), 'export function shared(): number {\n  return 1;\n}\n');
   writeFileSync(join(d, 'src', 'b.ts'), 'export function shared(): number {\n  return 2;\n}\n');
-  // A cross-file call to the ambiguous name — resolve.ts drops it rather than
+  // A cross-file call to the ambiguous name, with no import to say which: resolve.ts drops it rather than
   // guessing which `shared` it means, so NEITHER definition gets a caller edge.
-  writeFileSync(join(d, 'src', 'user.ts'), 'import { shared } from "./a.js";\nexport function use(): number {\n  return shared();\n}\n');
+  writeFileSync(join(d, 'src', 'user.ts'), 'export function use(): number {\n  return shared();\n}\n');
   execFileSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'build', d], { stdio: 'pipe' });
   return d;
 }
