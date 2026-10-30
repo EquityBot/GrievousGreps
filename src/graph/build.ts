@@ -37,6 +37,7 @@ import { seedGraph, type SeedResult } from "./seed.js";
 import { filterByOnlyDirs, listSourceStats } from "./source-files.js";
 import { readPythonRoots } from "./python-roots.js";
 import { resolveEdges, type GoModule } from "./resolve.js";
+import { readFileInside } from "../util/safe-fs.js";
 import { enrichGraph, type EnrichStats } from "./enrich.js";
 import { readGraph, writeGraph, wiringPath } from "./write.js";
 import { writeCards, writeIndex, writeCovers, type CardStats } from "./cards.js";
@@ -210,6 +211,44 @@ function readGoModules(root: string, repoFiles: string[]): GoModule[] {
   return mods;
 }
 
+/** The crates Cargo.toml files depend on from outside the repo, `-` as `_`: every
+ * dependency, less the repo's own packages and anything named by a `path`. */
+function readRustExternalCrates(root: string, repoFiles: string[]): Set<string> {
+  const deps = new Set<string>();
+  const internal = new Set<string>();
+  const norm = (name: string) => name.replace(/-/g, "_");
+  for (const f of repoFiles) {
+    if (basename(f) !== "Cargo.toml") continue;
+    let text: string | null = null;
+    try {
+      text = readFileInside(root, f);
+    } catch {
+      /* a link out of the repo or an unreadable manifest states nothing */
+    }
+    let section = "";
+    for (const line of (text ?? "").split(/\r?\n/)) {
+      const header = /^\s*\[+\s*([^\]]+?)\s*\]+/.exec(line);
+      if (header) {
+        section = header[1];
+        const table = /(?:^|\.)(?:dev-|build-)?dependencies\.([\w-]+)$/.exec(section);
+        if (table) deps.add(norm(table[1]));
+        continue;
+      }
+      const key = /^\s*([\w-]+)\s*=\s*(.*)$/.exec(line);
+      if (!key) continue;
+      if (section === "package" && key[1] === "name") internal.add(norm(key[2].replace(/["'\s]/g, "")));
+      if (/(?:^|\.)(?:dev-|build-)?dependencies$/.test(section)) {
+        deps.add(norm(key[1]));
+        if (/\bpath\s*=/.test(key[2])) internal.add(norm(key[1]));
+      }
+      const table = /(?:^|\.)(?:dev-|build-)?dependencies\.([\w-]+)$/.exec(section);
+      if (table && key[1] === "path") internal.add(norm(table[1]));
+    }
+  }
+  for (const name of internal) deps.delete(name);
+  return deps;
+}
+
 export async function buildGraph(
   dir: string,
   opts: GraphBuildOptions = {},
@@ -367,6 +406,7 @@ export async function buildGraph(
   const edges = resolveEdges(nodes, rawEdges, {
     goModules: readGoModules(root, repoFiles),
     pythonRoots: readPythonRoots(root, repoFiles),
+    rustExternalCrates: readRustExternalCrates(root, repoFiles),
     unresolvedCalls,
   });
 

@@ -97,6 +97,8 @@ export interface ResolveOptions {
    * (`example.com/app/pkg/util`) to the in-repo directory they name, relative to the
    * owning module's `go.mod` location. Empty/absent → Go imports stay external strings. */
   goModules?: GoModule[];
+  /** The crates the repo's Cargo.toml files depend on from outside it, `-` as `_`. */
+  rustExternalCrates?: ReadonlySet<string>;
   /** The Python roots the repo's configuration states (see python-roots.ts). */
   pythonRoots?: string[];
   /** Filled with the Python calls an import names but no edge carries. */
@@ -311,6 +313,7 @@ export function resolveEdges(
       }
       // Python imports identify the target module. A named receiver can be a
       // class or a submodule; both resolve within their explicit import path.
+      if (e.rustRoot && (RUST_STD_CRATES.has(e.rustRoot) || opts.rustExternalCrates?.has(e.rustRoot))) continue;
       if (e.pythonRebound && e.name) {
         if (followPythonName(e.pythonRebound, toPosixPath(e.file), pythonCtx) !== "external") {
           opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: null });
@@ -569,6 +572,8 @@ function resolveTraitMember(
  * A suffix shared by two files (`a/util.py` and `b/util.py` for `import util`) is
  * left unresolved: picking one would invent an edge the source does not state.
  */
+const RUST_STD_CRATES = new Set(["std", "core", "alloc"]);
+
 /** Where a name in a Python module leads: its definition, a module it binds, or why
  * there is neither. `external`: bound from outside the repo, so no in-repo node is its
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */

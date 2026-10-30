@@ -129,6 +129,65 @@ test("Rust: a bare call in a macro leaves its file only through a use", async ()
   assert.deepEqual(edge("fn t() { assert!(other::measure()); }\n"), ["b/src/other.rs#measure"], "a path");
 });
 
+test("Rust: a path that starts in std or a dependency does not resolve to a repo type", async () => {
+  await warmGenericGrammars(["rust"]);
+  const lib = `pub struct Error;
+impl Error { pub fn new() -> Error { Error } }
+pub fn swap() {}
+`;
+  const other = extractGeneric("crates/a/src/lib.rs", lib, "rust");
+  const edge = (body: string) => {
+    const here = extractGeneric("crates/b/src/lib.rs", body, "rust");
+    return resolveEdges([...other.nodes, ...here.nodes], [...other.rawEdges, ...here.rawEdges], { rustExternalCrates: new Set(["serde_json"]) })
+      .filter((e) => e.relation === "calls" && e.source.startsWith("crates/b/")).map((e) => e.target);
+  };
+  const target = ["crates/a/src/lib.rs#new"];
+  for (const body of [
+    "use std::io;\nfn t() { io::Error::new(); }\n",
+    "use std::io::Error;\nfn t() { Error::new(); }\n",
+    "use std::{io, fmt};\nfn t() { io::Error::new(); }\n",
+    "fn t() { std::io::Error::new(); }\n",
+    "fn t() { serde_json::Error::new(); }\n",
+    "use serde_json as sj;\nfn t() { sj::Error::new(); }\n",
+    "use std::io;\nfn t() { assert!(io::Error::new()); }\n",
+    "fn t() { std::mem::swap(); }\n",
+    "fn t() { assert!(std::mem::swap()); }\n",
+  ]) {
+    assert.deepEqual(edge(body), [], body);
+  }
+  for (const body of [
+    "fn t() { Error::new(); }\n",
+    "fn t() { a::Error::new(); }\n",
+    "use a::Error;\nfn t() { Error::new(); }\n",
+    "fn t() { crate::Error::new(); }\n",
+    "use a::Error;\nfn t() { assert!(Error::new()); }\n",
+  ]) {
+    assert.deepEqual(edge(body), target, body);
+  }
+});
+
+test("Rust: Cargo.toml says which crates are outside the repo", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+  const { dirname, join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { buildGraph } = await import("../src/graph/build.js");
+  const { readGraph, wiringPath } = await import("../src/graph/write.js");
+  const root = mkdtempSync(join(tmpdir(), "rust-crates-"));
+  const files: Record<string, string> = {
+    "crates/a/Cargo.toml": '[package]\nname = "a-crate"\n',
+    "crates/a/src/lib.rs": "pub struct Error;\nimpl Error { pub fn new() -> Error { Error } }\n",
+    "crates/b/Cargo.toml": '[package]\nname = "b"\n[dependencies]\na-crate = { path = "../a" }\nserde-json = "1"\n[dependencies.anyhow]\nversion = "1"\n',
+    "crates/b/src/lib.rs": "fn outside() { serde_json::Error::new(); anyhow::Error::new(); }\nfn inside() { a_crate::Error::new(); }\n",
+  };
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  await buildGraph(root);
+  const calls = readGraph(wiringPath(join(root, "graft")))!.edges.filter((e) => e.relation === "calls").map((e) => `${e.source} -> ${e.target}`);
+  assert.deepEqual(calls, ["crates/b/src/lib.rs#inside -> crates/a/src/lib.rs#new"]);
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");

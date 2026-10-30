@@ -378,6 +378,16 @@ function rustOwnerOf(item: TsNode): string | undefined {
   return name?.text.replace(/^.*::/, "");
 }
 
+/** Where a Rust path starts, through the file's `use` declarations: `io::Error` with
+ * `use std::io;` is `std`. Undefined for a bare name and for a path inside this crate.
+ * resolve.ts drops a call whose path starts in `std` or a dependency. */
+function rustPathRoot(path: string | undefined, used: ReadonlyMap<string, string>): string | undefined {
+  const first = path?.split("::")[0];
+  if (!first || /^(crate|self|super|Self)$/.test(first)) return undefined;
+  const root = used.get(first) ?? first;
+  return /^(crate|self|super)$/.test(root) ? undefined : root;
+}
+
 /** `Engine::new` → `Engine`, `Self::new` → the enclosing impl's type. Undefined for a
  * module path (`rules::parse`), which says nothing about an owner. */
 function rustCallOwner(path: string | undefined, enc: Def | undefined): string | undefined {
@@ -389,24 +399,28 @@ function rustCallOwner(path: string | undefined, enc: Def | undefined): string |
 /** A Rust path call: a typed member reading first (`Engine::new` among several `new`s
  * in a file), then the bare-name reading when no such type or member exists, as for
  * `Vec::new`, an enum variant or a generic `T::new`. */
-function rustCallEdge(source: string, rel: string, name: string, owner: string | undefined): RawEdge {
+function rustCallEdge(source: string, rel: string, name: string, owner: string | undefined, root: string | undefined): RawEdge {
   return {
     source, relation: "calls", file: rel, name,
     ...(owner ? { viaMember: true, recvType: owner, implicitSelf: true } : {}),
+    ...(root ? { rustRoot: root } : {}),
   };
 }
 
-/** The names a Rust file's `use` declarations mention, and the modules it globs. A
- * rename's new name counts too, harmlessly: it matches no definition. `super::*` and
- * `self::*` are left out, since in a `mod tests` they name this same file. */
-function rustUsedNames(root: TsNode): { names: Set<string>; globs: string[] } {
-  const names = new Set<string>();
+/** The names a Rust file's `use` declarations mention, each with the path's first
+ * segment, and the modules it globs. A rename's new name counts too, harmlessly: it
+ * matches no definition. `super::*` and `self::*` are left out, since in a `mod tests`
+ * they name this same file. */
+function rustUsedNames(root: TsNode): { names: Map<string, string>; globs: string[] } {
+  const names = new Map<string, string>();
   const globs: string[] = [];
   const visit = (n: TsNode): void => {
     if (n.type === "use_declaration") {
       const glob = /(\w+)::\*/.exec(n.text)?.[1];
       if (glob && glob !== "super" && glob !== "self") globs.push(glob);
-      if (!n.text.includes("*")) for (const word of n.text.match(/\w+/g) ?? []) names.add(word);
+      const words = n.text.replace(/^\s*(pub(\([^)]*\))?\s+)?use\s+/, "").match(/\w+/g) ?? [];
+      const first = words[0];
+      if (first && !n.text.includes("*")) for (const word of words) names.set(word, first);
       return;
     }
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
@@ -445,12 +459,16 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const before = i >= 1 ? tree.child?.(i - 1)?.type : undefined;
       if (before === ".") continue;
       const enc = enclosingDef(defs, c.startIndex);
-      const path = before === "::" && i >= 2 ? tree.child?.(i - 2)?.text : undefined;
+      let path: string | undefined;
+      for (let j = i - 1; j >= 1 && tree.child?.(j)?.type === "::"; j -= 2) {
+        path = path ? `${tree.child?.(j - 1)?.text}::${path}` : tree.child?.(j - 1)?.text;
+      }
       const owner = rustCallOwner(path, enc);
       const source = enc ? enc.id : rel;
+      const root = rustPathRoot(path, usedNames);
       rawEdges.push(owner
-        ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner }
-        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true,
+        ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner, ...(root ? { rustRoot: root } : {}) }
+        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true, ...(root ? { rustRoot: root } : {}),
             ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}) });
     }
   };
@@ -726,6 +744,7 @@ function tagsExtract(
   // producing bogus self-loops (foo→foo). Skip any call at a definition's name token.
   const defNameAt = new Set<number>();
   const calls: Array<{ name: string; at: number; path?: string }> = [];
+  const rustUsed = langName === "rust" ? rustUsedNames(root).names : null;
   const refs: Array<{ name: string; at: number }> = [];
   for (const m of matches) {
     const cap: Record<string, TsNode> = {};
@@ -759,7 +778,7 @@ function tagsExtract(
     const enc = enclosingDef(defs, c.at);
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc))
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc), rustPathRoot(c.path, rustUsed!))
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }
