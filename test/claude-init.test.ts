@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 // The MCP launch command is resolved from PATH at init time; pin it to the npx
 // form so these expectations are the same on every machine.
-process.env.GRAFT_MCP_NPX = '1';
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -116,7 +115,8 @@ test('runInit appends the allowlist to a pre-existing permissions block, preserv
 test('postinstall prints the nudge in a fresh dir', () => {
   const d = fresh();
   const out = runPostinstall({ INIT_CWD: d, CI: '' });
-  assert.match(out, /npx graft init/);
+  assert.match(out, /Run `trail init` in a repo/);
+  assert.doesNotMatch(out, /npx/);
 });
 
 test('postinstall is silent when already initialized', () => {

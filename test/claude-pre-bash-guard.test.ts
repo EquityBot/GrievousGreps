@@ -103,7 +103,7 @@ test('both copies registered: only the copy that answers denies and marks the de
     const helpers = join(b.home, '.claude', 'helpers');
     mkdirSync(helpers, { recursive: true });
     const globalShim = join(helpers, 'trail-hooks.cjs');
-    writeFileSync(globalShim, '// finds @trailhq/trail-code\n');
+    writeFileSync(globalShim, '// finds @equitybot/grievousgreps\n');
     writeFileSync(join(b.home, '.claude', 'settings.json'), JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: `node "${globalShim}" pre-bash || exit 0`, timeout: 5 }] }] } }));
     const s = session(b);
     const payload = { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'timeout 60 npm test' }, tool_use_id: 'toolu_c1' };

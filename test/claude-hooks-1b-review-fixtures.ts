@@ -54,7 +54,7 @@ export function globalCopy(b: Box, events: Record<string, string>): string {
   const helpers = join(b.home, '.claude', 'helpers');
   mkdirSync(helpers, { recursive: true });
   const shim = join(helpers, 'trail-hooks.cjs');
-  writeFileSync(shim, '// finds @trailhq/trail-code\n');
+  writeFileSync(shim, '// finds @equitybot/grievousgreps\n');
   const hooks: Record<string, unknown> = {};
   for (const [hostEvent, ours] of Object.entries(events)) hooks[hostEvent] = [{ matcher: hostEvent === 'SessionStart' ? '' : 'Bash', hooks: [{ type: 'command', command: `node "${shim}" ${ours} || exit 0`, timeout: 5 }] }];
   writeFileSync(join(b.home, '.claude', 'settings.json'), JSON.stringify({ hooks }));

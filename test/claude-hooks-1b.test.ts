@@ -76,7 +76,7 @@ test('trail keep: the copy that stands down does so before the keep check runs, 
     const helpers = join(b.home, '.claude', 'helpers');
     mkdirSync(helpers, { recursive: true });
     const globalShim = join(helpers, 'trail-hooks.cjs');
-    writeFileSync(globalShim, '// finds @trailhq/trail-code\n');
+    writeFileSync(globalShim, '// finds @equitybot/grievousgreps\n');
     writeFileSync(join(b.home, '.claude', 'settings.json'), JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: `node "${globalShim}" pre-bash || exit 0`, timeout: 5 }] }] } }));
     const { listText } = initWaiting(b);
     const s = session(b);

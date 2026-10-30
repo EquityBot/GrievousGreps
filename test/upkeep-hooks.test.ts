@@ -148,7 +148,7 @@ test('a repo graft set up, on a machine without trail, hands the agent the trail
     const home = homeWithCache('hook-handover-home', null);
     const first = contextOf(await runHook('session-start', wiredRepo('hook-handover'), home));
     assert.match(first, /graft is now Trail-code/);
-    assert.match(first, /`graft upgrade` adds it/);
+    assert.match(first, /`npm link` in their GrievousGreps folder adds it/);
     const again = contextOf(await runHook('session-start', wiredRepo('hook-handover-2'), home));
     assert.doesNotMatch(again, /graft is now Trail-code/, 'once a week, not every session');
   } finally {

@@ -1,21 +1,13 @@
 // Prints a one-line nudge after install, and records the anonymous `install`
 // event. Never fails the install.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
-// The same code ships as @trailhq/trail-code (the `trail` command) and as
-// @nanonets/graft (`graft`, its old name). The install event and the nudge say
-// which one this is.
-let pkgName = '@nanonets/graft';
-try {
-  pkgName = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name ?? pkgName;
-} catch { /* the graft defaults */ }
-const isTrail = pkgName === '@trailhq/trail-code';
-if (isTrail) process.env.TRAIL_INVOKED_AS = 'trail';
+process.env.TRAIL_INVOKED_AS = 'trail';
 
 /**
  * Record the install, then hand the queue straight to a detached child.
@@ -57,9 +49,7 @@ try {
   if (existsSync(join(dir, '.claude', 'helpers', 'graft-statusline.cjs'))) process.exit(0);
   if (existsSync(join(dir, '.claude', 'helpers', 'trail-statusline.cjs'))) process.exit(0);
   console.log(
-    isTrail
-      ? '\n  Trail installed. Run `trail init` in a repo to wire it into your agents.\n'
-      : '\n  Graft installed. Run `npx graft init` to enable the Claude Code integration (statusline + hooks + auto-sync).\n',
+    '\n  Installed. Run `trail init` in a repo to wire it into your agents.\n',
   );
 } catch {
   /* never fail an install */

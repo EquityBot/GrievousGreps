@@ -187,7 +187,7 @@ test('both copies registered: the repo\'s copy stands down, the ~/.claude copy g
     const helpers = join(b.home, '.claude', 'helpers');
     mkdirSync(helpers, { recursive: true });
     const globalShim = join(helpers, 'trail-hooks.cjs');
-    writeFileSync(globalShim, '// finds @trailhq/trail-code\n');
+    writeFileSync(globalShim, '// finds @equitybot/grievousgreps\n');
     const hookCmd = `node "${globalShim}" pre-bash || exit 0`;
     writeFileSync(join(b.home, '.claude', 'settings.json'), JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: hookCmd, timeout: 5 }] }] } }));
     const repoShim = join(b.repo, '.claude', 'helpers', 'trail-hooks.cjs');

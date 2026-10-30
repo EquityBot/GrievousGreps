@@ -23,12 +23,12 @@ import { learningId } from '../src/notes/learning-fields.js';
 import { tmpRepo } from './helpers.js';
 import { jsLit } from './escape.js';
 
-/** A fake installed @nanonets/graft whose hooks entry records that it ran. */
-function fakeInstall(root: string, name: string, version: string): string {
+/** A fake installed package whose hooks entry records that it ran. */
+function fakeInstall(root: string, name: string, version: string, pkgName = '@nanonets/graft'): string {
   const pkg = join(root, name);
   const distClaude = join(pkg, 'dist', 'claude');
   mkdirSync(distClaude, { recursive: true });
-  writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: '@nanonets/graft', version }));
+  writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: pkgName, version }));
   // CJS on purpose: no "type" field, so `import()` hands back module.exports and
   // `m.main(...)` resolves — same shape the real dist has for the shim's call.
   writeFileSync(
@@ -188,6 +188,14 @@ test('a trail command beside the node_modules that holds it (the Windows npm lay
   fakeInstall(join(npmDir, 'node_modules', '@trailhq'), 'trail', '0.21.1');
   for (const bin of ['trail', 'trail.cmd']) writeFileSync(join(npmDir, bin), '');
   assert.equal(runShim(root, project(root), { pathDirs: [npmDir] }), '0.21.1');
+});
+
+test('this distribution is found through its command, under its own package name', () => {
+  const root = tmpRepo('shim-path-gg');
+  const npmDir = join(root, 'npm');
+  fakeInstall(join(npmDir, 'node_modules', '@equitybot'), 'grievousgreps', '0.28.0+gg', '@equitybot/grievousgreps');
+  for (const bin of ['trail', 'trail.cmd']) writeFileSync(join(npmDir, bin), '');
+  assert.equal(runShim(root, project(root), { pathDirs: [npmDir] }), '0.28.0+gg');
 });
 
 test('a remembered install others can write to is ignored', {

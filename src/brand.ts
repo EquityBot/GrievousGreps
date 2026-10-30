@@ -25,10 +25,10 @@ export type Brand = "trail" | "graft";
 /** Set by `dist/bin/trail.js` and `dist/bin/graft.js` before the CLI loads. */
 export const BRAND_ENV = "TRAIL_INVOKED_AS";
 
-/** The npm package each name is published as. Same code, two names. */
+/** This distribution's one package, which provides both names. */
 export const PACKAGE_FOR: Record<Brand, string> = {
-  trail: "@trailhq/trail-code",
-  graft: "@nanonets/graft",
+  trail: "@equitybot/grievousgreps",
+  graft: "@equitybot/grievousgreps",
 };
 
 export function brand(env: NodeJS.ProcessEnv = process.env): Brand {
@@ -210,7 +210,7 @@ export function graftNotice(input: NoticeInput): string | null {
     /* shown again next time */
   }
   const lines = [`· graft is now trail. this ran ${cmd(input.ran, "trail")}, and graft keeps working (shown once a day)`];
-  if (!trailOnPath(env)) lines.push("· run graft upgrade to get the trail command too");
+  if (!trailOnPath(env)) lines.push("· run npm link in your GrievousGreps folder to get the trail command too");
   return lines.join("\n");
 }
 
@@ -261,7 +261,7 @@ export function handoverStampPath(home: string = homedir()): string {
  *
  * {@link graftNotice} reaches a person typing graft. Most people only meet
  * graft through their agent, so the agent is the one who can tell them that
- * `graft upgrade` adds trail. Once trail is installed, the next session moves
+ * `npm link` adds trail. Once trail is installed, the next session moves
  * the repo over by itself (see upkeep-run.ts), so this stops.
  */
 export function trailHandoverLine(input: { env?: NodeJS.ProcessEnv; home?: string; now?: number } = {}): string | null {
@@ -283,6 +283,6 @@ export function trailHandoverLine(input: { env?: NodeJS.ProcessEnv; home?: strin
   }
   return (
     "· graft is now Trail-code: the same code map under the `trail` command, plus learnings everyone working in the repo shares in .trail/. " +
-    "Tell the user once, in a line at the end of your first reply, that `graft upgrade` adds it and graft keeps working."
+    "Tell the user once, in a line at the end of your first reply, that `npm link` in their GrievousGreps folder adds it and graft keeps working."
   );
 }

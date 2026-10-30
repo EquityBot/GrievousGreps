@@ -4,7 +4,6 @@ import vm from 'node:vm';
 
 // The MCP launch command is resolved from PATH at init time; pin it to the npx
 // form so init below never probes the machine's own install.
-process.env.GRAFT_MCP_NPX = '1';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -27,8 +26,8 @@ for (const [name, src] of [['statusline', statuslineShim()], ['hooks', hooksShim
     assert.match(src, /st\.uid !== process\.getuid\(\)/);
     assert.match(src, /st\.mode & 0o022/);
     // 2. repo node_modules via require.resolve from the project dir
-    // under both names: a teammate with only @trailhq/trail-code installed still gets hooks
-    assert.match(src, /const PKGS = \['@trailhq\/trail-code', '@nanonets\/graft', '@trailhq\/trail'\];/);
+    // under every name: a teammate with only upstream's @trailhq/trail-code installed still gets hooks
+    assert.match(src, /const PKGS = \['@equitybot\/grievousgreps', '@trailhq\/trail-code', '@nanonets\/graft', '@trailhq\/trail'\];/);
     assert.match(src, /require\.resolve\(name \+ '\/package\.json', \{ paths: \[base\] \}\)/);
     assert.match(src, /fromPkg\(dir\)/);
     // 3. legacy execPath/../lib guess retained

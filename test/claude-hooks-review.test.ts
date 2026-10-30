@@ -195,7 +195,7 @@ test('both copies registered: a check\'s PostToolUse and a failure\'s PostToolUs
     const helpers = join(b.home, '.claude', 'helpers');
     mkdirSync(helpers, { recursive: true });
     const globalShim = join(helpers, 'trail-hooks.cjs');
-    writeFileSync(globalShim, '// finds @trailhq/trail-code\n');
+    writeFileSync(globalShim, '// finds @equitybot/grievousgreps\n');
     const cmd = (e: string) => [{ matcher: 'Bash', hooks: [{ type: 'command', command: `node "${globalShim}" ${e}${e === 'post-bash-fail' ? ' || exit 0' : ''}`, timeout: 5 }] }];
     writeFileSync(join(b.home, '.claude', 'settings.json'), JSON.stringify({ hooks: { PostToolUse: cmd('tool-savings'), PostToolUseFailure: cmd('post-bash-fail') } }));
     const repoShim = join(b.repo, '.claude', 'helpers', 'trail-hooks.cjs');

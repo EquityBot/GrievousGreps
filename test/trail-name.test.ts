@@ -52,7 +52,7 @@ test("a person typing graft sees the new name once a day, with what it ran", () 
   assert.equal(
     first,
     "· graft is now trail. this ran trail ask, and graft keeps working (shown once a day)\n" +
-      "· run graft upgrade to get the trail command too",
+      "· run npm link in your GrievousGreps folder to get the trail command too",
   );
   assert.equal(graftNotice({ ran: "graft ask", tty: true, env, home, now: now + 60_000 }), null, "not twice in a day");
   assert.ok(graftNotice({ ran: "graft ask", tty: true, env, home, now: now + 25 * 3600_000 }), "again the next day");
@@ -110,7 +110,7 @@ test("no stranded line once something can answer the hooks, or the repo already 
   writeFileSync(exe, "");
   chmodSync(exe, 0o755);
   assert.equal(strandedRepoNotice({ cwd: graftEraRepo(), tty: true, env: { ...TRAIL, PATH: bin } }), null, "graft installed");
-  assert.equal(strandedRepoNotice({ cwd: graftEraRepo("const PKGS = ['@trailhq/trail-code', '@nanonets/graft'];"), tty: true, env: TRAIL }), null, "a shim that looks for trail");
+  assert.equal(strandedRepoNotice({ cwd: graftEraRepo("const PKGS = ['@equitybot/grievousgreps', '@nanonets/graft'];"), tty: true, env: TRAIL }), null, "a shim that looks for trail");
   const moved = graftEraRepo();
   writeFileSync(join(moved, ".claude", "helpers", "trail-hooks.cjs"), "");
   assert.equal(strandedRepoNotice({ cwd: moved, tty: true, env: TRAIL }), null, "already on trail");
@@ -322,7 +322,7 @@ test("on graft without trail, the agent is told once a week how to get trail", (
   const now = Date.parse("2026-10-14T10:00:00Z");
   const line = trailHandoverLine({ env: { PATH: "" }, home, now });
   assert.match(line ?? "", /graft is now Trail-code/);
-  assert.match(line ?? "", /`graft upgrade` adds it and graft keeps working/);
+  assert.match(line ?? "", /`npm link` in their GrievousGreps folder adds it and graft keeps working/);
   assert.equal(trailHandoverLine({ env: { PATH: "" }, home, now: now + 3 * 86400_000 }), null, "not again that week");
   assert.ok(trailHandoverLine({ env: { PATH: "" }, home, now: now + 8 * 86400_000 }), "again the next week");
 });
