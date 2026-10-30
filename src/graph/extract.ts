@@ -135,6 +135,8 @@ export interface RawEdge {
   /** A struct's fields and their types, for `self.field.f()`. */
   /** A call read from a `macro_rules` arm: a template's, which an expansion may never use. */
   rustTemplate?: boolean;
+  /** `Self::f` inside a trait impl's own `f`: the inherent `f` if there is one, else itself. */
+  rustSelfInImpl?: boolean;
   rustFields?: { owner: string; fields: [string, string][] };
   /** The call as a whole path, with the `use` that begins it spelt out: `crate::a::f`. */
   rustPath?: string;

@@ -437,6 +437,14 @@ export function resolveEdges(
         const real = !recv ? { type: "" } : e.file.endsWith(".rs") ? rustRealType(recv, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true) : { type: recv };
         if (real.root && opts.rustExternalCrates?.has(real.root)) continue; // an alias of a dependency's type
         const recvType = real.type;
+        if (e.rustSelfInImpl) {
+          const others = (ownerMethod.get(`${recvType}.${e.name}`) ?? []).filter((n) => n.id !== e.source);
+          const repoType = (globalName.get(recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
+          if (others.length === 1) add(e.source, others[0].id, "calls", "inferred");
+          else if (!others.length && repoType) add(e.source, e.source, "calls", "inferred");
+          else opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: recvType });
+          continue;
+        }
         // An alias names its crate, which picks between the repo's types of that name.
         const crateDir = real.root ? opts.rustCrateDirs?.get(real.root) : undefined;
         const inCrate = crateDir ? (ownerMethod.get(`${recvType}.${e.name}`) ?? []).filter((c) => c.path.startsWith(`${crateDir}/`)) : [];

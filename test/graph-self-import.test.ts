@@ -474,3 +474,27 @@ pub fn real() { helper(); }
   const found = graph.edges.filter((e) => e.relation === "calls" && e.target === "src/lib.rs#helper");
   assert.deepEqual(found.map((e) => [e.source, e.confidence]).sort(), [["src/lib.rs#m", "inferred"], ["src/lib.rs#real", "extracted"]]);
 });
+
+test("Rust: `Self::f` in a trait impl's own `f` reaches the inherent method, or itself, or is said", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n[dependencies]\ndep = "1"\n`,
+    "src/lib.rs": `pub trait Tr { fn go(&self); fn run(&self, n: u8); }
+pub struct Foo;
+impl Foo { pub fn go(&self) {} }
+impl Tr for Foo {
+  fn go(&self) { Self::go(self) }
+  fn run(&self, n: u8) { Self::run(self, n) }
+}
+pub trait Sel { fn accept(&self); }
+impl Sel for dep::Thing { fn accept(&self) { Self::accept(self) } }
+`,
+  });
+  const inherent = "src/lib.rs#go~2";
+  const own = graph.nodes.filter((n) => n.name === "go" && n.owner === "Foo").map((n) => n.id).find((id) => id !== inherent)!;
+  assert.deepEqual(calls(graph, own), [inherent], "the inherent method wins");
+  const run = graph.nodes.filter((n) => n.name === "run" && n.owner === "Foo").map((n) => n.id)[0]!;
+  assert.deepEqual(calls(graph, run), [run], "with no inherent method it is plain recursion");
+  const accept = graph.nodes.filter((n) => n.name === "accept" && n.owner === "Thing").map((n) => n.id)[0]!;
+  assert.deepEqual(calls(graph, accept), [], "a dependency's type may hold its own");
+  assert.deepEqual(stated(graph, accept), [["accept", "Thing"]]);
+});

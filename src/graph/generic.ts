@@ -423,8 +423,8 @@ function rustRealOwner(owner: string | undefined, scopes: RustUseScope[], at: nu
 }
 
 /** `Self::accept(self)` inside a trait impl's own `accept`: Rust takes the type's inherent
- * method first, and a trait method calling itself that way would never end. */
-function rustSelfCallIsInherent(path: string | undefined, name: string, from: TsNode | undefined): boolean {
+ * method first, and only without one is it the impl calling itself. */
+function rustSelfCallInOwnImpl(path: string | undefined, name: string, from: TsNode | undefined): boolean {
   if (path !== "Self") return false;
   let inFn = false;
   for (let n: TsNode | null | undefined = from; n; n = n.parent) {
@@ -1161,7 +1161,6 @@ function tagsExtract(
     if (defNameAt.has(c.at)) continue;
     const enc = enclosingDef(defs, c.at);
     if (langName === "rust" && c.form === "method" && rustStdReceiver(c.node)) continue;
-    if (langName === "rust" && rustSelfCallIsInherent(c.path, c.name, c.node)) continue;
     const chain = langName === "rust" && c.form === "method" && c.node?.parent?.type === "field_expression"
       ? rustValueChain(c.node.parent.childForFieldName?.("value"), enc?.owner, rustScopes)
       : undefined;
@@ -1172,7 +1171,7 @@ function tagsExtract(
     }
     rawEdges.push(
       langName === "rust"
-        ? { ...rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob)), ...(c.form === "method" ? {} : withRustPath(rustWholePath(c.path, c.name, rustScopes, c.at))) }
+        ? { ...(rustSelfCallInOwnImpl(c.path, c.name, c.node) ? { rustSelfInImpl: true } : {}), ...rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob)), ...(c.form === "method" ? {} : withRustPath(rustWholePath(c.path, c.name, rustScopes, c.at))) }
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }
