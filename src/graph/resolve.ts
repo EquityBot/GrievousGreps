@@ -275,18 +275,24 @@ export function resolveEdges(
         const all = (globalName.get(chain.fn!) ?? []).filter((n) => n.kind === "function" && !n.owner && reachable(e.file, n.path));
         return all.length === 1 ? all[0] : undefined;
       })();
-      type = found ? rustReturnType(found, undefined) : undefined;
+      type = found ? rustReturnText(found, undefined) : undefined;
     }
     for (const method of chain.methods) {
       if (!type) return undefined;
-      const real = rustRealType(type, e.file, e.rustAt ?? 0, true).type;
+      if (method === "?") {
+        type = rustUnwrapped(type);
+        continue;
+      }
+      const name = rustTextName(type);
+      if (!name) return undefined;
+      const real = rustRealType(name, e.file, e.rustAt ?? 0, true).type;
       const hit = resolveTypedMember(real, method, e.file, ownerMethod, classParents, classTraits, undefined);
       if (hit === "ambiguous") return undefined;
       const node = hit ? byId.get(hit.id) : undefined;
       // A constructor the index does not hold (`derive(Default)`, a macro's) is taken at its word.
-      type = node ? rustReturnType(node, real) : /^(new|default|empty|from|from_\w+|with_\w+|try_new)$/.test(method) ? type : undefined;
+      type = node ? rustReturnText(node, real) : /^(new|default|empty|from|from_\w+|with_\w+|try_new)$/.test(method) ? real : undefined;
     }
-    return type;
+    return type && rustTextName(type);
   };
 
   const tsModules = new Map<string, TsModule>();
@@ -728,21 +734,38 @@ const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "tr
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */
 type PythonName = NodeV1 | { module: string } | "external" | "undecided";
 
-/** The type a Rust function's signature says it returns, past references, `Result`, `Option` and
- * smart pointers. `Self` is `self`, the type it was called on. */
-function rustReturnType(node: NodeV1, self: string | undefined): string | undefined {
-  if (!node.returns) return undefined;
-  let text = node.returns;
+/** A type as written, past references and smart pointers, which method calls see through. */
+function rustPlainText(written: string): string {
+  let text = written.trim();
   for (let hops = 0; hops < 5; hops++) {
     text = text.replace(/^&\s*('\w+\s+)?(mut\s+)?/, "").replace(/^(impl|dyn)\s+/, "").trim();
-    const wrapped = /^(?:[\w:]*::)?(Result|Option|Box|Arc|Rc)<\s*(.+)>$/s.exec(text);
+    const wrapped = /^(?:[\w:]*::)?(?:Box|Arc|Rc)<\s*(.+)>$/s.exec(text);
     if (!wrapped) break;
-    text = wrapped[2]!.split(/,(?![^<]*>)/)[0]!.trim();
+    text = wrapped[1]!.split(/,(?![^<]*>)/)[0]!.trim();
   }
-  // `Self::Iter` and `<T as Tr>::Out` are whatever the impl says, not a type of that name.
+  return text;
+}
+
+/** What a Rust function's signature says it returns, with `Self` as the type it was called on. */
+function rustReturnText(node: NodeV1, self: string | undefined): string | undefined {
+  if (!node.returns) return undefined;
+  const owner = self ?? node.owner;
+  const text = rustPlainText(node.returns);
+  return owner ? text.replace(/\bSelf\b(?!::)/g, owner) : text;
+}
+
+/** The value inside an `Option` or `Result`, once `?` or `.unwrap()` takes it out. Undefined when
+ * a bare one does not say; a type that wraps nothing stays what it is. */
+function rustUnwrapped(text: string): string | undefined {
+  if (/^(?:[\w:]*::)?(?:Option|Result)$/.test(text)) return undefined;
+  const wrapped = /^(?:[\w:]*::)?(?:Option|Result)<\s*(.+)>$/s.exec(text);
+  return wrapped ? rustPlainText(wrapped[1]!.split(/,(?![^<]*>)/)[0]!) : text;
+}
+
+/** The type's name, or undefined for what only an impl can say: `Self::Iter`, `<T as Tr>::Out`. */
+function rustTextName(text: string): string | undefined {
   if (/^(Self::|<)/.test(text)) return undefined;
   const name = text.replace(/<.*$/s, "").replace(/^.*::/, "");
-  if (name === "Self") return self ?? node.owner;
   return /^[A-Z]\w+$/.test(name) ? name : undefined;
 }
 

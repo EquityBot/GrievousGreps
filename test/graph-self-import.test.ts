@@ -440,3 +440,26 @@ pub fn chain(x: Foo, o: Option<Bar>) { while let Some(x) = o { x.go(); } }
   assert.deepEqual(calls(graph, "src/lib.rs#shadow"), [], "`if let` rebinds it");
   assert.deepEqual(calls(graph, "src/lib.rs#chain"), [], "`while let` rebinds it");
 });
+
+test("Rust: an Option or Result is its inner type only once it is unwrapped", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n`,
+    "src/lib.rs": `pub struct Foo;
+impl Foo { pub fn f(&self) {} pub fn me() -> Result<Self, String> { Ok(Foo) } }
+pub struct Bar;
+impl Bar { pub fn f(&self) {} }
+pub fn make() -> Option<Foo> { None }
+pub fn wrapped() { let x = make(); x.f(); }
+pub fn tried() -> Option<u8> { let x = make()?; x.f(); None }
+pub fn unwrapped() { make().unwrap().f(); }
+pub fn expected() { let x = Foo::me().expect("no"); x.f(); }
+pub fn boxed(x: Box<Foo>) { x.f(); }
+`,
+  });
+  const f = "src/lib.rs#f";
+  assert.deepEqual(calls(graph, "src/lib.rs#wrapped"), ["src/lib.rs#make"], "an Option has no f of Foo's");
+  assert.ok(calls(graph, "src/lib.rs#tried").includes(f));
+  assert.ok(calls(graph, "src/lib.rs#unwrapped").includes(f));
+  assert.ok(calls(graph, "src/lib.rs#expected").includes(f));
+  assert.deepEqual(calls(graph, "src/lib.rs#boxed"), [f], "a Box derefs by itself");
+});

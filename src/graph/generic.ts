@@ -458,13 +458,17 @@ function rustTypeName(type: TsNode | null | undefined, owner: string | undefined
 
 type RustChain = NonNullable<RawEdge["rustChain"]>;
 
-/** What an expression's value starts from and the methods called on the way, past `?`, `.await`,
- * `.unwrap()` and `.expect()`. resolve.ts reads the signatures along it. Undefined past anything
+/** What an expression's value starts from and the methods called on the way, past `.await`;
+ * `?`, `.unwrap()` and `.expect()` are each a step `?`. resolve.ts reads the signatures along it. Undefined past anything
  * else, so a value this cannot follow stays unknown. */
 function rustValueChain(value: TsNode | null | undefined, owner: string | undefined, scopes: RustUseScope[], depth = 0): RustChain | undefined {
   if (!value || depth > 12) return undefined;
   const n = value;
-  if (n.type === "try_expression" || n.type === "await_expression" || n.type === "parenthesized_expression" || n.type === "reference_expression") {
+  if (n.type === "try_expression") {
+    const inner = rustValueChain(n.namedChild?.(0), owner, scopes, depth + 1);
+    return inner && { ...inner, methods: [...inner.methods, "?"] };
+  }
+  if (n.type === "await_expression" || n.type === "parenthesized_expression" || n.type === "reference_expression") {
     return rustValueChain(n.childForFieldName?.("value") ?? n.namedChild?.(0), owner, scopes, depth + 1);
   }
   if (n.type === "self") return owner ? { type: owner, methods: [] } : undefined;
@@ -484,7 +488,7 @@ function rustValueChain(value: TsNode | null | undefined, owner: string | undefi
     const method = fn.childForFieldName?.("field")?.text;
     const inner = rustValueChain(fn.childForFieldName?.("value"), owner, scopes, depth + 1);
     if (!inner || !method) return undefined;
-    return /^(unwrap|expect)$/.test(method) ? inner : { ...inner, methods: [...inner.methods, method] };
+    return { ...inner, methods: [...inner.methods, /^(unwrap|expect)$/.test(method) ? "?" : method] };
   }
   if (fn?.type === "identifier") return { fn: rustWholePath(undefined, fn.text, scopes, n.startIndex) ?? fn.text, root: rustPathRoot(undefined, scopes, n.startIndex, fn.text), methods: [] };
   if (fn?.type !== "scoped_identifier") return undefined;
