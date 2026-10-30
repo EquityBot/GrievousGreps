@@ -186,6 +186,26 @@ test("Python calls through a def's own import resolve to the imported file", () 
   }), []);
 });
 
+test("Python imports of a module several packages hold resolve in the importer's own tree", () => {
+  const files = {
+    "a/tests/shared.py": "def pair():\n    pass\n",
+    "b/tests/shared.py": "def pair():\n    pass\n",
+  };
+  assert.deepEqual(calls({
+    ...files,
+    "a/tests/consumer.py": "from shared import pair\ndef run():\n    pair()\n",
+  }, "a/tests/consumer.py#run"), ["a/tests/shared.py#pair"]);
+  assert.deepEqual(calls({
+    ...files,
+    "b/tests/consumer.py": "from tests.shared import pair\ndef run():\n    pair()\n",
+  }, "b/tests/consumer.py#run"), ["b/tests/shared.py#pair"]);
+  // Neither package is above the importer: still dropped.
+  assert.deepEqual(calls({
+    ...files,
+    "c/consumer.py": "from tests.shared import pair\ndef run():\n    pair()\n",
+  }, "c/consumer.py#run"), []);
+});
+
 test("Python named imports do not select the first duplicate definition", () => {
   assert.deepEqual(calls({
     "validators.py": definitions + definitions,

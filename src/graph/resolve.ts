@@ -598,8 +598,18 @@ function resolvePythonImport(
     for (const c of [`${target}.py`, `${target}/__init__.py`]) if (byId.has(c)) return c;
     return spec;
   }
-  const hits = filesByModule.get(spec.replace(/\./g, "/"));
-  return hits?.length === 1 ? hits[0] : spec;
+  const module = spec.replace(/\./g, "/");
+  const hits = filesByModule.get(module);
+  if (hits?.length === 1) return hits[0];
+  if (!hits) return spec;
+  // Several packages hold this module (each with its own `tests/test_viewer.py`).
+  // The importing file's own tree is what its sys.path holds: the script's folder
+  // or a package root above it, nearest first. Anywhere else stays unresolved.
+  for (let dir = posix.dirname(toPosixPath(file)); ; dir = posix.dirname(dir)) {
+    const root = dir === "." ? "" : `${dir}/`;
+    for (const c of [`${root}${module}.py`, `${root}${module}/__init__.py`]) if (hits.includes(c)) return c;
+    if (dir === ".") return spec;
+  }
 }
 
 /**
