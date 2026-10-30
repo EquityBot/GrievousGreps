@@ -119,6 +119,8 @@ export interface EdgeHit {
   id: string;
   relation: Relation;
   depth: number;
+  /** The edge is a reading of the code, not a fact the code states. */
+  inferred?: true;
 }
 
 /** Depth-1: nodes with a walk-relation edge whose target is `symbol`. */
@@ -127,7 +129,7 @@ export function callersOf(graph: GraphV1, symbol: NodeV1): EdgeHit[] {
   const hits: EdgeHit[] = [];
   for (const e of graph.edges as EdgeV1[]) {
     if (!WALK_RELATIONS.has(e.relation) || e.target !== symbol.id) continue;
-    hits.push({ node: byId.get(e.source) ?? null, id: e.source, relation: e.relation, depth: 1 });
+    hits.push({ node: byId.get(e.source) ?? null, id: e.source, relation: e.relation, depth: 1, ...(e.confidence === "inferred" ? { inferred: true as const } : {}) });
   }
   return hits;
 }
@@ -138,7 +140,7 @@ export function calleesOf(graph: GraphV1, symbol: NodeV1): EdgeHit[] {
   const hits: EdgeHit[] = [];
   for (const e of graph.edges as EdgeV1[]) {
     if (!WALK_RELATIONS.has(e.relation) || e.source !== symbol.id) continue;
-    hits.push({ node: byId.get(e.target) ?? null, id: e.target, relation: e.relation, depth: 1 });
+    hits.push({ node: byId.get(e.target) ?? null, id: e.target, relation: e.relation, depth: 1, ...(e.confidence === "inferred" ? { inferred: true as const } : {}) });
   }
   return hits;
 }
@@ -175,12 +177,12 @@ export function impactOfMany(graph: GraphV1, seeds: NodeV1[], maxDepth = 2, dire
   // Adjacency keyed for the walk direction, restricted to walk relations:
   //   'in'  → key = edge.target, neighbour = edge.source (who points AT key)
   //   'out' → key = edge.source, neighbour = edge.target (what key points TO)
-  const adj = new Map<string, { other: string; relation: Relation }[]>();
+  const adj = new Map<string, { other: string; relation: Relation; inferred: boolean }[]>();
   for (const e of graph.edges as EdgeV1[]) {
     if (!WALK_RELATIONS.has(e.relation)) continue;
     const key = direction === "in" ? e.target : e.source;
     const other = direction === "in" ? e.source : e.target;
-    const entry = { other, relation: e.relation };
+    const entry = { other, relation: e.relation, inferred: e.confidence === "inferred" };
     const arr = adj.get(key);
     if (arr) arr.push(entry);
     else adj.set(key, [entry]);
@@ -193,10 +195,10 @@ export function impactOfMany(graph: GraphV1, seeds: NodeV1[], maxDepth = 2, dire
   for (let depth = 1; depth <= maxDepth && frontier.length > 0; depth++) {
     const next: string[] = [];
     for (const current of frontier) {
-      for (const { other, relation } of adj.get(current) ?? []) {
+      for (const { other, relation, inferred } of adj.get(current) ?? []) {
         if (visited.has(other)) continue;
         visited.add(other);
-        hits.push({ node: byId.get(other) ?? null, id: other, relation, depth });
+        hits.push({ node: byId.get(other) ?? null, id: other, relation, depth, ...(inferred ? { inferred: true as const } : {}) });
         next.push(other);
       }
     }

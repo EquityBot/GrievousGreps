@@ -632,3 +632,32 @@ pub fn std_far(v: &Vec<u8>) { v.reach(); }
     assert.deepEqual(stated(graph, `src/lib.rs#${f}`), [[name, through]], f);
   }
 });
+
+test("`callers` marks an inferred edge, in plain and JSON output, and no other", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "self-import-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "src"));
+  writeFileSync(join(root, "src/lib.rs"), "pub fn helper() {}\nmacro_rules! m { () => { helper() } }\npub fn real() { helper(); }\n");
+  await buildGraph(root);
+  const capture = (json: boolean) => {
+    const [log, write] = [console.log, process.stdout.write];
+    let text = "";
+    console.log = (x: string) => { text += x; };
+    process.stdout.write = ((x: string) => { text += x; return true; }) as typeof process.stdout.write;
+    try {
+      traverse.runCallersCommand("helper", root, { json });
+    } finally {
+      console.log = log;
+      process.stdout.write = write;
+    }
+    return text;
+  };
+  const lines = capture(false).split("\n");
+  assert.match(lines.find((l) => l.includes("← m "))!, /\[inferred\]$/);
+  assert.doesNotMatch(lines.find((l) => l.includes("← real "))!, /inferred/);
+  const hits = JSON.parse(capture(true)).matches[0].hits as { name: string; inferred?: boolean }[];
+  assert.equal(hits.find((h) => h.name === "m")!.inferred, true);
+  assert.equal(hits.find((h) => h.name === "real")!.inferred, undefined);
+  const deep = traverse.hitLine("in", { node: null, id: "x", relation: "calls", depth: 2, inferred: true }, true);
+  assert.match(deep, /\[inferred\]/);
+});

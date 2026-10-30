@@ -52,7 +52,7 @@ export function hitLine(direction: Direction, hit: EdgeHit, showDepth: boolean, 
   const arrow = ARROW[direction];
   const depthTag = showDepth ? ` [depth ${hit.depth}]` : "";
   const label = hit.node ? `${hit.node.name} (${hit.node.path}:${hit.node.span})` : `${hit.id} (unresolved import)`;
-  const line = `  ${hit.relation} ${arrow} ${label}${depthTag}`;
+  const line = `  ${hit.relation} ${arrow} ${label}${depthTag}${hit.inferred ? " [inferred]" : ""}`;
   return quote ? `${line}\n      ${quote.n}: ${quote.text.trim()}` : line;
 }
 
@@ -153,6 +153,7 @@ interface HitJson {
   span?: string;
   relation: string;
   depth: number;
+  inferred?: true;
 }
 
 function symbolJson(n: NodeV1): SymbolJson {
@@ -160,7 +161,7 @@ function symbolJson(n: NodeV1): SymbolJson {
 }
 
 function hitJson(hit: EdgeHit): HitJson {
-  const out: HitJson = { id: hit.id, relation: hit.relation, depth: hit.depth };
+  const out: HitJson = { id: hit.id, relation: hit.relation, depth: hit.depth, ...(hit.inferred ? { inferred: true as const } : {}) };
   if (hit.node) {
     out.name = hit.node.name;
     out.kind = hit.node.kind;
