@@ -15,7 +15,7 @@
 import { posix } from "node:path";
 import { toPosixPath } from "../util/paths.js";
 import type { EdgeV1, Kind, NodeV1, Relation } from "./types.js";
-import { languageOf, type RawEdge } from "./extract.js";
+import { languageOf, type PythonExports, type RawEdge } from "./extract.js";
 import { genericLangOf } from "./generic.js";
 
 const IMPORT_EXTS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
@@ -222,6 +222,10 @@ export function resolveEdges(
     out.push({ source, target, relation, confidence });
   };
 
+  const pythonExports = new Map<string, PythonExports>();
+  for (const e of rawEdges) if (e.pythonExports) pythonExports.set(e.file, e.pythonExports);
+  const pythonCtx = { byId, filesByModule: pythonFilesByModule, perFileName, exports: pythonExports };
+
   for (const e of rawEdges) {
     if (e.relation === "contains" && e.targetId) {
       add(e.source, e.targetId, "contains", "extracted");
@@ -317,9 +321,11 @@ export function resolveEdges(
         if (e.viaMember && e.recvType) {
           const owners = (perFileName.get(moduleFile)?.get(e.recvType) ?? [])
             .filter((n) => n.id.replace(/~\d+$/, "") === `${moduleFile}#${e.recvType}`);
-          if (owners.length === 1 && owners[0].kind === "class") {
-            candidates = (ownerMethod.get(`${e.recvType}.${e.name}`) ?? [])
-              .filter((n) => n.path === moduleFile && n.id.replace(/~\d+$/, "") === `${owners[0].id}.${e.name}`);
+          const followed = owners.length === 0 ? followPythonName(e.recvType, moduleFile, pythonCtx) : owners[0];
+          if (owners.length <= 1 && typeof followed !== "string" && followed.kind === "class") {
+            const owner = followed;
+            candidates = (ownerMethod.get(`${owner.name}.${e.name}`) ?? [])
+              .filter((n) => n.path === owner.path && n.id.replace(/~\d+$/, "") === `${owner.id}.${e.name}`);
           } else if (owners.length === 0) {
             // `from pkg import submodule` shares the syntax of a named import. A
             // resolved package anchors the submodule to its own directory; an
@@ -333,14 +339,14 @@ export function resolveEdges(
               const parentHits = e.specifier.startsWith(".") ? 0 : (pythonFilesByModule.get(e.specifier.replace(/\./g, "/"))?.length ?? 0);
               targetFile = parentHits > 1 ? spec : resolvePythonImport(spec, e.file, byId, pythonFilesByModule);
             }
-            candidates = (perFileName.get(targetFile)?.get(e.name) ?? [])
-              .filter((n) => n.id.replace(/~\d+$/, "") === `${targetFile}#${e.name}` && (n.kind === "function" || n.kind === "class"));
+            const hit = followPythonName(e.name, targetFile, pythonCtx);
+            candidates = typeof hit === "string" ? [] : [hit];
           } else {
             candidates = [];
           }
         } else {
-          candidates = (perFileName.get(targetFile)?.get(e.name) ?? [])
-            .filter((n) => n.id.replace(/~\d+$/, "") === `${targetFile}#${e.name}` && (n.kind === "function" || n.kind === "class"));
+          const hit = followPythonName(e.name, targetFile, pythonCtx);
+          candidates = typeof hit === "string" ? [] : [hit];
         }
         if (candidates.length === 1) {
           add(e.source, candidates[0].id, "calls", "extracted");
@@ -582,6 +588,54 @@ function resolveTraitMember(
  * A suffix shared by two files (`a/util.py` and `b/util.py` for `import util`) is
  * left unresolved: picking one would invent an edge the source does not state.
  */
+/** Where a name in a Python module leads: its definition, or why there is none.
+ * `external`: the module binds it from outside the repo, so no in-repo node is its target.
+ * `undecided`: an in-repo name this walk cannot pin to one definition. */
+type PythonName = NodeV1 | "external" | "undecided";
+
+/** Follow `name` from `file` to its definition through `from x import y`, `__all__`
+ * and star imports, as Python would. A module's own definition wins, then its explicit
+ * imports, then its star imports with the last one first (the later star rebinds). */
+function followPythonName(
+  name: string,
+  file: string,
+  ctx: {
+    byId: Map<string, NodeV1>;
+    filesByModule: Map<string, string[]>;
+    perFileName: Map<string, Map<string, NodeV1[]>>;
+    exports: Map<string, PythonExports>;
+  },
+  seen = new Set<string>(),
+): PythonName {
+  // Not a file: an outside module, or one several packages hold and none is ours.
+  if (!ctx.byId.has(file)) return ctx.filesByModule.has(file.replace(/\./g, "/")) ? "undecided" : "external";
+  const key = `${file}\0${name}`;
+  if (seen.has(key)) return "undecided"; // an import cycle defines nothing
+  seen.add(key);
+  const own = (ctx.perFileName.get(file)?.get(name) ?? [])
+    .filter((n) => n.id.replace(/~\d+$/, "") === `${file}#${name}` && (n.kind === "function" || n.kind === "class"));
+  if (own.length === 1) return own[0];
+  if (own.length > 1) return "undecided";
+  const table = ctx.exports.get(file);
+  if (!table) return "undecided";
+  // `try: from .a import f` / `except: from .b import f` binds one name twice.
+  const bound = table.imports.filter((i) => i.local === name)
+    .map((i) => followPythonName(i.name, resolvePythonImport(i.specifier, file, ctx.byId, ctx.filesByModule), ctx, seen));
+  const found = new Set(bound.filter((b): b is NodeV1 => typeof b !== "string"));
+  if (found.size === 1) return [...found][0];
+  if (found.size > 1 || bound.includes("undecided")) return "undecided";
+  if (bound.length) return "external";
+  for (const spec of [...table.stars].reverse()) {
+    const target = resolvePythonImport(spec, file, ctx.byId, ctx.filesByModule);
+    if (!ctx.byId.has(target)) continue;
+    const exported = ctx.exports.get(target)?.all;
+    if (exported ? !exported.includes(name) : name.startsWith("_")) continue;
+    const through = followPythonName(name, target, ctx, seen);
+    if (through !== "undecided") return through;
+  }
+  return "undecided";
+}
+
 function resolvePythonImport(
   spec: string,
   file: string,

@@ -352,3 +352,85 @@ test("Python named imports feed call resolution, not identifier references", () 
   );
   assert.deepEqual(rawEdges.filter((e) => e.relation === "references"), []);
 });
+
+const impl = "def install():\n    pass\n\ndef _hidden():\n    pass\n\nclass Session:\n    def open(self):\n        pass\n";
+const use = (name: string, module = "pkg") => `from ${module} import ${name}\ndef run():\n    ${name}()\n`;
+
+test("Python calls follow a re-export to the module that defines the name", () => {
+  const cases: [string, Record<string, string>, string[]][] = [
+    ["from .x import y", { "pkg/__init__.py": "from .impl import install\n", "consumer.py": use("install") }, ["pkg/impl.py#install"]],
+    ["renamed on the way", { "pkg/__init__.py": "from .impl import install as setup\n", "consumer.py": use("setup") }, ["pkg/impl.py#install"]],
+    ["a star import", { "pkg/__init__.py": "from .impl import *\n", "consumer.py": use("install") }, ["pkg/impl.py#install"]],
+    ["a star skips a private name", { "pkg/__init__.py": "from .impl import *\n", "consumer.py": use("_hidden") }, []],
+    ["a chain of 3", {
+      "pkg/__init__.py": "from .mid import *\n",
+      "pkg/mid.py": "from .low import install\n__all__ = ['install']\n",
+      "pkg/low.py": "from .impl import install\n",
+      "consumer.py": use("install"),
+    }, ["pkg/impl.py#install"]],
+    ["a name __all__ leaves out", {
+      "pkg/__init__.py": "from .mid import *\n",
+      "pkg/mid.py": "from .impl import install\n__all__ = ['other']\n",
+      "consumer.py": use("install"),
+    }, []],
+    ["a name __all__ lists, private or not", {
+      "pkg/__init__.py": "from .mid import *\n",
+      "pkg/mid.py": "from .impl import _hidden\n__all__ = ['_hidden']\n",
+      "consumer.py": use("_hidden"),
+    }, ["pkg/impl.py#_hidden"]],
+    ["a computed __all__ reads as no list", {
+      "pkg/__init__.py": "from .mid import *\n",
+      "pkg/mid.py": "from .impl import install\n__all__ = ['other']\n__all__ += extra\n",
+      "consumer.py": use("install"),
+    }, ["pkg/impl.py#install"]],
+    ["the later star rebinds", {
+      "pkg/__init__.py": "from .other import *\nfrom .impl import *\n",
+      "pkg/other.py": "def install():\n    pass\n",
+      "consumer.py": use("install"),
+    }, ["pkg/impl.py#install"]],
+    ["under try", {
+      "pkg/__init__.py": "try:\n    from .impl import install\nexcept ImportError:\n    install = None\n",
+      "consumer.py": use("install"),
+    }, ["pkg/impl.py#install"]],
+    ["a function-local import of a re-export", {
+      "pkg/__init__.py": "from .impl import install\n",
+      "consumer.py": "def run():\n    from pkg import install\n    install()\n",
+    }, ["pkg/impl.py#install"]],
+    ["through a module alias", {
+      "pkg/__init__.py": "from .impl import install\n",
+      "consumer.py": "import pkg as p\ndef run():\n    p.install()\n",
+    }, ["pkg/impl.py#install"]],
+    ["a class method", {
+      "pkg/__init__.py": "from .impl import *\n",
+      "consumer.py": "from pkg import Session\ndef run():\n    Session.open()\n",
+    }, ["pkg/impl.py#Session.open"]],
+    ["a cycle ends", {
+      "pkg/__init__.py": "from .a import *\n",
+      "pkg/a.py": "from .b import *\n",
+      "pkg/b.py": "from .a import *\n",
+      "consumer.py": use("install"),
+    }, []],
+    ["a name-to-itself cycle ends", {
+      "pkg/__init__.py": "from .a import install\n",
+      "pkg/a.py": "from . import install\n",
+      "consumer.py": use("install"),
+    }, []],
+    ["a re-export from outside the repo", {
+      "pkg/__init__.py": "from dataclasses import replace\n",
+      "other.py": "def replace():\n    pass\n",
+      "consumer.py": use("replace"),
+    }, []],
+    ["a local definition wins", {
+      "pkg/__init__.py": "from .impl import *\ndef install():\n    pass\n",
+      "consumer.py": use("install"),
+    }, ["pkg/__init__.py#install"]],
+    ["2 branches that disagree pick neither", {
+      "pkg/__init__.py": "try:\n    from .impl import install\nexcept ImportError:\n    from .other import install\n",
+      "pkg/other.py": "def install():\n    pass\n",
+      "consumer.py": use("install"),
+    }, []],
+  ];
+  for (const [label, files, want] of cases) {
+    assert.deepEqual(calls({ "pkg/impl.py": impl, ...files }), want, label);
+  }
+});

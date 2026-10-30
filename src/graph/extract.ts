@@ -75,6 +75,14 @@ export function languageLabelOf(path: string): string | null {
   return entryFor(path)?.label ?? null;
 }
 
+/** What a Python module binds through imports. `all` is `__all__` when it is a plain
+ * literal, null when it is absent or computed. */
+export interface PythonExports {
+  imports: { local: string; name: string; specifier: string }[];
+  stars: string[];
+  all: string[] | null;
+}
+
 /**
  * An edge whose target isn't resolved yet. build.ts turns these into EdgeV1 by
  * matching `name`/`specifier` against the repo-wide node index.
@@ -85,6 +93,9 @@ export interface RawEdge {
   file: string; // the file this edge originates in (scopes name resolution)
   targetId?: string; // already-resolved target (contains)
   specifier?: string; // module path to resolve (imports / imported-symbol references / Gleam calls)
+  /** A Python file's module-level names, so resolve.ts can follow a re-export. Only on
+   * the file's one export-table edge, which is not itself a graph edge. */
+  pythonExports?: PythonExports;
   name?: string; // symbol name to resolve (extends/implements/calls)
   viaMember?: boolean; // calls: was it `obj.foo()` (→ prefer method targets)?
   /** calls with viaMember: the receiver's resolved type name (from bindings /
@@ -388,6 +399,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
   const pythonNamedImports = lang === "python" ? withoutPythonShadowedModules(pythonSymbols, root) : EMPTY_NAMED_IMPORTS;
   const importedSymbols = collectImportedSymbols(root, lang);
   const rGenerics = lang === "r" ? collectRGenerics(root) : EMPTY_SET;
+  const pythonExports = lang === "python" ? collectPythonExports(root) : null;
 
   const nodes: NodeV1[] = [
     {
@@ -437,6 +449,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
   // nodes[0] is the file node; the rest are its symbols. Index the module-level
   // residual on the file node so a term outside every symbol still surfaces it.
   nodes[0].body_text = fileResidual(source, nodes.slice(1));
+  if (pythonExports) rawEdges.push({ source: rel, relation: "imports", file: rel, pythonExports });
   return { nodes, rawEdges };
 }
 
@@ -972,6 +985,54 @@ function collectPythonImportedModules(
   };
   visit(root, false);
   return out;
+}
+
+/** The module-level import bindings and `__all__` of a Python file. Imports under `try`
+ * or `if` count: `try: from .a import f` is how packages re-export optional parts, and
+ * a reader of the module sees `f` either way. Null when the file binds nothing. */
+function collectPythonExports(root: SyntaxNode): PythonExports | null {
+  const out: PythonExports = { imports: [], stars: [], all: null };
+  let allComputed = false;
+  const stringsOf = (list: SyntaxNode): string[] | null => {
+    const items: string[] = [];
+    for (const item of list.namedChildren) {
+      if (item.type === "comment") continue;
+      const text = item.type === "string" ? /^['"]([^'"]*)['"]$/.exec(item.text)?.[1] : undefined;
+      if (text === undefined) return null;
+      items.push(text);
+    }
+    return items;
+  };
+  const visit = (node: SyntaxNode): void => {
+    const type = node.type;
+    if (type === "function_definition" || type === "class_definition") return;
+    if (type === "import_from_statement") {
+      const moduleNode = node.childForFieldName("module_name");
+      if (!moduleNode) return;
+      for (const child of node.namedChildren) {
+        if (sameSyntaxNode(child, moduleNode)) continue;
+        if (child.type === "wildcard_import") out.stars.push(moduleNode.text);
+        else if (child.type === "aliased_import" || child.type === "dotted_name") {
+          const name = child.childForFieldName("name")?.text ?? child.text;
+          out.imports.push({ local: child.childForFieldName("alias")?.text ?? name, name, specifier: moduleNode.text });
+        }
+      }
+      return;
+    }
+    const left = type === "assignment" || type === "augmented_assignment" ? node.childForFieldName("left") : null;
+    if (left?.text === "__all__") {
+      const right = node.childForFieldName("right");
+      const literal = type === "assignment" && (right?.type === "list" || right?.type === "tuple") ? stringsOf(right) : null;
+      if (literal && !out.all && !allComputed) out.all = literal;
+      else allComputed = true;
+      return;
+    }
+    if (type === "call" && node.childForFieldName("function")?.text.startsWith("__all__.")) allComputed = true;
+    for (const child of node.namedChildren) visit(child);
+  };
+  visit(root);
+  if (allComputed) out.all = null;
+  return out.imports.length || out.stars.length ? out : null;
 }
 
 /** Names a def's own imports bind, visible in its body and nested defs. */
