@@ -51,7 +51,9 @@ export type RetractAction =
   /** nothing of graft's here. */
   | 'absent'
   /** file exists but can't be parsed — left untouched rather than risk it. */
-  | 'skipped-unparseable';
+  | 'skipped-unparseable'
+  /** reached through a link that leaves the repo — left alone, wherever it points. */
+  | 'skipped-link';
 
 export interface Retraction {
   /** The host this target belongs to, for grouping the report. */
@@ -533,7 +535,7 @@ function targets(repo: string, opts: RetractOpts): Target[] {
 
 /** What a retraction *would* remove. Pure — touches nothing. */
 export function planRetract(repo: string, opts: RetractOpts = {}): Retraction[] {
-  return targets(repo, { ...opts, apply: false }).map(({ run, ...t }) => ({ ...t, action: leavesRepo(repo, t) ? 'skipped-unparseable' : run(false) }));
+  return targets(repo, { ...opts, apply: false }).map(({ run, ...t }) => ({ ...t, action: leavesRepo(repo, t) ? 'skipped-link' : run(false) }));
 }
 
 /** A repo target reached through a committed link out of the repo is left alone: its
@@ -549,7 +551,7 @@ function leavesRepo(repo: string, t: { path: string; scope: string }): boolean {
  */
 export function runRetract(repo: string, opts: RetractOpts = {}): Retraction[] {
   const apply = opts.apply !== false;
-  return targets(repo, opts).map(({ run, ...t }) => ({ ...t, action: leavesRepo(repo, t) ? 'skipped-unparseable' : run(apply) }));
+  return targets(repo, opts).map(({ run, ...t }) => ({ ...t, action: leavesRepo(repo, t) ? 'skipped-link' : run(apply) }));
 }
 
 /** The subset worth showing a user: targets that had something to remove. */

@@ -166,3 +166,15 @@ test("init refuses a repo with a committed link on a path it would write, and wr
   assert.match(r.stderr, /refusing to set up/);
   assert.deepEqual(readdirSync(outside), []);
 });
+
+test("retract calls a target behind a link a link, and an unreadable file unreadable", (t) => {
+  const { repo, outside } = sandbox(t);
+  writeFileSync(join(outside, "mcp.json"), "{}\n");
+  symlinkSync(join(outside, "mcp.json"), join(repo, ".mcp.json"), "file");
+  const opts = { home: join(outside, "no-home"), apply: true, global: false };
+  const action = (dir: string) => runRetract(dir, opts).find((r) => r.path.endsWith(".mcp.json"))?.action;
+  assert.equal(action(repo), "skipped-link");
+  const other = sandbox(t);
+  writeFileSync(join(other.repo, ".mcp.json"), "not json");
+  assert.equal(action(other.repo), "skipped-unparseable");
+});

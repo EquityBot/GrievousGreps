@@ -2061,7 +2061,7 @@ function wireTarget(
     // one repo that omits a host must not strip them. `uninstall` removes them.
     const retracted = changed(
       runRetract(repo, { home, apply: true, global: false, cache: false, exclude: ids }),
-    ).filter((r) => r.action !== "skipped-unparseable");
+    ).filter((r) => r.action !== "skipped-unparseable" && r.action !== "skipped-link");
     for (const r of retracted) say(`- removed ${r.path} (${r.what}): agent not selected`);
     report.retracted = [...new Set(retracted.map((r) => r.hostId))];
 
@@ -2156,7 +2156,7 @@ function formatRetractions(rs: Retraction[], apply: boolean): string {
     lines.push(`\n${host}:`);
     for (const r of items) {
       const mark =
-        r.action === "skipped-unparseable"
+        r.action === "skipped-unparseable" || r.action === "skipped-link"
           ? "⚠"
           : r.action === "deleted"
             ? "-"
@@ -2164,6 +2164,8 @@ function formatRetractions(rs: Retraction[], apply: boolean): string {
       const note =
         r.action === "skipped-unparseable"
           ? ": not valid JSON, left untouched (remove the graft entry by hand)"
+          : r.action === "skipped-link"
+            ? ": a link out of this repo, left untouched"
           : r.action === "deleted"
             ? ` (${r.what}, deleted)`
             : ` (${r.what})`;
@@ -2194,10 +2196,10 @@ grouped(program.command("uninstall"), GROUP.setup)
     }
     const done = runRetract(repo, { ...common, apply: true });
     console.error(formatRetractions(done, true));
-    const bad = changed(done).filter((r) => r.action === "skipped-unparseable");
+    const bad = changed(done).filter((r) => r.action === "skipped-unparseable" || r.action === "skipped-link");
     console.error(
       bad.length
-        ? `\n⚠ ${bad.length} file(s) could not be parsed and were left as-is: see above.`
+        ? `\n⚠ ${bad.length} file(s) could not be removed and were left as-is: see above.`
         : `\n✓ ${brand()} fully removed. \`${cmd("graft init")}\` re-wires from scratch.`,
     );
   });
