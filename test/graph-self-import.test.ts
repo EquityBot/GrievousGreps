@@ -691,3 +691,15 @@ test("W3: an entry exporting a name it cannot be followed through still binds th
   });
   assert.deepEqual(edge(graph, "apps/a.ts#go"), [["packages/core/src/d.ts#run", "inferred"]]);
 });
+
+test("Rust: an impl for a tuple, a function or any other unnamed type keeps its file", async (t) => {
+  const graph = await build(t, {
+    "src/lib.rs": `pub trait Tr { fn go(&self); }
+impl<T> Tr for (Vec<T>, T) { fn go(&self) {} }
+impl<R> Tr for fn(&mut u8) -> R { fn go(&self) {} }
+impl<'a, const N: usize, T: Sized + 'a> Tr for [T; N] { fn go(&self) {} }
+pub fn kept() {}
+`,
+  });
+  assert.ok(graph.nodes.some((n) => n.id === "src/lib.rs#kept"), "the file's symbols survive");
+});

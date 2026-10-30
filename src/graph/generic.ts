@@ -748,8 +748,11 @@ function extractRustFields(root: TsNode, rel: string, rawEdges: RawEdge[]): void
       const trait = implOf.text.replace(/<.*$/s, "").replace(/^.*::/, "");
       const written = (n.childForFieldName?.("type")?.text ?? "").replace(/^&\s*('\w+\s+)?(mut\s+)?/, "").replace(/^dyn\s+/, "");
       const type = written.startsWith("[") ? "[]" : written.replace(/<.*$/s, "").replace(/^.*::/, "");
-      const params = n.childForFieldName?.("type_parameters")?.text ?? "";
-      const blanket = new RegExp(`[<,]\\s*${type}\\b`).test(params);
+      const params = n.childForFieldName?.("type_parameters");
+      let blanket = false;
+      for (let i = 0; i < (params?.namedChildCount ?? 0); i++) {
+        if (params?.namedChild?.(i)?.text.split(/[:=\s]/)[0] === type) blanket = true;
+      }
       rawEdges.push({ source: rel, relation: "imports", file: rel, rustImpl: { trait, type: blanket ? "*" : type } });
     }
     if (n.type === "struct_item") {
