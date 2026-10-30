@@ -378,13 +378,13 @@ function rustOwnerOf(item: TsNode): string | undefined {
   return name?.text.replace(/^.*::/, "");
 }
 
-/** Where a Rust path starts, through the file's `use` declarations: `io::Error` with
- * `use std::io;` is `std`. Undefined for a bare name and for a path inside this crate.
- * resolve.ts drops a call whose path starts in `std` or a dependency. */
-function rustPathRoot(path: string | undefined, used: ReadonlyMap<string, string>): string | undefined {
+/** Where a Rust path starts, through the `use` declarations in scope at `at`: `io::Error`
+ * with `use std::io;` is `std`. Undefined for a bare name and for a path inside this
+ * crate. resolve.ts drops a call whose path starts in `std` or a dependency. */
+function rustPathRoot(path: string | undefined, scopes: RustUseScope[], at: number): string | undefined {
   const first = path?.split("::")[0];
   if (!first || /^(crate|self|super|Self)$/.test(first)) return undefined;
-  const root = used.get(first) ?? first;
+  const root = rustUsedAt(scopes, first, at) ?? first;
   return /^(crate|self|super)$/.test(root) ? undefined : root;
 }
 
@@ -407,29 +407,94 @@ function rustCallEdge(source: string, rel: string, name: string, owner: string |
   };
 }
 
-/** The names a Rust file's `use` declarations mention, each with the path's first
- * segment, and the modules it globs. A rename's new name counts too, harmlessly: it
- * matches no definition. `super::*` and `self::*` are left out, since in a `mod tests`
- * they name this same file. */
-function rustUsedNames(root: TsNode): { names: Map<string, string>; globs: string[] } {
-  const names = new Map<string, string>();
+/** What one `use` declaration binds: each local name → the first segment of its path.
+ * `use std::{fs, io::{self, Read as R}}` binds fs, io and R to std, and in `use { a::x,
+ * b::y }` each item has its own first segment. Globs bind no name. */
+function rustUseBindings(text: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const walk = (item: string, root: string | undefined, parent: string | undefined): void => {
+    const brace = item.indexOf("{");
+    if (brace >= 0) {
+      const prefix = item.slice(0, brace).replace(/::\s*$/, "").trim();
+      const segments = prefix ? prefix.split("::") : [];
+      const inner = item.slice(brace + 1, item.lastIndexOf("}"));
+      let depth = 0;
+      let start = 0;
+      for (let i = 0; i <= inner.length; i++) {
+        const c = inner[i];
+        if (c === "{") depth++;
+        else if (c === "}") depth--;
+        else if (i === inner.length || (c === "," && depth === 0)) {
+          const part = inner.slice(start, i).trim();
+          if (part) walk(part, root ?? segments[0], segments.at(-1) ?? parent);
+          start = i + 1;
+        }
+      }
+      return;
+    }
+    const [path, alias] = item.split(/\s+as\s+/);
+    const segments = (path ?? "").trim().split("::");
+    const last = segments.at(-1);
+    if (!last || last === "*") return;
+    const name = alias?.trim() ?? (last === "self" ? parent : last);
+    const first = root ?? segments[0];
+    if (name && name !== "_" && first) out.set(name, first);
+  };
+  walk(text.replace(/\/\/[^\n]*/g, "").replace(/^\s*(pub(\s*\([^)]*\))?\s+)?use\s+/, "").replace(/;\s*$/, "").trim(), undefined, undefined);
+  return out;
+}
+
+/** The `use` declarations of a Rust file by the module or block that holds them. */
+interface RustUseScope {
+  start: number;
+  end: number;
+  /** A `mod` body sees nothing of the module around it, unless it globs `super`. */
+  closed: boolean;
+  names: Map<string, string>;
+}
+
+function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; globs: string[] } {
+  const scopes: RustUseScope[] = [];
+  const names = new Set<string>();
   const globs: string[] = [];
-  const visit = (n: TsNode): void => {
+  const visit = (n: TsNode, scope: RustUseScope): void => {
     if (n.type === "use_declaration") {
       const glob = /(\w+)::\*/.exec(n.text)?.[1];
+      if (glob === "super") scope.closed = false;
+      // `super::*` and `self::*` in a `mod tests` name this same file.
       if (glob && glob !== "super" && glob !== "self") globs.push(glob);
-      const words = n.text.replace(/^\s*(pub(\([^)]*\))?\s+)?use\s+/, "").match(/\w+/g) ?? [];
-      const first = words[0];
-      if (first && !n.text.includes("*")) for (const word of words) names.set(word, first);
+      for (const [name, first] of rustUseBindings(n.text)) {
+        scope.names.set(name, first);
+        names.add(name);
+      }
       return;
+    }
+    let inner = scope;
+    if (n.type === "mod_item" || n.type === "block") {
+      inner = { start: n.startIndex, end: n.endIndex ?? n.startIndex, closed: n.type === "mod_item", names: new Map() };
+      scopes.push(inner);
     }
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
       const c = n.namedChild?.(i);
-      if (c) visit(c);
+      if (c) visit(c, inner);
     }
   };
-  visit(root);
-  return { names, globs };
+  const top: RustUseScope = { start: 0, end: Number.POSITIVE_INFINITY, closed: true, names: new Map() };
+  scopes.push(top);
+  visit(root, top);
+  return { scopes, names, globs };
+}
+
+/** What `name` means at `at`: the innermost `use` that binds it, walking out through
+ * blocks and stopping at the first `mod` that does not glob its parent. */
+function rustUsedAt(scopes: RustUseScope[], name: string, at: number): string | undefined {
+  const around = scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => b.start - a.start);
+  for (const scope of around) {
+    const first = scope.names.get(name);
+    if (first) return first;
+    if (scope.closed) return undefined;
+  }
+  return undefined;
 }
 
 /** Rust macro arguments are a flat token tree, invisible to tags.scm, so a call inside
@@ -439,7 +504,7 @@ function rustUsedNames(root: TsNode): { names: Map<string, string>; globs: strin
  * function, and bare `f(…)` on one this file defines or a `use` or glob brings in. `x.f(…)` has
  * no receiver type here, and a `cfg!` predicate is not a call at all. */
 function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges: RawEdge[]): void {
-  const { names: usedNames, globs } = rustUsedNames(root);
+  const { scopes, names: usedNames, globs } = rustUses(root);
   const scan = (tree: TsNode): void => {
     const count = tree.childCount ?? 0;
     for (let i = 0; i < count; i++) {
@@ -465,10 +530,10 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       }
       const owner = rustCallOwner(path, enc);
       const source = enc ? enc.id : rel;
-      const root = rustPathRoot(path, usedNames);
+      const pathRoot = rustPathRoot(path, scopes, c.startIndex);
       rawEdges.push(owner
-        ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner, ...(root ? { rustRoot: root } : {}) }
-        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true, ...(root ? { rustRoot: root } : {}),
+        ? { source, relation: "calls", file: rel, name: c.text, viaMember: true, recvType: owner, ...(pathRoot ? { rustRoot: pathRoot } : {}) }
+        : { source, relation: "calls", file: rel, name: c.text, freeFunction: true, ...(pathRoot ? { rustRoot: pathRoot } : {}),
             ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}) });
     }
   };
@@ -744,7 +809,7 @@ function tagsExtract(
   // producing bogus self-loops (foo→foo). Skip any call at a definition's name token.
   const defNameAt = new Set<number>();
   const calls: Array<{ name: string; at: number; path?: string }> = [];
-  const rustUsed = langName === "rust" ? rustUsedNames(root).names : null;
+  const rustScopes = langName === "rust" ? rustUses(root).scopes : [];
   const refs: Array<{ name: string; at: number }> = [];
   for (const m of matches) {
     const cap: Record<string, TsNode> = {};
@@ -778,7 +843,7 @@ function tagsExtract(
     const enc = enclosingDef(defs, c.at);
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc), rustPathRoot(c.path, rustUsed!))
+        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, rustCallOwner(c.path, enc), rustPathRoot(c.path, rustScopes, c.at))
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }

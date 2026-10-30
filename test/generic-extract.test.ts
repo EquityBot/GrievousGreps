@@ -188,6 +188,29 @@ test("Rust: Cargo.toml says which crates are outside the repo", async () => {
   assert.deepEqual(calls, ["crates/b/src/lib.rs#inside -> crates/a/src/lib.rs#new"]);
 });
 
+test("Rust: a use reaches only the module that holds it, and each group item has its own crate", async () => {
+  await warmGenericGrammars(["rust"]);
+  const fsModule = extractGeneric("src/fs.rs", "pub fn copy() {}\n", "rust");
+  const toFs = ["src/fs.rs#copy"];
+  const edge = (body: string, source = "src/lib.rs#t") => {
+    const here = extractGeneric("src/lib.rs", body, "rust");
+    return resolveEdges([...fsModule.nodes, ...here.nodes], [...fsModule.rawEdges, ...here.rawEdges], { rustExternalCrates: new Set(["bstr"]) })
+      .filter((e) => e.relation === "calls" && e.source === source).map((e) => e.target);
+  };
+  const tests = "#[cfg(test)]\nmod tests {\n    use std::fs;\n    fn u() { fs::copy(); }\n}\n";
+  assert.deepEqual(edge(`mod fs;\nfn t() { fs::copy(); }\n${tests}`), toFs, "a test module's use stays there");
+  assert.deepEqual(edge(`mod fs;\nfn t() {}\n${tests}`, "src/lib.rs#u"), [], "and holds inside it");
+  assert.deepEqual(edge("use std::fs;\nfn t() { fs::copy(); }\n"), [], "a file-level use");
+  assert.deepEqual(edge("fn t() { use std::fs; fs::copy(); }\n"), [], "a use in the function's block");
+  assert.deepEqual(edge("fn other() { use std::fs; }\nfn t() { fs::copy(); }\n"), toFs, "a use in another function's block");
+  assert.deepEqual(edge("use std::fs;\nmod m {\n    fn t() { fs::copy(); }\n}\n", "src/lib.rs#t"), toFs, "a nested mod does not inherit");
+  assert.deepEqual(edge("use std::fs;\nmod m {\n    use super::*;\n    fn t() { fs::copy(); }\n}\n", "src/lib.rs#t"), [], "unless it globs super");
+  assert.deepEqual(edge("use {bstr::ByteVec, crate::fs};\nfn t() { fs::copy(); }\n"), toFs, "a group's items keep their own crate");
+  assert.deepEqual(edge("use {crate::x, bstr::fs};\nfn t() { fs::copy(); }\n"), [], "and the other way round");
+  assert.deepEqual(edge("use std::{io, fs as files};\nfn t() { files::copy(); }\n"), [], "a rename inside a group");
+  assert.deepEqual(edge("use std::fs::{self};\nfn t() { fs::copy(); }\n"), [], "self in a group binds its parent");
+});
+
 test("extractGeneric emits nodes + bare-name call edges for Rust (no rust-specific code)", async () => {
   await warmGenericGrammars(["rust"]);
   assert.ok(isWarm("rust"), "rust grammar should warm");
