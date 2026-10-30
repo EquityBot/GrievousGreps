@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 import { DEPTH_WASM, NATIVE_ONLY, depthReady, readDepthWasm, warmDepthGrammars } from "../src/graph/depth-parser.js";
 import { extractFile, type Language } from "../src/graph/extract.js";
 import { GRAMMARS } from "../scripts/vendor-grammars.mjs";
+import { GENERIC_LANGS, fallbackLangOf } from "../src/graph/generic.js";
+import { CONTAINER_LANGS } from "../src/graph/container.js";
 import { sourceHash } from "../scripts/build-grammar-wasm.mjs";
 import { tmpRepo } from "./helpers.js";
 
@@ -84,4 +86,20 @@ test("the build vendors every depth grammar, byte for byte, with its license", (
     assert.deepEqual(readDepthWasm(lang, dir), readDepthWasm(lang, join(out, "nowhere")), `${lang} differs from its source`);
     assert.ok(existsSync(join(dir, `${DEPTH_WASM[lang].module}.LICENSE`)), `${lang} license`);
   }
+});
+
+test("the build vendors every bundled grammar the code loads, and installs need no bundle", () => {
+  const out = tmpRepo("vendor-bundle");
+  const run = spawnSync(process.execPath, [join(root, "scripts", "vendor-grammars.mjs"), out], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  const rows = [...GENERIC_LANGS, ...CONTAINER_LANGS, ...(["typescript", "tsx", "python", "go", "r", "kotlin", "swift", "php"] as const).map(fallbackLangOf)];
+  const bundle = join(out, "grammars", "bundle");
+  for (const row of rows) {
+    assert.ok(existsSync(join(bundle, row.wasm, `tree-sitter-${row.wasm}.wasm`)), `${row.name}'s grammar`);
+    for (const tags of ("bundledTags" in row ? row.bundledTags ?? [] : [])) assert.ok(existsSync(join(bundle, tags, "tags.scm")), `${tags}'s tags`);
+  }
+  assert.ok(existsSync(join(bundle, "tree-sitter-wasm.LICENSE")));
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.equal(manifest.dependencies["tree-sitter-wasm"], undefined, "a dev dependency, like the depth grammars");
+  assert.ok(manifest.devDependencies["tree-sitter-wasm"]);
 });

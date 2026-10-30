@@ -17,7 +17,7 @@
  * receiver typing (recvType) is NOT produced here — that needs a per-language
  * binding pass; the opt-in LSP tier fills that gap for popular languages.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
@@ -124,11 +124,17 @@ export interface Loaded { language: unknown; query: unknown | null }
 const loaded = new Map<string, Loaded>();
 let tsMod: typeof import("web-tree-sitter") | null = null;
 
+/** A file of the tree-sitter-wasm bundle: from dist/vendor/grammars/bundle/ in a build,
+ * else (run from src/) from the package, whose `exports` maps the bare "<lang>/…" subpath
+ * to the actual "out/<lang>/…" file. */
+function bundledFile(rel: string): string {
+  const vendored = join(HERE, "..", "vendor", "grammars", "bundle", rel);
+  return existsSync(vendored) ? vendored : require.resolve(`tree-sitter-wasm/${rel}`);
+}
+
 function requireWasm(wasm: string): Buffer | null {
-  // Resolve the grammar wasm from the tree-sitter-wasm bundle (its package.json
-  // `exports` maps the bare "<lang>/…" subpath to the actual "out/<lang>/…" file).
   try {
-    const p = require.resolve(`tree-sitter-wasm/${wasm}/tree-sitter-${wasm}.wasm`);
+    const p = bundledFile(`${wasm}/tree-sitter-${wasm}.wasm`);
     return readFileSync(p);
   } catch {
     return null;
@@ -152,7 +158,7 @@ function loadQuery(row: GenericLang): string | null {
   const parts: string[] = [];
   for (const dir of row.bundledTags) {
     try {
-      parts.push(readFileSync(require.resolve(`tree-sitter-wasm/${dir}/tags.scm`), "utf8"));
+      parts.push(readFileSync(bundledFile(`${dir}/tags.scm`), "utf8"));
     } catch {
       /* no tags.scm for this one */
     }

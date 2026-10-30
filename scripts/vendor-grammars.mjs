@@ -33,6 +33,11 @@ export const GRAMMARS = [
   { module: "tree-sitter-php", files: ["tree-sitter-php.wasm"] },
 ];
 
+/** The tree-sitter-wasm bundle ships about a hundred grammars; these are the ones
+ * GENERIC_LANGS, FALLBACK_LANGS and CONTAINER_LANGS load, which a test holds this to. */
+export const BUNDLE_WASM = ["c", "c_sharp", "clojure", "cpp", "dart", "elixir", "gleam", "go", "java", "kotlin", "lua", "nix", "ocaml", "php", "python", "r", "ruby", "rust", "scala", "solidity", "swift", "tsx", "typescript", "vue", "zig"];
+export const BUNDLE_TAGS = ["go", "javascript", "python", "r", "tsx", "typescript"];
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   rmSync(outDir, { recursive: true, force: true });
   // Where earlier builds put the native tree-sitter-swift binaries: a dist/ built
@@ -49,5 +54,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
     copyFileSync(join(pkg, "LICENSE"), join(outDir, `${module}.LICENSE`));
   }
-  console.log(`vendored grammars → ${outDir} (${GRAMMARS.flatMap((g) => g.files).length} wasm)`);
+  const bundleDir = join(outDir, "bundle");
+  const copyBundled = (rel) => {
+    const to = join(bundleDir, rel);
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(require.resolve(`tree-sitter-wasm/${rel}`), to);
+  };
+  for (const wasm of BUNDLE_WASM) copyBundled(`${wasm}/tree-sitter-${wasm}.wasm`);
+  for (const dir of BUNDLE_TAGS) copyBundled(`${dir}/tags.scm`);
+  copyFileSync(join(dirname(require.resolve("tree-sitter-wasm")), "LICENSE"), join(bundleDir, "tree-sitter-wasm.LICENSE"));
+  console.log(`vendored grammars → ${outDir} (${GRAMMARS.flatMap((g) => g.files).length} wasm, ${BUNDLE_WASM.length} from the bundle)`);
 }
