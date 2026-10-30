@@ -54,7 +54,7 @@ import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { installBrainsServer, installCursorBrainsServer, removeBrainsServer, removeCursorBrainsServer } from "./hosts/claude-global.js";
 import { upsertCodexToml } from "./hosts/mcp-config.js";
 import { homedir } from "node:os";
-import { UPGRADE_UNAVAILABLE, formatVersionReport, getNpmViewVersion, readCurrentVersion, readPackageName } from "./cli-meta.js";
+import { UPGRADE_UNAVAILABLE, formatVersionReport, readCurrentVersion, readPackageName } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
 import { patchBuildConfig, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
@@ -99,8 +99,7 @@ import { formatOverlap, maybeRefreshBranches, overlapsWith, pushedWhen, readBran
 import { ensureRepoTrail, LEARNINGS_DIR } from "./notes/repo-trail.js";
 import type { AskResult } from "./ask/ask.js";
 import { setInputRate } from "./context/savings.js";
-import { formatUpdateNudge, maybeRefreshInBackground, readStamp, readUpdateCache, refreshUpdateCache, wiredHostIds, wiringOpts, writeStamp } from "./upkeep.js";
-import { shouldMoveToTrail } from "./upkeep-run.js";
+import { formatUpdateNudge, maybeRefreshInBackground, readUpdateCache, refreshUpdateCache, writeStamp } from "./upkeep.js";
 import {
   countBucket,
   errorCode,
@@ -429,41 +428,19 @@ grouped(program.command("telemetry"), GROUP.setup)
 // Hidden under trail, where -v says the same; listed under graft as it was.
 program
   .command("version", { hidden: TRAIL })
-  .description("Print the installed version and the latest published on npm")
+  .description("Print the installed version")
   .action(() => {
-    const latest = getNpmViewVersion();
-    console.log(formatVersionReport(currentVersion, latest));
+    console.log(formatVersionReport(currentVersion));
   });
 
 grouped(program.command("upgrade"), GROUP.setup)
   .description(`Not available for this distribution: see the repository's install instructions`)
   .action(() => {
     // shortcut: npm's package is upstream's, and installing it would replace this fork. Once a
-    // package is published under the fork, restore `runUpgrade` and `moveHereToTrail` here.
+    // package is published under the fork, bring back `runUpgrade` and `moveHereToTrail` from a44da3d.
     console.error(UPGRADE_UNAVAILABLE);
     process.exit(1);
   });
-
-/**
- * After `graft upgrade` brought the trail command along, the repo it ran in
- * moves to trail now, with the agents and flags its last init chose, and its
- * past sessions are read for learnings. Every other repo wired as graft moves
- * the next time a session opens in it (upkeep-run.ts).
- */
-function moveHereToTrail(dir: string): void {
-  const root = checkoutRoot(dir);
-  if (!root || !shouldMoveToTrail(root)) return;
-  const stamp = readStamp(root);
-  const hosts = [...new Set([...(stamp?.hosts ?? []), ...wiredHostIds(root)])];
-  const o = wiringOpts(stamp);
-  const flags = [o.global ? "--global" : null, o.mcp ? null : "--no-mcp", o.hooks ? null : "--no-hooks", o.statusline ? null : "--no-statusline"].filter(
-    (f): f is string => f !== null,
-  );
-  // An `--agents auto` run moves the same way: the main agents' repo files, laptop settings for the ones installed.
-  const agents = o.laptop ? ["auto"] : hosts;
-  console.log(`· moving this repo to trail: trail init ${agents.length ? `--agents ${agents.join(" ")} ` : ""}${flags.join(" ")}`.trimEnd());
-  spawnSync("trail", ["init", root, "--agents", ...agents, ...flags], { stdio: "inherit" });
-}
 
 grouped(program.command("build"), GROUP.setup)
   .description(
