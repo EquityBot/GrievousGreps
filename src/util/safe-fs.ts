@@ -29,6 +29,11 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
  * component below `base` — the leaf included — is a symlink (or, above the leaf,
  * anything but a directory). Components that do not exist yet are fine: there is
  * nothing to follow. Throws on a violation; returns the absolute path.
+ *
+ * shortcut: these checks run before the mkdir, open or rename they guard, so they stop a
+ * link planted in a repository but not a swap made between the check and the write. The
+ * ceiling is a process already running on the machine, which needs no such route. The
+ * upgrade, if that ever changes, is fd-relative I/O (open each directory, then its child).
  */
 export function resolveInside(base: string, target: string): string {
   const root = resolve(base);

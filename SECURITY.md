@@ -6,6 +6,13 @@ Trail-code (formerly graft) is pre-1.0 and ships continuously from `main`. Secur
 fixes are made against the latest published npm release (`@trailhq/trail`, also
 published as `@nanonets/graft`); older versions are not separately patched.
 
+## Filesystem Safety
+
+Graft refuses to write through a symlink planted in a repository or its output
+directory. The checks run before each write, so they do not cover a link swapped
+in between the check and the write: concurrent mutation by a process already
+running on the machine is out of scope, because that process needs no such route.
+
 ## Reporting a Vulnerability
 
 Please do not open a public GitHub issue for security vulnerabilities.
