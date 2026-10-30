@@ -79,7 +79,7 @@ test("without `exports`, a workspace package's `main` reaches its source", async
   assert.deepEqual(edge(graph, "apps/a.ts#run"), [["packages/core/src/entry.ts#make", "extracted"]]);
 });
 
-test("a name no path reaches is found inside its package and marked inferred; a wildcard path reaches its own", async (t) => {
+test("a name no path reaches is said, not found by name inside its package; a wildcard path reaches its own", async (t) => {
   const graph = await build(t, {
     "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { "./features/*": "./dist/impl/*.js", "./gen": "./generated/gen.js" } }),
     "packages/core/src/impl/one.ts": "export function one() {}\n",
@@ -87,10 +87,8 @@ test("a name no path reaches is found inside its package and marked inferred; a 
     "packages/other/x.ts": "export function one() {}\nexport function gen() {}\n",
     "apps/a.ts": `import { one } from "@acme/core/features/one";\nimport { gen } from "@acme/core/gen";\nexport function run() { one(); gen(); }\n`,
   });
-  assert.deepEqual(edge(graph, "apps/a.ts#run").sort(), [
-    ["packages/core/src/gen-source.ts#gen", "inferred"],
-    ["packages/core/src/impl/one.ts#one", "extracted"],
-  ]);
+  assert.deepEqual(edge(graph, "apps/a.ts#run").sort(), [["packages/core/src/impl/one.ts#one", "extracted"]]);
+  assert.deepEqual(stated(graph, "apps/a.ts#run"), [["gen", "@acme/core/gen"]]);
 });
 
 test("the repo's own import that nothing in its package defines is reported, and an outside one stays silent", async (t) => {
@@ -233,7 +231,8 @@ test("V2: a package name found outside its entries must be exported under that n
     "packages/core/src/impl.ts": "export function execute() {}\n",
     "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
   });
-  assert.deepEqual(edge(proven, "apps/a.ts#go"), [["packages/core/src/impl.ts#execute", "inferred"]], "the rename is the provenance");
+  assert.deepEqual(calls(proven, "apps/a.ts#go"), [], "a rename no entry reaches proves nothing about the package (W3)");
+  assert.deepEqual(stated(proven, "apps/a.ts#go"), [["run", "@acme/core"]]);
 });
 
 test("V4: an `exports` wildcard substitutes by prefix and suffix", async (t) => {
@@ -569,4 +568,22 @@ pub fn built() { let x = dep::A::new(); x.f(); }
   for (const f of ["used", "pathed", "built"]) assert.deepEqual(calls(graph, `src/lib.rs#${f}`), [], f);
   assert.deepEqual(calls(graph, "src/lib.rs#own"), []);
   assert.deepEqual(stated(graph, "src/lib.rs#own"), [["f", "Cart"]], "the repo's own type lacks it: said, not bound");
+});
+
+test("W3: a package's name counts only through what its manifest reaches, and otherwise is said", async (t) => {
+  const entry = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": "./src/index.ts" } }),
+    "packages/core/src/index.ts": "export function other() {}\n",
+    "packages/core/src/inner.ts": "export function run() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(calls(entry, "apps/a.ts#go"), [], "the entry does not export it; another file doing so proves nothing");
+  assert.deepEqual(stated(entry, "apps/a.ts#go"), [["run", "@acme/core"]]);
+  const reached = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": "./src/index.ts" } }),
+    "packages/core/src/index.ts": `export * from "./inner";\n`,
+    "packages/core/src/inner.ts": "export function run() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(calls(reached, "apps/a.ts#go"), ["packages/core/src/inner.ts#run"]);
 });

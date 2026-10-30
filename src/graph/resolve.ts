@@ -986,9 +986,9 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "ou
 
 /**
  * What an in-repo package exports as `name`, searched in order until something defines it: the
- * files its manifest reaches, then its source tree by the import's own path, then the name
- * anywhere in the package, which the caller marks as inferred. A manifest can point at a stub,
- * a build product or nothing, so no one of them is the answer; "unmapped" says none held it.
+ * files its manifest reaches, then its source tree by the import's own path. A manifest can
+ * point at a stub, a build product or nothing, so neither alone is the answer; "unmapped" says
+ * none held it, and a file elsewhere in the package exporting that name proves nothing.
  */
 function followTsPackage(name: string, target: { packages: TsPackage[]; rest: string }, ctx: TsCtx, seen: Set<string>): TsName {
   const { packages, rest } = target;
@@ -1004,20 +1004,7 @@ function followTsPackage(name: string, target: { packages: TsPackage[]; rest: st
     }
   }
   if (outside) return "outside";
-  // Found by name only if something in the package exports it as that: a rename is the
-  // provenance, a private function of that name proves nothing, and 2 definitions are no answer.
-  const named = new Map<string, NodeV1>();
-  for (const pkg of packages) {
-    for (const file of new Set([...ctx.perFileName.keys(), ...ctx.modules.keys()])) {
-      if (pkg.dir !== "." && !file.startsWith(`${pkg.dir}/`)) continue;
-      const hit = followTsExport(name, file, ctx, new Set(seen));
-      if (typeof hit === "string" || !("id" in hit)) continue;
-      const table = ctx.modules.get(file);
-      const listed = table?.exports.some((x) => x.exported === name) || table?.reexports.some((r) => r.exported === name);
-      if ((listed || hit.exported) && (hit.kind === "function" || hit.kind === "class")) named.set(hit.id, hit);
-    }
-  }
-  return named.size === 1 ? { scoped: [...named.values()][0] } : "unmapped";
+  return "unmapped";
 }
 
 /** The files a package's manifest gives a subpath: its own key, or the longest `*` key that fits. */
