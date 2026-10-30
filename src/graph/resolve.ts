@@ -247,6 +247,19 @@ export function resolveEdges(
 
   const rustPubUses = new Map<string, NonNullable<RawEdge["rustPubUses"]>>();
   for (const e of rawEdges) if (e.rustPubUses) rustPubUses.set(e.file, e.rustPubUses);
+  const rustFieldTypes = new Map<string, { file: string; type: string }[]>();
+  for (const e of rawEdges) {
+    if (!e.rustFields) continue;
+    for (const [field, type] of e.rustFields.fields) {
+      const key = `${e.rustFields.owner}.${field}`;
+      rustFieldTypes.set(key, [...(rustFieldTypes.get(key) ?? []), { file: e.file, type }]);
+    }
+  }
+  // A field of the type in this file, else the only type of that name with that field.
+  const rustFieldType = (recv: { owner: string; field: string }, file: string): string | undefined => {
+    const list = rustFieldTypes.get(`${recv.owner}.${recv.field}`);
+    return list?.find((f) => f.file === file)?.type ?? (list?.length === 1 ? list[0].type : undefined);
+  };
   const rustPathCtx: RustPathCtx = { crates: opts.rustCrateDirs ?? new Map(), byId, perFileName, pubUses: rustPubUses };
 
   const tsModules = new Map<string, TsModule>();
@@ -384,16 +397,23 @@ export function resolveEdges(
         continue;
       }
       if (e.viaMember) {
-        if (!e.recvType) continue;
-        const real = e.file.endsWith(".rs") ? rustRealType(e.recvType, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true) : { type: e.recvType };
+        const recv = e.rustRecvField ? rustFieldType(e.rustRecvField, e.file) : e.recvType;
+        if (!recv && !e.rustForm) continue;
+        const real = !recv ? { type: "" } : e.file.endsWith(".rs") ? rustRealType(recv, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true || !!e.rustRecvField) : { type: recv };
         if (real.root && opts.rustExternalCrates?.has(real.root)) continue; // an alias of a dependency's type
         const recvType = real.type;
         // An alias names its crate, which picks between the repo's types of that name.
         const crateDir = real.root ? opts.rustCrateDirs?.get(real.root) : undefined;
         const inCrate = crateDir ? (ownerMethod.get(`${recvType}.${e.name}`) ?? []).filter((c) => c.path.startsWith(`${crateDir}/`)) : [];
-        let hit = inCrate.length === 1
+        let hit = !recv ? null : inCrate.length === 1
           ? { id: inCrate[0].id, confidence: "inferred" as const }
           : resolveTypedMember(recvType, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
+        // Several types of that name, none in this file: this crate's own, as the code reads.
+        if (hit === "ambiguous" && e.file.endsWith(".rs") && !real.root) {
+          const crate = rustCrateOf(e.file, rustPathCtx);
+          const ours = crate === undefined || crate === "." ? [] : (ownerMethod.get(`${recvType}.${e.name}`) ?? []).filter((c) => c.path.startsWith(`${crate}/`));
+          if (ours.length === 1) hit = { id: ours[0].id, confidence: "inferred" };
+        }
         for (const bound of e.rustBounds ?? []) {
           hit ??= resolveTypedMember(bound, e.name!, e.file, ownerMethod, classParents, classTraits, e.argCount);
         }
@@ -403,15 +423,19 @@ export function resolveEdges(
         // trait's default method needs more than the owner index holds.
         // So does a type nothing in the repo declares and no `use` takes from elsewhere, such
         // as a macro's, when the repo defines the name: only the macro knows if it is that one.
-        const owned = (globalName.get(e.recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
-        const unseen = !owned && !hit && !e.rustBounds?.length && !RUST_PRELUDE_TYPES.has(e.recvType) && !rustAliases.has(e.recvType)
-          && e.recvType.length > 1 && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" || n.kind === "method");
-        if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!) && (owned || unseen)) {
-          opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: e.recvType });
+        const owned = (globalName.get(recv ?? "") ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
+        const unseen = !owned && !hit && !e.rustBounds?.length && !RUST_PRELUDE_TYPES.has(recv ?? "") && !rustAliases.has(recv ?? "")
+          && (recv ?? "").length > 1 && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" || n.kind === "method");
+        // A method whose receiver the code shows a type for: past that type, as the name alone
+        // read it before, unless the type is plainly the standard library's.
+        if (e.rustForm === "method" && !hit) {
+          if (recv && RUST_STD_TYPES.has(recvType)) continue;
+        } else if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!) && (owned || unseen)) {
+          opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: recv ?? null });
         }
         if (hit === "ambiguous") continue; // drop — never guess past an ambiguous owner
         if (hit) {
-          add(e.source, hit.id, "calls", hit.confidence);
+          if (hit.id !== e.source || e.rustForm !== "method") add(e.source, hit.id, "calls", hit.confidence);
           continue;
         }
         // No owner-qualified match means the call is unresolved. A unique bare
@@ -427,7 +451,7 @@ export function resolveEdges(
         // set has already dropped it above, and a resolved member never reaches
         // here — a name defined as both member and free function yields the
         // member edge alone, exactly as Swift dispatches it.
-        if (!e.implicitSelf) continue;
+        if (!e.implicitSelf && !e.rustForm) continue;
       }
       // Every language's bare-name call is a free function, except R (Phase 4):
       // an untyped `obj$method()` there sets e.kinds to also allow a "method"
@@ -665,6 +689,8 @@ function resolveTraitMember(
  * left unresolved: picking one would invent an edge the source does not state.
  */
 const RUST_STD_CRATES = new Set(["std", "core", "alloc"]);
+/** The standard library's types a value is most often of; a repo's `push` is not on these. */
+const RUST_STD_TYPES = new Set(["Vec", "String", "Option", "Result", "HashMap", "HashSet", "BTreeMap", "BTreeSet", "VecDeque", "Mutex", "RwLock", "Cell", "RefCell", "PathBuf", "Path", "Duration", "Instant", "str", "Cow"]);
 /** Types and traits every Rust file sees without a `use`. */
 const RUST_PRELUDE_TYPES = new Set(["Box", "Clone", "Default", "From", "Into", "Iterator", "IntoIterator", "Option", "Result", "String", "ToOwned", "ToString", "TryFrom", "TryInto", "Vec", "Extend", "FromIterator", "PartialEq", "PartialOrd", "Ord", "Eq", "Drop", "Fn", "FnMut", "FnOnce", "AsRef", "AsMut", "DoubleEndedIterator", "ExactSizeIterator", "Send", "Sync", "Sized", "Copy", "Self"]);
 const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "trait", "type", "class", "interface"]);

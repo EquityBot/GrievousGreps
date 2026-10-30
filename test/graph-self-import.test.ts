@@ -359,3 +359,34 @@ test("Rust: a repeated name no path settles is stated, and a dependency's stays 
   assert.deepEqual(stated(graph, "sub/src/a.rs#bare"), [["with_default", "2 definitions of that name"]]);
   assert.deepEqual(stated(graph, "sub/src/ext.rs#out"), []);
 });
+
+test("Rust: a method's receiver reads from `self`, a binding, a parameter or a field, past a repeated name", async (t) => {
+  const graph = await build(t, {
+    "src/types.rs": `pub struct One { pub two: Two, pub boxed: Box<Two>, pub list: Vec<u8> }
+impl One { pub fn go(&self) {} pub fn new() -> Self { One { two: Two, boxed: Box::new(Two), list: vec![] } } pub fn own(&self) { self.go(); self.two.go(); self.boxed.go(); self.list.push(1); } }
+pub struct Two;
+impl Two { pub fn go(&self) {} pub fn push(&self, _: u8) {} }
+`,
+    "src/use_it.rs": `use crate::types::{One, Two};
+pub fn annotated() { let x: Two = make(); x.go(); }
+pub fn built() { let x = One::new(); x.go(); }
+pub fn literal() { let x = Two {}; x.go(); }
+pub fn param(x: &mut Two) { x.go(); }
+pub fn chained() { One::new().go(); }
+pub fn shadowed(x: One) { let x = make(); x.go(); }
+pub fn std_value() { let v = Vec::new(); v.push(1); }
+pub fn in_loop(x: One) { for x in items() { x.go(); } }
+`,
+  });
+  const one = "src/types.rs#go";
+  const two = "src/types.rs#go~2";
+  assert.deepEqual(calls(graph, "src/types.rs#own"), [one, two].sort(), "self, and fields; a Vec's push is not Two's");
+  assert.deepEqual(calls(graph, "src/use_it.rs#annotated"), [two]);
+  assert.deepEqual(calls(graph, "src/use_it.rs#built"), [one, "src/types.rs#new"]);
+  assert.deepEqual(calls(graph, "src/use_it.rs#literal"), [two]);
+  assert.deepEqual(calls(graph, "src/use_it.rs#param"), [two]);
+  assert.deepEqual(calls(graph, "src/use_it.rs#chained"), [one, "src/types.rs#new"]);
+  assert.deepEqual(calls(graph, "src/use_it.rs#shadowed"), [], "a shadow with no type is not the parameter");
+  assert.deepEqual(calls(graph, "src/use_it.rs#std_value"), [], "not the repo's push");
+  assert.deepEqual(calls(graph, "src/use_it.rs#in_loop"), [], "a loop variable is not the parameter");
+});
