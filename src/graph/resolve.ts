@@ -746,15 +746,18 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "ou
  */
 function followTsPackage(name: string, target: { packages: TsPackage[]; rest: string }, ctx: TsCtx, seen: Set<string>): TsName {
   const { packages, rest } = target;
+  let outside = false; // one condition may forward the name out whilst another defines it
   for (const pkg of packages) {
     const tree = rest ? [`src/${rest}`, rest] : ["src/index", "index"];
     for (const entry of [...(pkg.entries[rest ? `./${rest}` : "."] ?? []), ...tree]) {
       const module = resolveImport(`./${posix.join(pkg.dir, entry)}`, "repo-root", ctx.byId);
       if (!ctx.byId.has(module)) continue;
       const hit = followTsExport(name, module, ctx, new Set(seen));
-      if (hit !== "undecided" && hit !== "unmapped") return hit;
+      if (hit === "outside") outside = true;
+      else if (hit !== "undecided" && hit !== "unmapped") return hit;
     }
   }
+  if (outside) return "outside";
   const named = new Map<string, NodeV1>();
   for (const pkg of packages) {
     for (const [file, names] of ctx.perFileName) {

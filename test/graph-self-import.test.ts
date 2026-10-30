@@ -186,3 +186,24 @@ test("a relative import of a file the graph lacks, such as a build's, is reporte
   assert.deepEqual(calls(graph, "bench/a.ts#run"), []);
   assert.deepEqual((graph.unresolvedCalls ?? []).map((u) => [u.name, u.through]), [["effect", "../dist/reactivity"]]);
 });
+
+const stated = (graph: Graph, source: string) => (graph.unresolvedCalls ?? []).filter((u) => u.source === source).map((u) => [u.name, u.through]);
+
+test("V3: an entry forwarding the name outside does not end the search past one defining it", async (t) => {
+  const graph = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": { require: "./cjs/entry.cjs", import: "./esm/entry.js" } } }),
+    "packages/core/cjs/entry.cjs": `export { run } from "outside-pkg";\n`,
+    "packages/core/esm/entry.js": "export function run() {}\n",
+    "packages/other/x.ts": "export function run() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(calls(graph, "apps/a.ts#go"), ["packages/core/esm/entry.js#run"]);
+  const out = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { ".": "./cjs/entry.cjs" } }),
+    "packages/core/cjs/entry.cjs": `export { run } from "outside-pkg";\n`,
+    "packages/other/x.ts": "export function run() {}\n",
+    "apps/a.ts": `import { run } from "@acme/core";\nexport function go() { run(); }\n`,
+  });
+  assert.deepEqual(calls(out, "apps/a.ts#go"), [], "only outside: T1 holds");
+  assert.deepEqual(stated(out, "apps/a.ts#go"), []);
+});
