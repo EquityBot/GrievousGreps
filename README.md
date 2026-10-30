@@ -41,7 +41,7 @@ npm link
 trail --version
 ```
 
-`npm link` points the commands at this folder, so keep it. The folder measured about 460 MB with its development dependencies; a packed install without them measured about 116 MB. Installing writes nothing to your agents' settings.
+`npm link` points the commands at this folder, so keep it. The folder measured about 610 MB with its development dependencies. Installing writes nothing to your agents' settings.
 
 To update, run `git pull`, `npm ci` and `npm run build` in the folder. `trail upgrade` refuses on this build, because the package on npm is upstream's.
 
@@ -57,9 +57,9 @@ trail map                            # directory clusters, hubs and hotspots
 trail grep <pattern>                 # every occurrence, grouped by enclosing symbol
 ```
 
-`trail init` writes inside the repository, with the tool's own state in `~/.trail`. Claude Code's hooks go in the repository's `.claude` settings. That has a cost: a worktree or an ignored checkout has no hooks until you run `trail init` there, and Claude Code gets no MCP server.
+`trail init` writes inside the repository, with the tool's own state in `~/.trail`. Claude Code's hooks go in the repository's `.claude` settings. That has a cost: a worktree or an ignored checkout has no hooks until you run `trail init` there.
 
-`trail init --global` closes that gap by adding hooks and a server to `~/.claude`, `~/.claude.json` and `~/.codex`, which apply to every project on the machine. `trail uninstall` removes what either form wrote.
+`trail init --global` closes that gap by adding hooks to `~/.claude`, and to `~/.codex` for Codex, which run in every project on the machine. `trail uninstall` removes what either form wrote.
 
 The map lives in `graft/`, a local cache to keep out of git.
 
@@ -120,7 +120,7 @@ This table lists what the code changes from upstream 0.28.0. Only [the recall ta
 | Daily npm version check | On by default | Off unless `GRAFT_UPDATE_CHECK=1` |
 | Workspace background reads | On by default | Off unless `TRAIL_CLOUD=1` or you sign in |
 | Symlinks planted in a repository or output folder | Followed | Refuses to write through them. A link swapped in between the check and the write is out of scope ([SECURITY.md](SECURITY.md)) |
-| Writes outside the repository | `trail init` adds hooks and a server to `~/.claude` and `~/.codex` unless you pass `--no-global`, and `trail login` adds servers | Only with `--global`, on either command, or `trail init --connect` |
+| Writes outside the repository | `trail init` adds hooks to `~/.claude` and `~/.codex` unless you pass `--no-global`, and `trail login` adds MCP servers | Only with `--global`, on either command, or `trail init --connect` |
 | npm on Windows | The update check fails on the `npm.cmd` shim | Starts npm through the shell |
 | Distribution | Published on npm, with `trail upgrade` | From source |
 
