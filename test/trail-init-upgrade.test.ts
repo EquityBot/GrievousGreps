@@ -86,9 +86,9 @@ function assertWired(repo: string, home: string): void {
 
 test("one trail init over a repo 0.23.0 set up wires every hook the skills need, each once", () => {
   const { repo, home } = v023("init");
-  runInit(repo, { build: false, home, brand: "trail" });
+  runInit(repo, { global: true, build: false, home, brand: "trail" });
   assertWired(repo, home);
-  runInit(repo, { build: false, home, brand: "trail" });
+  runInit(repo, { global: true, build: false, home, brand: "trail" });
   assertWired(repo, home);
 });
 

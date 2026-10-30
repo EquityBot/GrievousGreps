@@ -96,7 +96,7 @@ export function runHostsInit(
   }
   const skipped = HOSTS.filter((h) => !selected.includes(h)).map((h) => h.id);
   // Whether `id` may write outside the repo on this run.
-  const outside = (id: string) => opts.global !== false && (opts.laptop === undefined || opts.laptop.includes(id));
+  const outside = (id: string) => opts.global === true && (opts.laptop === undefined || opts.laptop.includes(id));
   const mcp =
     opts.mcp === false
       ? []

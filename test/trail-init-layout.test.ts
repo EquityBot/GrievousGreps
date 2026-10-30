@@ -78,7 +78,7 @@ test("trail init leaves git status with only the shared files, and writes the sk
   git(d, "add", "-A");
   git(d, "commit", "-qm", "base");
 
-  runInit(d, { build: false, home, brand: "trail" });
+  runInit(d, { global: true, build: false, home, brand: "trail" });
   const status = git(d, "status", "--porcelain", "--untracked-files=all").stdout.trim().split("\n").map((l) => l.slice(3)).sort();
   assert.deepEqual(status, [".claude/settings.json", ".trail/.gitignore", ".trail/hook.cjs"]);
   assert.equal(readFileSync(join(d, ".gitignore"), "utf8"), "node_modules/\n", ".gitignore untouched");

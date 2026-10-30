@@ -274,7 +274,7 @@ export function registerMcpConfigs(
 ): McpWrite[] {
   const name = opts.name ?? 'graft';
   return mcpTargets(repo, ids, opts)
-    .filter((t) => t.scope !== 'global' || (opts.global !== false && (opts.laptop === undefined || opts.laptop.includes(t.hostId))))
+    .filter((t) => t.scope !== 'global' || (opts.global === true && (opts.laptop === undefined || opts.laptop.includes(t.hostId))))
     .map((t) => {
       if (name === 'graft' && t.scope === 'global' && trailServerIn(t)) return { id: t.id, path: t.path, action: 'unchanged' as const };
       return t.format === 'toml'

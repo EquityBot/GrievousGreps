@@ -187,9 +187,9 @@ export interface WiringOpts {
   laptop?: string[];
 }
 
-export const DEFAULT_WIRING_OPTS: WiringOpts = { global: true, mcp: true, hooks: true, statusline: true };
+export const DEFAULT_WIRING_OPTS: WiringOpts = { global: false, mcp: true, hooks: true, statusline: true };
 
-/** An older stamp has no `opts`; a plain `graft init` wired everything. */
+/** An older stamp has no `opts`: everything in the repo, and nothing outside it unless asked. */
 export function wiringOpts(stamp: WiringStamp | null): WiringOpts {
   return { ...DEFAULT_WIRING_OPTS, ...(stamp?.opts ?? {}) };
 }

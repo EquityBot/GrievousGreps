@@ -16,7 +16,7 @@ function fresh(): string { return tmpRepo('hostsinit'); }
 test('writes only detected hosts by default', () => {
   const home = fresh(); const repo = fresh();
   mkdirSync(join(home, '.cursor'));
-  const r = runHostsInit(repo, { home });
+  const r = runHostsInit(repo, { global: true, home });
   assert.deepEqual(r.written.map((w) => w.id), ['cursor']);
   const mdc = readFileSync(join(repo, '.cursor', 'rules', 'graft.mdc'), 'utf8');
   assert.match(mdc, /alwaysApply: true/);
@@ -25,7 +25,7 @@ test('writes only detected hosts by default', () => {
 
 test('explicit agents list overrides detection and flags unknown ids', () => {
   const home = fresh(); const repo = fresh();
-  const r = runHostsInit(repo, { home, agents: ['gemini', 'nope'] });
+  const r = runHostsInit(repo, { global: true, home, agents: ['gemini', 'nope'] });
   assert.deepEqual(r.written.map((w) => w.id), ['gemini']);
   assert.deepEqual(r.unknown, ['nope']);
   assert.ok(readFileSync(join(repo, 'GEMINI.md'), 'utf8').includes('graft ask'));
@@ -33,9 +33,9 @@ test('explicit agents list overrides detection and flags unknown ids', () => {
 
 test('all writes every host and re-run converges (idempotent)', () => {
   const home = fresh(); const repo = fresh();
-  const first = runHostsInit(repo, { home, all: true });
+  const first = runHostsInit(repo, { global: true, home, all: true });
   assert.equal(first.written.length, 10);
-  const second = runHostsInit(repo, { home, all: true });
+  const second = runHostsInit(repo, { global: true, home, all: true });
   assert.ok(second.written.every((w) => w.action === 'unchanged'));
   // `agents` and `antigravity` share AGENTS.md, but the fenced section is written once
   const agents = readFileSync(join(repo, 'AGENTS.md'), 'utf8');
@@ -47,7 +47,7 @@ test('preserves user content around the fenced section', () => {
   const target = join(repo, '.github', 'copilot-instructions.md');
   mkdirSync(join(repo, '.github'), { recursive: true });
   writeFileSync(target, '# House rules\n');
-  const r = runHostsInit(repo, { home });
+  const r = runHostsInit(repo, { global: true, home });
   assert.deepEqual(r.written.map((w) => w.id), ['copilot']);
   const text = readFileSync(target, 'utf8');
   assert.ok(text.startsWith('# House rules'));
@@ -74,7 +74,7 @@ test('CLI: unknown agent id exits non-zero', () => {
 test('explicit empty agents list writes nothing, even when home has agent dirs (no fallback to detection)', () => {
   const home = fresh(); const repo = fresh();
   mkdirSync(join(home, '.cursor'));
-  const r = runHostsInit(repo, { home, agents: [] });
+  const r = runHostsInit(repo, { global: true, home, agents: [] });
   assert.deepEqual(r.written, []);
   assert.ok(!existsSync(join(repo, '.cursor')));
 });
@@ -106,7 +106,7 @@ test('CLI: --agents claude gemini nope exits non-zero and leaves repo untouched 
 
 test('runHostsInit registers MCP configs for selected hosts', () => {
   const home = fresh(); const repo = fresh();
-  const r = runHostsInit(repo, { home, agents: ['cursor'] });
+  const r = runHostsInit(repo, { global: true, home, agents: ['cursor'] });
   assert.equal(r.mcp.length, 1);
   // An absolute filesystem path, so it carries the platform separator — assert the
   // shape, not the platform.
@@ -117,7 +117,7 @@ test('runHostsInit registers MCP configs for selected hosts', () => {
 
 test('mcp: false skips MCP registration', () => {
   const home = fresh(); const repo = fresh();
-  const r = runHostsInit(repo, { home, agents: ['cursor'], mcp: false });
+  const r = runHostsInit(repo, { global: true, home, agents: ['cursor'], mcp: false });
   assert.deepEqual(r.mcp, []);
   assert.ok(!existsSync(join(repo, '.cursor', 'mcp.json')));
 });
@@ -132,7 +132,7 @@ test('CLI: --no-mcp writes the rule file but no MCP config', () => {
 test('runHostsInit installs hooks for the agents id when the CLI home exists', () => {
   const home = fresh(); const repo = fresh();
   mkdirSync(join(home, '.codex'), { recursive: true });
-  const r = runHostsInit(repo, { home, agents: ['agents'] });
+  const r = runHostsInit(repo, { global: true, home, agents: ['agents'] });
   assert.equal(r.hooks.length, 2);
   assert.ok(existsSync(join(home, '.codex', 'hooks', 'graft', 'graft-hooks.cjs')));
 });
@@ -140,7 +140,7 @@ test('runHostsInit installs hooks for the agents id when the CLI home exists', (
 test('hooks: false skips hook installation', () => {
   const home = fresh(); const repo = fresh();
   mkdirSync(join(home, '.codex'), { recursive: true });
-  const r = runHostsInit(repo, { home, agents: ['agents'], hooks: false });
+  const r = runHostsInit(repo, { global: true, home, agents: ['agents'], hooks: false });
   assert.deepEqual(r.hooks, []);
   assert.ok(!existsSync(join(home, '.codex', 'hooks.json')));
 });
@@ -191,7 +191,7 @@ test('CLI: no flags and no TTY writes nothing and names the detected agents', ()
 test('CLI: --dry-run prints the plan, both sections, and writes nothing', () => {
   const home = fresh(); const repo = fresh();
   mkdirSync(join(home, '.codex'), { recursive: true });
-  const out = cliStderr(repo, home, ['--dry-run']);
+  const out = cliStderr(repo, home, ['--dry-run', '--global']);
 
   assert.match(out, /would write in this repo:/);
   // The plan prints display paths, which keep the platform separator.
@@ -221,7 +221,7 @@ test('CLI: --no-global writes AGENTS.md but leaves ~/.codex alone', () => {
   const out = cliStderr(repo, home, ['--agents', 'agents', '--no-global', '--verbose']);
   assert.ok(existsSync(join(repo, 'AGENTS.md')));
   assert.deepEqual(readdirSync(join(home, '.codex')), []);
-  assert.match(out, /skipped out-of-repo writes/);
+  assert.match(out, /left out user-level config/);
 });
 
 test('CLI: the graph build is attempted even when claude is not selected', () => {

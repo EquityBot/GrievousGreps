@@ -456,7 +456,7 @@ function moveHereToTrail(dir: string): void {
   const stamp = readStamp(root);
   const hosts = [...new Set([...(stamp?.hosts ?? []), ...wiredHostIds(root)])];
   const o = wiringOpts(stamp);
-  const flags = [o.global ? null : "--no-global", o.mcp ? null : "--no-mcp", o.hooks ? null : "--no-hooks", o.statusline ? null : "--no-statusline"].filter(
+  const flags = [o.global ? "--global" : null, o.mcp ? null : "--no-mcp", o.hooks ? null : "--no-hooks", o.statusline ? null : "--no-statusline"].filter(
     (f): f is string => f !== null,
   );
   // An `--agents auto` run moves the same way: the main agents' repo files, laptop settings for the ones installed.
@@ -1198,7 +1198,8 @@ grouped(program.command("init"), GROUP.setup)
   .option("--no-statusline", "skip writing Claude Code statusLine (keep a user-defined one)")
   .option("--dry-run", "print every file init would touch, then exit without writing")
   .option("-y, --yes", "skip the picker and wire every detected agent (the pre-0.8 default)")
-  .option("--no-global", "skip writes outside this repo (the ~/.codex/ config + hooks)")
+  .option("--global", "also write user-level config: ~/.claude, ~/.claude.json, ~/.codex, ~/.gemini. Off by default")
+  .option("--no-global", "write nothing outside this repo, which is the default")
   .option("--verbose", "print every file written, the graph build's own output and the closing banner")
   .option(
     "--connect <code>",
@@ -1587,9 +1588,11 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
     if (opts.dryRun) {
       if (autoSel)
         console.error(`· --agents auto: repo files for Claude Code, Cursor, Codex and OpenCode; laptop settings for ${autoSel.agents.length ? agentList(autoSel.agents) : "none (no agent found here)"}\n`);
-      console.error(formatPlan(laptopOnly(plan, laptop), ids, repo, home));
+      const planned = opts.global === true ? laptop : [];
+      console.error(formatPlan(laptopOnly(plan, planned), ids, repo, home));
+      if (opts.global !== true && selectedWrites(plan, ids).some((w) => w.scope === "global")) console.error(USER_LEVEL_LEFT_OUT);
       for (const child of children)
-        console.error(`\n· ${child}/ (workspace child)\n` + formatPlan(laptopOnly(planInit(join(repo, child), { home }), laptop), ids, join(repo, child), home));
+        console.error(`\n· ${child}/ (workspace child)\n` + formatPlan(laptopOnly(planInit(join(repo, child), { home }), planned), ids, join(repo, child), home));
       return null;
     }
     if (ids.length === 0) {
@@ -1756,7 +1759,7 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
       for (const id of removed) console.error(`- removed ${id} (agent not selected)`);
       for (const w of reports.flatMap((r) => r.warnings)) console.error(w);
       const writesFor = (id: string) =>
-        (plan.find((p) => p.id === id)?.writes ?? []).filter((w) => opts.global !== false || w.scope !== "global");
+        (plan.find((p) => p.id === id)?.writes ?? []).filter((w) => opts.global === true || w.scope !== "global");
       if (graphLine) console.error(graphLine);
       if (autoSel) console.error(`✓ ${autoSummary(autoSel.agents)}`);
       else {
@@ -1912,6 +1915,8 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
 }
 
 /** A plan with the out-of-repo writes only for `laptop`'s hosts; the plan itself when every host may write there. */
+const USER_LEVEL_LEFT_OUT = "⚠ left out user-level config (~/.claude, ~/.claude.json, ~/.codex, ~/.gemini), so a worktree or ignored checkout has no hooks until you run init there; add --global to write it";
+
 function laptopOnly(plan: ReturnType<typeof planInit>, laptop: string[] | undefined): ReturnType<typeof planInit> {
   if (!laptop) return plan;
   return plan.map((p) => (laptop.includes(p.id) ? p : { ...p, writes: p.writes.filter((w) => w.scope === "repo") }));
@@ -2071,7 +2076,7 @@ function wireTarget(
       // `global`/`home` are threaded through alongside `statusline`: the claude layer
       // writes under `~/.claude` now (hosts/claude-global.ts), so --no-global has to
       // reach it or the flag would silently mean "no out-of-repo writes, except three".
-      const claudeGlobal = opts.global !== false && (!ctx.laptop || ctx.laptop.includes("claude"));
+      const claudeGlobal = opts.global === true && (!ctx.laptop || ctx.laptop.includes("claude"));
       const res = runInit(repo, { build: opts.build, cliPath, statusline: wantStatusline, global: claudeGlobal, home, brand: brand() });
       say(`✓ wrote ${res.settingsPath}`);
       for (const s of res.shims) say(`✓ wrote ${s}`);
@@ -2111,9 +2116,8 @@ function wireTarget(
         // A ⚠ line, so the short output keeps it too: until then Trail does nothing in Codex.
         if (trust) say(`⚠ ${trust}`);
       }
-      // Only worth saying when there was actually something out-of-repo to skip.
-      if (opts.global === false && selectedWrites(plan, ids).some((w) => w.scope === "global"))
-        say("· skipped out-of-repo writes (--no-global)");
+      // Only worth saying when there was actually something out-of-repo to leave.
+      if (opts.global !== true && selectedWrites(plan, ids).some((w) => w.scope === "global")) say(USER_LEVEL_LEFT_OUT);
     }
 
     // Record WHICH graft wrote this repo's agent files, and under which flags.
@@ -2122,7 +2126,7 @@ function wireTarget(
     // too — not just the binary. The flags ride along so a refresh replays the
     // user's choices (notably --no-global) instead of overriding them.
     writeStamp(repo, currentVersion, ids, {
-      global: opts.global !== false,
+      global: opts.global === true,
       mcp: opts.mcp !== false,
       hooks: opts.hooks !== false,
       statusline: wantStatusline,

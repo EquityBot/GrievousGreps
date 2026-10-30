@@ -240,7 +240,7 @@ test('formatPlan separates repo writes from machine-wide ones', () => {
   assert.ok(text.includes(`~${sep}${join('.codex', 'hooks.json')}`), `plan should name the codex hooks file:\n${text}`);
   assert.match(text, /SessionStart \/ UserPromptSubmit \/ PreToolUse \/ PostToolUse \/ Stop/);
   assert.match(text, /nothing was written \(--dry-run\)/);
-  assert.match(text, /--no-global/);
+  assert.match(text, /--global/);
 });
 
 test('formatPlan omits the machine-wide section when there is nothing global', () => {
@@ -257,7 +257,7 @@ test('formatPlan surfaces the claude layer\'s ~ writes as machine-wide', () => {
   const repo = fresh(); const home = fullHome();
   const text = formatPlan(planInit(repo, { home }), ['claude'], repo, home, false);
   assert.match(text, /affects ALL repos/);
-  assert.match(text, /--no-global/);
+  assert.match(text, /--global/);
   assert.match(text, /\.claude\.json/);
 });
 

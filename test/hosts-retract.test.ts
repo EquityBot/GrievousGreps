@@ -206,7 +206,7 @@ test('planRetract is pure — it reports without touching anything', () => {
 
 test('a full init is fully retractable, and retraction is idempotent', () => {
   const d = fresh();
-  runInit(d, { build: false, home: fresh() });
+  runInit(d, { global: true, build: false, home: fresh() });
   runHostsInit(d, { agents: ['cursor', 'agents'], home: d, global: false });
 
   const first = changed(runRetract(d, { apply: true, global: false }));
@@ -282,7 +282,7 @@ test('a stale [mcp_servers.graft] is replaced, not skipped', () => {
   const d = fresh();
   const cfg = write(d, join('.grok', 'config.toml'),
     '[mcp_servers.keepme]\ncommand = "y"\n\n[mcp_servers.graft]\ncommand = "OLD-BINARY"\nargs = ["stale"]\n');
-  const [w] = registerMcpConfigs(d, ['grok'], { home: d });
+  const [w] = registerMcpConfigs(d, ['grok'], { global: true, home: d });
 
   assert.equal(w.action, 'updated', 'an existing section used to freeze the launch command');
   const text = readFileSync(cfg, 'utf8');
@@ -291,7 +291,7 @@ test('a stale [mcp_servers.graft] is replaced, not skipped', () => {
   assert.equal((text.match(/\[mcp_servers\.graft\]/g) ?? []).length, 1, 'exactly one graft section');
 
   // Second run is a no-op, not a churn.
-  assert.equal(registerMcpConfigs(d, ['grok'], { home: d })[0].action, 'unchanged');
+  assert.equal(registerMcpConfigs(d, ['grok'], { global: true, home: d })[0].action, 'unchanged');
   assert.equal(readFileSync(cfg, 'utf8'), text, 'byte-identical on re-run');
 });
 

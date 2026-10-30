@@ -81,7 +81,7 @@ test('unparseable hooks.json is never rewritten', () => {
 
 test('runHostsInit --agents cursor writes repo-local hooks and never touches ~/.cursor', () => {
   const home = fresh(); const repo = fresh();
-  const r = runHostsInit(repo, { home, agents: ['cursor'] });
+  const r = runHostsInit(repo, { global: true, home, agents: ['cursor'] });
   assert.ok(existsSync(cfgPath(repo)), 'hooks.json written in the repo');
   assert.ok(existsSync(shimPath(repo)), 'shim written in the repo');
   assert.ok(r.hooks.some((h) => h.id === 'cursor-hooks'), 'reported in result.hooks');
@@ -97,7 +97,7 @@ test('cursor hooks are repo-local, so --no-global does NOT suppress them', () =>
 
 test('--no-hooks skips the Cursor hook files (rule file still written)', () => {
   const home = fresh(); const repo = fresh();
-  const r = runHostsInit(repo, { home, agents: ['cursor'], hooks: false });
+  const r = runHostsInit(repo, { global: true, home, agents: ['cursor'], hooks: false });
   assert.ok(!existsSync(cfgPath(repo)), 'no hooks.json under --no-hooks');
   assert.ok(!existsSync(shimPath(repo)), 'no shim under --no-hooks');
   assert.ok(!r.hooks.some((h) => h.id?.startsWith('cursor')), 'no cursor hook writes reported');

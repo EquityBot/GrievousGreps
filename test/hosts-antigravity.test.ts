@@ -55,7 +55,7 @@ test("Antigravity skill lands in ~/.gemini/skills/graft/SKILL.md, idempotently",
 test("runHostsInit --agents antigravity writes AGENTS.md + MCP + skill", () => {
   const home = fresh(), repo = fresh();
   mkdirSync(join(home, '.gemini', 'config'), { recursive: true });
-  const r = runHostsInit(repo, { agents: ['antigravity'], home });
+  const r = runHostsInit(repo, { global: true, agents: ['antigravity'], home });
   assert.deepEqual(r.written.map((w) => w.id), ['antigravity']);
   assert.ok(readFileSync(join(repo, 'AGENTS.md'), 'utf8').includes('graft ask'), 'AGENTS.md written');
   assert.ok(r.mcp.some((w) => w.path.endsWith(join('.gemini', 'config', 'mcp_config.json'))), 'MCP registered');

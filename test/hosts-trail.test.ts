@@ -82,7 +82,7 @@ test('the instruction text under trail names trail commands only; under graft it
 test('trail init for every agent: trail-named files, trail commands, a trail server', () => {
   const home = agentHome();
   const repo = tmpRepo('trail-hosts');
-  const r = runHostsInit(repo, { all: true, home, brand: 'trail' });
+  const r = runHostsInit(repo, { global: true, all: true, home, brand: 'trail' });
   assert.equal(r.written.length, ALL.length);
 
   const files = filesUnder(repo);
@@ -124,7 +124,7 @@ test('trail init for every agent: trail-named files, trail commands, a trail ser
 
   // A teammate on graft refreshing the same repo writes the same files: it never flips back.
   assert.equal(hostWiringName(repo), 'trail');
-  const again = runHostsInit(repo, { all: true, home });
+  const again = runHostsInit(repo, { global: true, all: true, home });
   assert.ok(again.written.every((w) => w.action === 'unchanged'), JSON.stringify(again.written));
   assert.ok(again.mcp.every((w) => w.action === 'unchanged'), JSON.stringify(again.mcp));
 });
@@ -133,11 +133,11 @@ test('a graft-wired repo moved to trail keeps one copy of everything, under trai
   const home = agentHome();
   const repo = tmpRepo('graft-to-trail-hosts');
   writeFileSync(join(repo, 'AGENTS.md'), '# House rules\n\nBe kind.\n');
-  runHostsInit(repo, { all: true, home });
+  runHostsInit(repo, { global: true, all: true, home });
   assert.ok(readFileSync(join(repo, 'AGENTS.md'), 'utf8').includes(GRAFT_MARKERS.start), 'wired as graft');
   assert.equal(hostWiringName(repo), 'graft');
 
-  runHostsInit(repo, { all: true, home, brand: 'trail' });
+  runHostsInit(repo, { global: true, all: true, home, brand: 'trail' });
   const files = filesUnder(repo);
   assert.deepEqual(files.filter((f) => /\bgraft\b/.test(f)), [], `graft's copies are gone: ${files.join(', ')}`);
   assert.ok(!existsSync(join(repo, '.adal', 'skills', 'graft')), 'and their folders');
@@ -192,7 +192,7 @@ test('a graft repo leaves a machine-wide trail server alone instead of adding gr
   const ag = join(home, '.gemini', 'config', 'mcp_config.json');
   writeFileSync(ag, `${JSON.stringify({ mcpServers: { trail: { command: 'trail', args: ['mcp'] } } }, null, 2)}\n`);
   const repo = tmpRepo('graft-repo-trail-machine');
-  const ws = registerMcpConfigs(repo, ['agents', 'antigravity', 'cursor'], { home });
+  const ws = registerMcpConfigs(repo, ['agents', 'antigravity', 'cursor'], { global: true, home });
   assert.deepEqual(ws.map((w) => [w.id, w.action]), [['codex', 'unchanged'], ['opencode', 'created'], ['antigravity', 'unchanged'], ['cursor', 'created']]);
   assert.equal(readFileSync(codex, 'utf8'), trailTable);
   assert.deepEqual(Object.keys(JSON.parse(readFileSync(ag, 'utf8')).mcpServers), ['trail']);
@@ -203,7 +203,7 @@ test('uninstall removes the wiring under either name, keeping the user\'s words'
   const home = agentHome();
   const repo = tmpRepo('uninstall-both');
   writeFileSync(join(repo, 'AGENTS.md'), '# House rules\n');
-  runHostsInit(repo, { all: true, home, brand: 'trail' });
+  runHostsInit(repo, { global: true, all: true, home, brand: 'trail' });
   // A teammate on an older graft added its copies back beside trail's.
   writeFileSync(join(repo, 'AGENTS.md'), `${readFileSync(join(repo, 'AGENTS.md'), 'utf8')}\n${fencedBlock('graft', '\n', GRAFT_MARKERS)}\n`);
   mkdirSync(join(repo, '.cursor', 'rules'), { recursive: true });

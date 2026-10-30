@@ -83,8 +83,8 @@ test('trail init wires PreToolUse once, in ~/.claude, never in the shared settin
   writeFileSync(join(repo, '.claude', 'settings.json'), JSON.stringify({ hooks: { PreToolUse: [THEIRS] } }));
   writeFileSync(join(home, '.claude', 'settings.json'), JSON.stringify({ hooks: { PreToolUse: [THEIRS] } }));
 
-  runInit(repo, { build: false, home, brand: 'trail' });
-  runInit(repo, { build: false, home, brand: 'trail' });
+  runInit(repo, { global: true, build: false, home, brand: 'trail' });
+  runInit(repo, { global: true, build: false, home, brand: 'trail' });
   const repoHooks = readJson(join(repo, '.claude', 'settings.json')).hooks;
   const userHooks = readJson(join(home, '.claude', 'settings.json')).hooks;
   assert.deepEqual(repoHooks.PreToolUse, [THEIRS], "the team's own hook, and none of ours in the shared file");
@@ -148,7 +148,7 @@ test('a repo settings.json that is not plain JSON is left as it was, and init sa
     const home = tmpRepo('pre-bash-wire-jsonc-home');
     mkdirSync(join(repo, '.claude'), { recursive: true });
     writeFileSync(join(repo, '.claude', 'settings.json'), text);
-    const r = runInit(repo, { build: false, home, brand: 'trail' });
+    const r = runInit(repo, { global: true, build: false, home, brand: 'trail' });
     assert.equal(readFileSync(join(repo, '.claude', 'settings.json'), 'utf8'), text, 'untouched');
     assert.ok(r.warnings.some((w) => w.includes('.claude/settings.json')), r.warnings.join('\n'));
     assert.equal(preBashEntries(readJson(join(home, '.claude', 'settings.json')).hooks).length, 1, 'the ~/.claude copy still covers it');
@@ -157,7 +157,7 @@ test('a repo settings.json that is not plain JSON is left as it was, and init sa
   const repo = tmpRepo('pre-bash-wire-empty');
   mkdirSync(join(repo, '.claude'), { recursive: true });
   writeFileSync(join(repo, '.claude', 'settings.json'), '\n');
-  runInit(repo, { build: false, home: tmpRepo('pre-bash-wire-empty-home'), brand: 'trail' });
+  runInit(repo, { global: true, build: false, home: tmpRepo('pre-bash-wire-empty-home'), brand: 'trail' });
   assert.deepEqual(Object.keys(readJson(join(repo, '.claude', 'settings.json')).hooks), ['SessionStart']);
 });
 
@@ -168,7 +168,7 @@ test('a settings.json left as it was keeps the old shims it still runs', () => {
   const text = '{\n  // ours\n  "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "node \\"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/trail-hooks.cjs\\" stop" }] }] }\n}\n';
   writeFileSync(join(repo, '.claude', 'settings.json'), text);
   writeFileSync(join(repo, '.claude', 'helpers', 'trail-hooks.cjs'), 'old');
-  runInit(repo, { build: false, home, brand: 'trail' });
+  runInit(repo, { global: true, build: false, home, brand: 'trail' });
   assert.equal(readFileSync(join(repo, '.claude', 'settings.json'), 'utf8'), text);
   assert.ok(existsSync(join(repo, '.claude', 'helpers', 'trail-hooks.cjs')), 'the shim its hooks name is still there');
 });

@@ -571,7 +571,7 @@ export function formatPlan(
       warn('would write on your machine, affects ALL repos:'),
       ...pad(globalWrites, (p) => tilde(p, home)),
       '',
-      dim('suppress the out-of-repo writes with --no-global'),
+      dim('these are here because of --global'),
     );
   }
   lines.push('', dim('nothing was written (--dry-run)'));

@@ -172,9 +172,8 @@ export function runInit(
   // The same wiring again, one level up in `~/.claude`, because everything above
   // this line can be erased by a `.gitignore` and lost to `git worktree add`. See
   // hosts/claude-global.ts for the failure that motivates it. Gated on the same
-  // flag `registerMcpConfigs` uses, so `--no-global` still means "nothing outside
-  // this repo".
-  const global = opts.global === false ? [] : installClaudeGlobal(opts.home ?? homedir(), 'graft');
+  // flag `registerMcpConfigs` uses: nothing outside this repo unless `--global` asks.
+  const global = opts.global === true ? installClaudeGlobal(opts.home ?? homedir(), 'graft') : [];
 
   const built = buildGraphIfMissing(dir, opts);
   return { settingsPath, shims: [sl, hk], skill: skillPath, mcp, global, warnings, built };
@@ -196,7 +195,7 @@ function runTrailInit(
   opts: { build?: boolean; cliPath?: string; statusline?: boolean; global?: boolean; home?: string },
 ): InitResult {
   const home = opts.home ?? homedir();
-  const global = opts.global !== false;
+  const global = opts.global === true;
   const [settings, hook, local, statusline, skill] = claudeTargetsFor(dir, 'trail', home).map((t) => t.path);
 
   mkdirSync(dirname(hook), { recursive: true });

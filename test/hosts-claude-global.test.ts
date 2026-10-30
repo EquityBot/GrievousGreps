@@ -75,7 +75,7 @@ test('a worktree of a repo that ignores *.json loses both repo-level triggers', 
   const home = tmpRepo('cghome');
   const main = repoIgnoringJson();
 
-  runInit(main, { build: false, home });
+  runInit(main, { global: true, build: false, home });
   // Both repo files exist in the main checkout...
   assert.ok(existsSync(join(main, '.mcp.json')));
   assert.ok(existsSync(join(main, '.claude', 'settings.json')));
@@ -200,7 +200,7 @@ test('uninstall removes exactly what the global install added', () => {
   writeFileSync(settingsOf(home), JSON.stringify({ theme: 'light' }, null, 2));
   writeFileSync(userMcpOf(home), JSON.stringify({ mcpServers: { paper: { command: 'paper' } } }, null, 2));
 
-  runInit(repo, { build: false, home });
+  runInit(repo, { global: true, build: false, home });
   assert.ok(planRetract(repo, { home }).some((r) => r.path === shimOf(home)), 'the plan names the shim');
 
   runRetract(repo, { home, apply: true });
@@ -218,7 +218,7 @@ test('--no-global uninstall leaves the user-level copy in place', () => {
   const home = tmpRepo('cgretractkeep');
   const repo = tmpRepo('cgretractkeeprepo');
 
-  runInit(repo, { build: false, home });
+  runInit(repo, { global: true, build: false, home });
   runRetract(repo, { home, global: false, apply: true });
 
   assert.ok(existsSync(shimOf(home)));

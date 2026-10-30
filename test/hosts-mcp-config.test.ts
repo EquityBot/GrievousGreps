@@ -13,7 +13,7 @@ function fresh(): string { return mkdtempSync(join(tmpdir(), 'graft-mcpcfg-')); 
 
 test('cursor/gemini/kiro get repo-local JSON entries', () => {
   const repo = fresh(); const home = fresh();
-  const w = registerMcpConfigs(repo, ['cursor', 'gemini', 'kiro'], { home });
+  const w = registerMcpConfigs(repo, ['cursor', 'gemini', 'kiro'], { global: true, home });
   assert.deepEqual(w.map((x) => x.action), ['created', 'created', 'created']);
   const cursor = JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'));
   assert.deepEqual(cursor.mcpServers.graft, { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
@@ -25,11 +25,11 @@ test('existing config keys are preserved; re-run is unchanged', () => {
   const repo = fresh(); const home = fresh();
   mkdirSync(join(repo, '.cursor'), { recursive: true });
   writeFileSync(join(repo, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { other: { command: 'x' } } }));
-  registerMcpConfigs(repo, ['cursor'], { home });
+  registerMcpConfigs(repo, ['cursor'], { global: true, home });
   const cfg = JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'));
   assert.ok(cfg.mcpServers.other, 'foreign server preserved');
   assert.ok(cfg.mcpServers.graft);
-  const again = registerMcpConfigs(repo, ['cursor'], { home });
+  const again = registerMcpConfigs(repo, ['cursor'], { global: true, home });
   assert.deepEqual(again.map((x) => x.action), ['unchanged']);
 });
 
@@ -37,24 +37,24 @@ test('unparseable JSON is never clobbered', () => {
   const repo = fresh(); const home = fresh();
   mkdirSync(join(repo, '.cursor'), { recursive: true });
   writeFileSync(join(repo, '.cursor', 'mcp.json'), '{ not json');
-  const w = registerMcpConfigs(repo, ['cursor'], { home });
+  const w = registerMcpConfigs(repo, ['cursor'], { global: true, home });
   assert.deepEqual(w.map((x) => x.action), ['skipped-unparseable']);
   assert.equal(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'), '{ not json');
 });
 
 test('agents id: codex TOML + opencode JSON, gated on home dirs', () => {
   const repo = fresh(); const home = fresh();
-  assert.deepEqual(registerMcpConfigs(repo, ['agents'], { home }), [], 'nothing without home dirs');
+  assert.deepEqual(registerMcpConfigs(repo, ['agents'], { global: true, home }), [], 'nothing without home dirs');
   mkdirSync(join(home, '.codex'), { recursive: true });
   mkdirSync(join(home, '.config', 'opencode'), { recursive: true });
-  const w = registerMcpConfigs(repo, ['agents'], { home });
+  const w = registerMcpConfigs(repo, ['agents'], { global: true, home });
   assert.equal(w.length, 2);
   const toml = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
   assert.match(toml, /"@nanonets\/graft"/);
   const oc = JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8'));
   assert.equal(oc.mcp.graft.type, 'local');
-  const again = registerMcpConfigs(repo, ['agents'], { home });
+  const again = registerMcpConfigs(repo, ['agents'], { global: true, home });
   assert.deepEqual(again.map((x) => x.action).sort(), ['unchanged', 'unchanged']);
 });
 
@@ -62,7 +62,7 @@ test('codex TOML append preserves existing content', () => {
   const repo = fresh(); const home = fresh();
   mkdirSync(join(home, '.codex'), { recursive: true });
   writeFileSync(join(home, '.codex', 'config.toml'), 'model = "o3"\n\n[mcp_servers.other]\ncommand = "x"\n');
-  registerMcpConfigs(repo, ['agents'], { home });
+  registerMcpConfigs(repo, ['agents'], { global: true, home });
   const toml = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
   assert.match(toml, /model = "o3"/);
   assert.match(toml, /\[mcp_servers\.other\]/);
@@ -71,12 +71,12 @@ test('codex TOML append preserves existing content', () => {
 
 test('grok gets a repo-local TOML MCP section', () => {
   const repo = fresh(); const home = fresh();
-  const w = registerMcpConfigs(repo, ['grok'], { home });
+  const w = registerMcpConfigs(repo, ['grok'], { global: true, home });
   assert.deepEqual(w.map((x) => x.action), ['created']);
   const toml = readFileSync(join(repo, '.grok', 'config.toml'), 'utf8');
   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
   assert.match(toml, /"@nanonets\/graft"/);
-  const again = registerMcpConfigs(repo, ['grok'], { home });
+  const again = registerMcpConfigs(repo, ['grok'], { global: true, home });
   assert.deepEqual(again.map((x) => x.action), ['unchanged']);
 });
 
@@ -85,7 +85,7 @@ test('JSON with non-object mcpServers value is skipped', () => {
   mkdirSync(join(repo, '.cursor'), { recursive: true });
   const badJson = '{"mcpServers": "not-an-object"}';
   writeFileSync(join(repo, '.cursor', 'mcp.json'), badJson);
-  const w = registerMcpConfigs(repo, ['cursor'], { home });
+  const w = registerMcpConfigs(repo, ['cursor'], { global: true, home });
   assert.deepEqual(w.map((x) => x.action), ['skipped-unparseable']);
   assert.equal(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'), badJson);
 });

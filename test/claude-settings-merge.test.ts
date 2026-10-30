@@ -176,8 +176,8 @@ test("trail init writes PostToolUseFailure once, in ~/.claude, keeps the person'
   const prev = process.env.GRAFT_MCP_NPX;
   process.env.GRAFT_MCP_NPX = '1';
   try {
-    runInit(repo, { build: false, home, brand: 'trail' });
-    runInit(repo, { build: false, home, brand: 'trail' });
+    runInit(repo, { global: true, build: false, home, brand: 'trail' });
+    runInit(repo, { global: true, build: false, home, brand: 'trail' });
   } finally {
     if (prev === undefined) delete process.env.GRAFT_MCP_NPX;
     else process.env.GRAFT_MCP_NPX = prev;

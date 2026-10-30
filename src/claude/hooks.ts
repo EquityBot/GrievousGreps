@@ -14,7 +14,7 @@ import { emit, emitHook, graftJson, payloadSessionId, withContextDirArg } from '
 import { codexPostBashPart, postBashPart, sessionStartPart } from './skills-wiring.js';
 import { handlePrompt } from './prompt-hook.js';
 import { runUpkeep } from '../upkeep-run.js';
-import { runningVersion, wiredHostIds } from '../upkeep.js';
+import { readStamp, runningVersion, wiredHostIds, wiringOpts } from '../upkeep.js';
 import { hostsWiredForTrail } from '../hosts/registry.js';
 import { flushClosedSessions, summarizeSession } from '../telemetry/sessions.js';
 import { maybeFlushInBackground } from '../telemetry/flush.js';
@@ -533,7 +533,7 @@ export async function main(event: string): Promise<void> {
     trailAtStart(dir);
     // A repo on trail, opened on a machine that has graft but not the trail command.
     // Only while its .mcp.json still names a trail server: once it doesn't, trail: true takes back the stand-in.
-    if (repoWiredForTrail(dir)) fitTrailServerToMachine(homedir(), resolve(dir), { trail: trailOnPath() || !repoNamesTrailServer(dir), graft: commandOnPath('graft') });
+    if (repoWiredForTrail(dir) && wiringOpts(readStamp(dir)).global) fitTrailServerToMachine(homedir(), resolve(dir), { trail: trailOnPath() || !repoNamesTrailServer(dir), graft: commandOnPath('graft') });
     const text = orientationAtStart(dir, learningsAtStart(dir));
     const kept = keptAtStart(input, dir);
     // The skills context comes after the learnings; its notice is for the person.

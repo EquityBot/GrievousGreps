@@ -89,7 +89,7 @@ test('the stamp round-trips under graft/.cache/', () => {
   assert.deepEqual(readStamp(repo), {
     version: '1.2.3',
     hosts: ['claude', 'cursor'], // sorted, so two inits in different picker order match
-    opts: { global: true, mcp: true, hooks: true, statusline: true },
+    opts: { global: false, mcp: true, hooks: true, statusline: true },
     at: '2026-01-01T00:00:00.000Z',
   });
 });
@@ -127,11 +127,11 @@ test('a refresh replays --no-statusline so a later session cannot re-install the
     wired: () => ['claude'],
     rewrite: (_repo, _hosts, opts) => { seen = opts; },
   });
-  assert.deepEqual(seen, { global: true, mcp: true, hooks: true, statusline: false });
-  assert.deepEqual(readStamp(repo)?.opts, { global: true, mcp: true, hooks: true, statusline: false });
+  assert.deepEqual(seen, { global: false, mcp: true, hooks: true, statusline: false });
+  assert.deepEqual(readStamp(repo)?.opts, { global: false, mcp: true, hooks: true, statusline: false });
 });
 
-test('by default a refresh DOES reach ~/.codex — nothing else ever would', () => {
+test('by default a refresh stays out of ~/.codex: that takes --global', () => {
   // No skill, rule file, or MCP instruction tells an agent to run `graft init`,
   // so skipping the out-of-repo writes means a Codex user never gets them.
   const repo = tmpRepo('upkeep-global');
@@ -142,7 +142,7 @@ test('by default a refresh DOES reach ~/.codex — nothing else ever would', () 
     rewrite: (_repo, _hosts, opts) => { seen = opts; },
   });
   assert.deepEqual(seen, DEFAULT_WIRING_OPTS);
-  assert.equal(r?.global, true);
+  assert.equal(r?.global, false);
 });
 
 test('wiredHostIds reads what init actually wrote, not what the machine has', () => {
@@ -173,7 +173,7 @@ test('reconcileWiring rewrites once on a version mismatch, then no-ops', () => {
 
   // No stamp (fresh clone, or wired by a pre-stamp graft) → refresh.
   const first = reconcileWiring(repo, '2.0.0', { wired, rewrite });
-  assert.deepEqual(first, { from: 'unwired', to: '2.0.0', hosts: ['claude', 'cursor'], global: true });
+  assert.deepEqual(first, { from: 'unwired', to: '2.0.0', hosts: ['claude', 'cursor'], global: false });
   assert.deepEqual(calls, [['claude', 'cursor']]);
 
   // Stamp now matches the running binary → nothing happens on every later session.
@@ -182,7 +182,7 @@ test('reconcileWiring rewrites once on a version mismatch, then no-ops', () => {
 
   // A newer binary → one more refresh, reported with the version it came from.
   const upgraded = reconcileWiring(repo, '2.1.0', { wired, rewrite });
-  assert.deepEqual(upgraded, { from: '2.0.0', to: '2.1.0', hosts: ['claude', 'cursor'], global: true });
+  assert.deepEqual(upgraded, { from: '2.0.0', to: '2.1.0', hosts: ['claude', 'cursor'], global: false });
   assert.equal(calls.length, 2);
   assert.equal(readStamp(repo)?.version, '2.1.0');
 });

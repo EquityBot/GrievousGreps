@@ -113,13 +113,13 @@ test("runHostsInit writes every repo file but out-of-repo files only for laptop 
   // Codex and Antigravity both installed, but neither on the laptop list.
   mkdirSync(join(home, ".codex"));
   mkdirSync(join(home, ".gemini", "config"), { recursive: true });
-  const r = runHostsInit(repo, { home, agents: hostIds(), laptop: ["cursor"] });
+  const r = runHostsInit(repo, { global: true, home, agents: hostIds(), laptop: ["cursor"] });
   assert.equal(r.written.length, hostIds().length);
   assert.ok(r.mcp.every((m) => m.path.startsWith(repo)), JSON.stringify(r.mcp));
   assert.ok(r.hooks.every((h) => h.path.startsWith(repo)), JSON.stringify(r.hooks));
   assert.ok(r.hooks.some((h) => h.path.includes(join(".cursor", "hooks"))), "Cursor's repo-local hooks are written");
 
-  const all = runHostsInit(repo, { home, agents: hostIds(), laptop: ["agents", "antigravity"] });
+  const all = runHostsInit(repo, { global: true, home, agents: hostIds(), laptop: ["agents", "antigravity"] });
   assert.ok(all.mcp.some((m) => m.path === join(home, ".codex", "config.toml")));
   assert.ok(all.mcp.some((m) => m.path === join(home, ".gemini", "config", "mcp_config.json")));
   assert.ok(all.hooks.some((h) => h.path.startsWith(join(home, ".codex"))));

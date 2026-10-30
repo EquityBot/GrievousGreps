@@ -99,7 +99,7 @@ test('every path a real runHostsInit writes was in the plan, and vice versa', ()
   const ids = hostIds();
 
   const planned = new Set(selectedWrites(planInit(repo, { home }), ids).map((w) => w.path));
-  const r = runHostsInit(repo, { home, agents: ids });
+  const r = runHostsInit(repo, { global: true, home, agents: ids });
   const actual = new Set([
     ...r.written.map((w) => w.path),
     ...r.mcp.map((m) => m.path),
