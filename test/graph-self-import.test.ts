@@ -463,3 +463,14 @@ pub fn boxed(x: Box<Foo>) { x.f(); }
   assert.ok(calls(graph, "src/lib.rs#expected").includes(f));
   assert.deepEqual(calls(graph, "src/lib.rs#boxed"), [f], "a Box derefs by itself");
 });
+
+test("Rust: a call in a `macro_rules` arm is a template's, so inferred and never definite", async (t) => {
+  const graph = await build(t, {
+    "src/lib.rs": `pub fn helper() {}
+macro_rules! m { () => { helper() } }
+pub fn real() { helper(); }
+`,
+  });
+  const found = graph.edges.filter((e) => e.relation === "calls" && e.target === "src/lib.rs#helper");
+  assert.deepEqual(found.map((e) => [e.source, e.confidence]).sort(), [["src/lib.rs#m", "inferred"], ["src/lib.rs#real", "extracted"]]);
+});

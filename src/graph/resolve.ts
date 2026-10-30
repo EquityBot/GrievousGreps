@@ -413,6 +413,7 @@ export function resolveEdges(
       // Python imports identify the target module. A named receiver can be a
       // class or a submodule; both resolve within their explicit import path.
       if (e.rustRoot && (RUST_STD_CRATES.has(e.rustRoot) || opts.rustExternalCrates?.has(e.rustRoot))) continue;
+      const stated = (confidence: EdgeV1["confidence"]) => (e.rustTemplate ? "inferred" as const : confidence);
       if (e.pythonRebound && e.name) {
         const file = toPosixPath(e.file);
         const start = e.pythonReboundModule ? pythonModuleName(e.pythonReboundModule, file, pythonCtx) : followPythonName(e.pythonRebound, file, pythonCtx);
@@ -469,7 +470,7 @@ export function resolveEdges(
         }
         if (hit === "ambiguous") continue; // drop — never guess past an ambiguous owner
         if (hit) {
-          if (hit.id !== e.source || e.rustForm !== "method") add(e.source, hit.id, "calls", hit.confidence);
+          if (hit.id !== e.source || e.rustForm !== "method") add(e.source, hit.id, "calls", stated(hit.confidence));
           continue;
         }
         // No owner-qualified match means the call is unresolved. A unique bare
@@ -517,7 +518,7 @@ export function resolveEdges(
         if (e.rustPath && e.rustForm !== "macro") {
           const reached = rustFollowPath(e.rustPath, e.file, rustPathCtx);
           if (reached) {
-            if (reached.id !== e.source) add(e.source, reached.id, "calls", "extracted");
+            if (reached.id !== e.source) add(e.source, reached.id, "calls", stated("extracted"));
             continue;
           }
         }
@@ -530,7 +531,7 @@ export function resolveEdges(
           !e.onlyModules || e.onlyModules.some((m) => path.endsWith(`/${m}.rs`) || path.includes(`/${m}/`));
         const global = free(globalName.get(e.name!)).filter((n) => reachable(e.file, n.path) && inModule(n.path));
         const only = local.length === 1 ? local[0] : global.length === 1 ? global[0] : undefined;
-        if (only) add(e.source, only.id, "calls", local.length === 1 ? "extracted" : "inferred");
+        if (only) add(e.source, only.id, "calls", stated(local.length === 1 ? "extracted" : "inferred"));
         else if (global.length > 1 && e.rustForm === "free") opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: e.rustPath ?? `${global.length} definitions of that name` });
         continue;
       }

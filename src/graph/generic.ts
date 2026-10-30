@@ -836,9 +836,11 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
         ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c), c.startIndex, rustOwnerBrought(path, scopes, c.startIndex, anyGlob)),
         ...withRustPath(rustWholePath(path, c.text, scopes, c.startIndex)),
         ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}),
+        ...(inArm ? { rustTemplate: true } : {}),
       });
     }
   };
+  let inArm = false;
   const visit = (n: TsNode): void => {
     if (n.type === "macro_invocation") {
       if (n.childForFieldName?.("macro")?.text === "cfg") return;
@@ -848,10 +850,15 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       }
       return;
     }
-    // A macro's arms hold calls the same way its arguments do, and name no type.
+    // A macro's arms hold calls the same way its arguments do, and name no type. An arm is a
+    // template that no expansion may use, so its calls are never stated as definite.
     if (n.type === "macro_rule") {
       const body = n.childForFieldName?.("right");
-      if (body) scan(body);
+      if (body) {
+        inArm = true;
+        scan(body);
+        inArm = false;
+      }
       return;
     }
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
