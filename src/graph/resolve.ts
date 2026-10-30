@@ -14,7 +14,7 @@
  */
 import { posix } from "node:path";
 import { toPosixPath } from "../util/paths.js";
-import type { EdgeV1, Kind, NodeV1, Relation } from "./types.js";
+import type { EdgeV1, Kind, NodeV1, Relation, UnresolvedCallV1 } from "./types.js";
 import { languageOf, type PythonExports, type RawEdge } from "./extract.js";
 import { genericLangOf } from "./generic.js";
 
@@ -96,6 +96,8 @@ export interface ResolveOptions {
    * (`example.com/app/pkg/util`) to the in-repo directory they name, relative to the
    * owning module's `go.mod` location. Empty/absent → Go imports stay external strings. */
   goModules?: GoModule[];
+  /** Filled with the Python calls an import names but no edge carries. */
+  unresolvedCalls?: UnresolvedCallV1[];
 }
 
 export function resolveEdges(
@@ -314,10 +316,17 @@ export function resolveEdges(
       }
       // Python imports identify the target module. A named receiver can be a
       // class or a submodule; both resolve within their explicit import path.
+      if (e.pythonRebound && e.name) {
+        if (followPythonName(e.name, e.file, pythonCtx) !== "external") {
+          opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: null });
+        }
+        continue;
+      }
       if (e.specifier && e.name && e.file.endsWith(".py")) {
         const moduleFile = resolvePythonImport(e.specifier, e.file, byId, pythonFilesByModule);
         let targetFile = moduleFile;
         let candidates: NodeV1[];
+        let outside = false;
         if (e.viaMember && e.recvType) {
           const owners = (perFileName.get(moduleFile)?.get(e.recvType) ?? [])
             .filter((n) => n.id.replace(/~\d+$/, "") === `${moduleFile}#${e.recvType}`);
@@ -341,15 +350,19 @@ export function resolveEdges(
             }
             const hit = followPythonName(e.name, targetFile, pythonCtx);
             candidates = typeof hit === "string" ? [] : [hit];
+            outside = hit === "external";
           } else {
             candidates = [];
           }
         } else {
           const hit = followPythonName(e.name, targetFile, pythonCtx);
           candidates = typeof hit === "string" ? [] : [hit];
+          outside = hit === "external";
         }
         if (candidates.length === 1) {
           add(e.source, candidates[0].id, "calls", "extracted");
+        } else if (!outside) {
+          opts.unresolvedCalls?.push({ source: e.source, name: e.name, through: e.specifier });
         }
         // Explicit imports must not fall through to an unrelated global name.
         continue;

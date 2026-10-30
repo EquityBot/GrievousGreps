@@ -111,6 +111,17 @@ export function looseNoteFor(direction: Direction, name: string, candidateCount:
   return `  no indexed ${label} — the graph has no ${dir} call/reference edges for this symbol as written.${ambiguity} Check the name (try the bare symbol, or "Type.method"), or find its uses with ${cmd("graft grep")} "${name}". Fall back to raw grep -rn only for unindexed files`;
 }
 
+/** Says which calls to `name` no edge carries, naming them, so a short caller list is
+ * not read as a whole one. Null when there are none, or for callees. */
+export function unresolvedNoteFor(graph: GraphV1, direction: Direction, name: string): string | null {
+  if (direction !== "in") return null;
+  const calls = (graph.unresolvedCalls ?? []).filter((c) => c.name === name);
+  if (calls.length === 0) return null;
+  const named = calls.slice(0, 5).map((c) => (c.through ? `${c.source} (through ${c.through})` : `${c.source} (a conditional import rebinds it)`));
+  const more = calls.length > 5 ? ` and ${calls.length - 5} more` : "";
+  return `  ⚠ may be incomplete: ${calls.length} call(s) to "${name}" did not resolve to one definition and are not listed: ${named.join(", ")}${more}`;
+}
+
 interface SymbolJson {
   id: string;
   name: string;
@@ -123,6 +134,7 @@ interface MatchJson {
   symbol: SymbolJson;
   hits: HitJson[];
   note?: string;
+  unresolved?: string;
 }
 
 interface HitJson {
@@ -221,6 +233,8 @@ export function runCallersCommand(query: string, dir: string, opts: CallersCliOp
         if (r.hits.length === 0) {
           m.note = looseNoteFor(direction, r.symbol.name, matches.length);
         }
+        const unresolved = unresolvedNoteFor(graph, direction, r.symbol.name);
+        if (unresolved) m.unresolved = unresolved.trim();
         return m;
       }),
       saved,
@@ -236,6 +250,8 @@ export function runCallersCommand(query: string, dir: string, opts: CallersCliOp
     lines.push(headerOf(symbol));
     if (hits.length === 0) lines.push(looseNoteFor(direction, symbol.name, matches.length));
     else for (const h of hits) lines.push(hitLine(direction, h, showDepth, quoteFor(h, symbol.name, read)));
+    const unresolved = unresolvedNoteFor(graph, direction, symbol.name);
+    if (unresolved) lines.push(unresolved);
     lines.push("");
   }
   const body = lines.join("\n").replace(/\n+$/, "\n");

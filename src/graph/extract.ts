@@ -96,6 +96,8 @@ export interface RawEdge {
   /** A Python file's module-level names, so resolve.ts can follow a re-export. Only on
    * the file's one export-table edge, which is not itself a graph edge. */
   pythonExports?: PythonExports;
+  /** calls: a bare Python name a conditional import rebinds, so it has no single binding. */
+  pythonRebound?: boolean;
   name?: string; // symbol name to resolve (extends/implements/calls)
   viaMember?: boolean; // calls: was it `obj.foo()` (→ prefer method targets)?
   /** calls with viaMember: the receiver's resolved type name (from bindings /
@@ -337,6 +339,8 @@ export interface WalkCtx {
    * local name → imported name and module. Kept apart from importedSymbols so they
    * feed call resolution only, not identifier references. */
   pythonNamedImports: ReadonlyMap<string, { name: string; specifier: string }>;
+  /** Names a module-level import binds that a rebinding left with no single target. */
+  pythonReboundNames: ReadonlySet<string>;
   /** Python only: names an import binds in scope, from module-level imports
    * (conditional ones included) and the enclosing defs' own imports. A call through
    * one that neither import map resolves here is dropped, never matched globally. */
@@ -400,6 +404,9 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
   const importedSymbols = collectImportedSymbols(root, lang);
   const rGenerics = lang === "r" ? collectRGenerics(root) : EMPTY_SET;
   const pythonExports = lang === "python" ? collectPythonExports(root) : null;
+  const pythonReboundNames = new Set(
+    [...pythonImportedNames].filter((name) => !pythonNamedImports.has(name) && !importedModules.has(name)),
+  );
 
   const nodes: NodeV1[] = [
     {
@@ -435,6 +442,7 @@ function extractTree(rel: string, source: string, lang: Language, root: SyntaxNo
     importedModules,
     pythonNamedImports,
     pythonImportedNames,
+    pythonReboundNames,
     rR6Access: null,
     rGenerics,
     rSuperClass: null,
@@ -697,6 +705,7 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
         importedModules: ctx.importedModules,
         pythonNamedImports: ctx.pythonNamedImports,
         pythonImportedNames: ctx.pythonImportedNames,
+        pythonReboundNames: ctx.pythonReboundNames,
       };
       walkNamedChildren(node.namedChildren.filter(inHeader), headerCtx, out, edges, minted);
       walkNamedChildren(node.namedChildren.filter((c) => !inHeader(c)), childCtx, out, edges, minted);
@@ -835,6 +844,8 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
           // A shadowed bare import must not reconnect through global name lookup.
           if (moduleSpec) edges.push({ ...callEdge, specifier: moduleSpec });
           else edges.push(recvType ? { ...callEdge, recvType } : callEdge);
+        } else if (!callee.viaMember && ctx.pythonReboundNames.has(importedName!) && !pythonCallHasLocalBinding(node, importedName!)) {
+          edges.push({ ...callEdge, pythonRebound: true });
         }
       }
     }

@@ -129,4 +129,14 @@ export interface GraphV1 {
   };
   nodes: NodeV1[];
   edges: EdgeV1[];
+  /** Calls an import names but the build could not pin to one definition, so no edge
+   * carries them. `graft callers` states these rather than undercount silently. */
+  unresolvedCalls?: UnresolvedCallV1[];
+}
+
+export interface UnresolvedCallV1 {
+  source: string;
+  name: string;
+  /** The import the call went through, or null for one a conditional import rebinds. */
+  through: string | null;
 }

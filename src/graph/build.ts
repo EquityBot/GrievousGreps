@@ -41,7 +41,7 @@ import { readGraph, writeGraph, wiringPath } from "./write.js";
 import { writeCards, writeIndex, writeCovers, type CardStats } from "./cards.js";
 import { writeAskIndex } from "../ask/index-file.js";
 import { discoverScopes, scopeOf } from "./scopes.js";
-import type { GraphV1, Kind, NodeV1, Relation, ScopeV1 } from "./types.js";
+import type { GraphV1, Kind, NodeV1, Relation, ScopeV1, UnresolvedCallV1 } from "./types.js";
 import type { CruxSummarizer } from "../ai/crux.js";
 
 export { listSourceFiles } from "./source-files.js";
@@ -362,7 +362,8 @@ export async function buildGraph(
     files: entries,
   });
 
-  const edges = resolveEdges(nodes, rawEdges, { goModules: readGoModules(root, repoFiles) });
+  const unresolvedCalls: UnresolvedCallV1[] = [];
+  const edges = resolveEdges(nodes, rawEdges, { goModules: readGoModules(root, repoFiles), unresolvedCalls });
 
   // Guard 5 (minimum-substance): node counts aren't known until nodes are
   // assembled, so the merge-tiny-scopes-into-root guard runs here.
@@ -382,6 +383,7 @@ export async function buildGraph(
     },
     nodes,
     edges,
+    ...(unresolvedCalls.length ? { unresolvedCalls } : {}),
   };
 
   // graph.json is its own Tier-2 cache: fold in the prior meaning layer so an

@@ -10,7 +10,7 @@ import { loadGraphCached } from '../graph/load.js';
 import { ensureFreshChildren, ensureFreshGraph, refreshNote } from '../graph/refresh.js';
 import { contextDirFor } from '../context/node-file.js';
 import { resolveSymbol, edgeWalk, type Direction, type EdgeHit } from '../graph/traverse.js';
-import { callersSavings, headerOf, hitLine, looseNoteFor } from '../graph/traverse-cli.js';
+import { callersSavings, headerOf, hitLine, looseNoteFor, unresolvedNoteFor } from '../graph/traverse-cli.js';
 import { withSavings, setInputRate } from '../context/savings.js';
 import { sessionInputRate } from '../claude/session-metrics.js';
 import { grepGraph } from '../search/grep.js';
@@ -25,7 +25,7 @@ import {
   federateMap,
   readWorkspace,
 } from '../graph/workspace.js';
-import type { NodeV1 } from '../graph/types.js';
+import type { GraphV1, NodeV1 } from '../graph/types.js';
 import { recordLookup } from '../cloud/lookup-activity.js';
 import { canonicalToolName } from './tool-names.js';
 import { cmd } from '../brand.js';
@@ -133,6 +133,7 @@ export const TOOLS: ToolDef[] = [
  * `graft callers` uses for multi-match symbols. `showDepth` tags each hit with
  * its BFS depth (for transitive `depth>1` walks). */
 function renderMatches(
+  graph: GraphV1,
   direction: Direction,
   showDepth: boolean,
   matches: NodeV1[],
@@ -144,6 +145,8 @@ function renderMatches(
       const lines = [headerOf(m)];
       if (hits.length === 0) lines.push(looseNoteFor(direction, m.name, matches.length));
       else for (const h of hits) lines.push(hitLine(direction, h, showDepth));
+      const unresolved = unresolvedNoteFor(graph, direction, m.name);
+      if (unresolved) lines.push(unresolved);
       return lines.join('\n');
     })
     .join('\n\n');
@@ -307,7 +310,7 @@ async function callSingleTool(
               : 1;
         const results = matches.map((m) => ({ symbol: m, hits: edgeWalk(w, m, direction, depth) }));
         const byId = new Map(results.map((r) => [r.symbol.id, r.hits]));
-        const body = renderMatches(direction, depth > 1, matches, (m) => byId.get(m.id) ?? []);
+        const body = renderMatches(w, direction, depth > 1, matches, (m) => byId.get(m.id) ?? []);
         const text = withSavings(body, callersSavings(w, results));
         return { text, isError: false };
       }

@@ -34,6 +34,7 @@ import {
   headerOf,
   hitLine,
   looseNoteFor,
+  unresolvedNoteFor,
 } from "./traverse-cli.js";
 import { edgeWalk, resolveSymbol, type Direction } from "./traverse.js";
 import { wiringPath } from "./write.js";
@@ -697,6 +698,8 @@ export function federateCallers(
       lines.push(headerOf(sym));
       if (hits.length === 0) lines.push(looseNoteFor(direction, sym.name, matches.length));
       else for (const h of hits) lines.push(hitLine(direction, h, showDepth));
+      const unresolved = unresolvedNoteFor(graph, direction, sym.name);
+      if (unresolved) lines.push(unresolved);
     }
     const body = lines.join("\n");
     blocks.push(withSavings(body, callersSavings(graph, results)));
