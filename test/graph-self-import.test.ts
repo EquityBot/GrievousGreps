@@ -294,3 +294,18 @@ test("a call through a `.d.ts` did not resolve, and the message names the file",
   assert.doesNotMatch(traverse.noSymbolText(g, "expectType")!, /no symbol|no definition|spelling/);
   assert.equal(traverse.noSymbolText(g, "nothingCallsThis"), null);
 });
+
+test("a `macro_rules` arm's calls count, under the rules for other macro bodies", async (t) => {
+  const graph = await build(t, {
+    "src/routing.rs": `pub fn on() {}
+pub fn on_service() {}
+macro_rules! top {
+    ($name:ident) => {
+        pub fn $name() { on(); $crate::routing::on_service(); helper_elsewhere(); x.not_this(); }
+    };
+}
+`,
+    "src/other.rs": "pub fn helper_elsewhere() {}\npub fn not_this() {}\n",
+  });
+  assert.deepEqual(calls(graph, "src/routing.rs#top"), ["src/routing.rs#on", "src/routing.rs#on_service"]);
+});

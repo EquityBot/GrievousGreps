@@ -652,7 +652,8 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const enc = enclosingDef(defs, c.startIndex);
       let path: string | undefined;
       for (let j = i - 1; j >= 1 && tree.child?.(j)?.type === "::"; j -= 2) {
-        path = path ? `${tree.child?.(j - 1)?.text}::${path}` : tree.child?.(j - 1)?.text;
+        const part = tree.child?.(j - 1)?.text.replace(/^\$crate$/, "crate");
+        path = path ? `${part}::${path}` : part;
       }
       const owner = rustRealOwner(rustCallOwner(path, enc), scopes, c.startIndex);
       const source = enc ? enc.id : rel;
@@ -670,6 +671,12 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
         const c = n.namedChild?.(i);
         if (c?.type === "token_tree") scan(c);
       }
+      return;
+    }
+    // A macro's arms hold calls the same way its arguments do, and name no type.
+    if (n.type === "macro_rule") {
+      const body = n.childForFieldName?.("right");
+      if (body) scan(body);
       return;
     }
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
