@@ -599,7 +599,12 @@ function pythonModuleName(spec: string, file: string, ctx: PythonCtx): PythonNam
  * (the later star rebinds). Re-export chains end at the definition. */
 function followPythonName(name: string, file: string, ctx: PythonCtx, seen = new Set<string>()): PythonName {
   const key = `${file}\0${name}`;
-  if (seen.has(key)) return "undecided"; // an import cycle defines nothing
+  if (seen.has(key)) {
+    // `from . import mod` in a package's `__init__` asks the package for itself: the
+    // answer is the submodule. Any other import cycle defines nothing.
+    const sub = ctx.modules.submodule(file, name);
+    return sub ? { module: sub } : "undecided";
+  }
   seen.add(key);
   const own = (ctx.perFileName.get(file)?.get(name) ?? [])
     .filter((n) => n.id.replace(/~\d+$/, "") === `${file}#${name}` && (n.kind === "function" || n.kind === "class"));

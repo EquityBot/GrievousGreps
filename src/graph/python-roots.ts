@@ -138,27 +138,29 @@ export class PythonModules {
   }
 
   private resolveAbsolute(module: string, file: string): PythonModule {
-    const inRoot = (dir: string): string | null => {
+    const inRoot = ({ dir, scope }: { dir: string; scope: string }): string | null => {
       const hit = this.at(dir ? `${dir}/${module}` : module);
-      return hit === file ? null : hit; // a module does not import itself by its own name
+      // A module file does not import itself by name, which is how a nested `flask.py`
+      // reaches the real package. A package under a repo-wide root can: `from pkg import mod`.
+      return hit === file && !(file.endsWith("/__init__.py") && scope === "") ? null : hit;
     };
     const usable = this.roots.filter((r) => under(r.scope, file));
     let namespace: string | null = null;
     // The roots above the importer, nearest first.
     for (const r of usable) {
       if (!under(r.dir, file)) continue;
-      const hit = inRoot(r.dir);
+      const hit = inRoot(r);
       if (hit && !hit.endsWith("/")) return hit;
       namespace ??= hit;
     }
     // Any other root the importer can see, which must agree.
-    const others = new Set(usable.filter((r) => !under(r.dir, file)).map((r) => inRoot(r.dir)).filter((h): h is string => !!h));
+    const others = new Set(usable.filter((r) => !under(r.dir, file)).map((r) => inRoot(r)).filter((h): h is string => !!h));
     const regular = [...others].filter((h) => !h.endsWith("/"));
     if (regular.length === 1) return regular[0];
     if (regular.length > 1) return "ambiguous";
     // The importer's own directory, when it is a script rather than part of a package.
     for (const dir of this.localDirs(file)) {
-      const hit = inRoot(dir);
+      const hit = inRoot({ dir, scope: dir });
       if (hit && !hit.endsWith("/")) return hit;
       namespace ??= hit;
     }

@@ -202,3 +202,16 @@ test("the warning for a genuine rebinding says what happened", async () => {
   assert.match(r.stdout + r.stderr, /consumer\.py#run \(an assignment or a second import gives it more than one target\)/);
   assert.doesNotMatch(r.stdout + r.stderr, /conditional import/);
 });
+
+test("a package that binds its own submodule still leads to it", () => {
+  const mod = "def f():\n    pass\n";
+  const consumer = "from pkg import mod\ndef run():\n    mod.f()\n";
+  for (const init of ["from . import mod\n", "from pkg import mod\n", "import pkg.mod\n", "from . import mod as mod\n"]) {
+    assert.deepEqual(calls({ "pkg/__init__.py": init, "pkg/mod.py": mod, "consumer.py": consumer }, "consumer.py#run"), ["pkg/mod.py#f"], init);
+  }
+  assert.deepEqual(
+    calls({ "pkg/__init__.py": "from pkg import mod\ndef run():\n    mod.f()\n", "pkg/mod.py": mod }, "pkg/__init__.py#run"),
+    ["pkg/mod.py#f"],
+    "an absolute self-import, called from the package itself",
+  );
+});
