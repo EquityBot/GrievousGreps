@@ -245,6 +245,10 @@ export function resolveEdges(
     return real;
   };
 
+  const rustPubUses = new Map<string, NonNullable<RawEdge["rustPubUses"]>>();
+  for (const e of rawEdges) if (e.rustPubUses) rustPubUses.set(e.file, e.rustPubUses);
+  const rustPathCtx: RustPathCtx = { crates: opts.rustCrateDirs ?? new Map(), byId, perFileName, pubUses: rustPubUses };
+
   const tsModules = new Map<string, TsModule>();
   for (const e of rawEdges) if (e.tsModule) tsModules.set(e.file, e.tsModule);
   const tsCtx: TsCtx = { modules: tsModules, perFileName, byId, paths: opts.tsPaths ?? [], packages: opts.tsPackages ?? [], repoPaths: tsRepoPaths(byId) };
@@ -452,6 +456,13 @@ export function resolveEdges(
             ? ["class", "struct", "enum", "interface"]
             : ["function"]);
       if (e.rustForm) {
+        if (e.rustPath && e.rustForm !== "macro") {
+          const reached = rustFollowPath(e.rustPath, e.file, rustPathCtx);
+          if (reached) {
+            if (reached.id !== e.source) add(e.source, reached.id, "calls", "extracted");
+            continue;
+          }
+        }
         const isMacro = (n: NodeV1) => !!n.signature?.startsWith("macro_rules!");
         const fits = (n: NodeV1) => n.kind === "function"
           && (e.rustForm === "macro" ? isMacro(n) : e.rustForm === "method" ? !!n.owner : !n.owner && !isMacro(n));
@@ -462,6 +473,7 @@ export function resolveEdges(
         const global = free(globalName.get(e.name!)).filter((n) => reachable(e.file, n.path) && inModule(n.path));
         const only = local.length === 1 ? local[0] : global.length === 1 ? global[0] : undefined;
         if (only) add(e.source, only.id, "calls", local.length === 1 ? "extracted" : "inferred");
+        else if (global.length > 1 && e.rustForm === "free") opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: e.rustPath ?? `${global.length} definitions of that name` });
         continue;
       }
       let hit = resolveName(e.name!, e.file, callKinds, perFileName, globalName);
@@ -661,6 +673,103 @@ const RUST_OWNER_KINDS: ReadonlySet<Kind> = new Set<Kind>(["struct", "enum", "tr
  * there is neither. `external`: bound from outside the repo, so no in-repo node is its
  * target. `undecided`: an in-repo name this walk cannot pin to one definition. */
 type PythonName = NodeV1 | { module: string } | "external" | "undecided";
+
+interface RustPathCtx {
+  crates: ReadonlyMap<string, string>;
+  byId: Map<string, NodeV1>;
+  perFileName: Map<string, Map<string, NodeV1[]>>;
+  pubUses: Map<string, NonNullable<RawEdge["rustPubUses"]>>;
+}
+
+/** The crate folder a file sits in: the deepest one above it. */
+function rustCrateOf(file: string, ctx: RustPathCtx): string | undefined {
+  let best: string | undefined;
+  for (const dir of ctx.crates.values()) {
+    if ((dir === "." || file.startsWith(`${dir}/`)) && (best === undefined || dir.length > best.length)) best = dir;
+  }
+  return best;
+}
+
+/** The file a module path within a crate's `src` lands on, and the path left after it, which
+ * is an inline module, a type or a re-export. The crate root when nothing further matches. */
+function rustModuleFile(crate: string, parts: string[], ctx: RustPathCtx): { file: string; left: string[] } | undefined {
+  const at = (rel: string) => (crate === "." ? rel : `${crate}/${rel}`);
+  for (let n = parts.length; n >= 1; n--) {
+    const stem = at(`src/${parts.slice(0, n).join("/")}`);
+    for (const file of [`${stem}.rs`, `${stem}/mod.rs`]) if (ctx.byId.has(file)) return { file, left: parts.slice(n) };
+  }
+  for (const file of [at("src/lib.rs"), at("src/main.rs")]) if (ctx.byId.has(file)) return { file, left: parts };
+  return undefined;
+}
+
+/** A file's own module path within its crate's `src`, or undefined outside `src`. */
+function rustModuleOf(file: string, crate: string): string[] | undefined {
+  const rel = crate === "." ? file : file.slice(crate.length + 1);
+  if (!rel.startsWith("src/")) return undefined;
+  const parts = rel.slice(4).replace(/\.rs$/, "").split("/");
+  const last = parts.at(-1);
+  if (last === "mod" || (parts.length === 1 && (last === "lib" || last === "main"))) parts.pop();
+  return parts;
+}
+
+/**
+ * The free function a whole Rust path names, followed through the workspace's crates, its
+ * module files and their `pub use` lines. Undefined when the path leaves what those show,
+ * and the caller falls back on the name.
+ *
+ * shortcut: reads module paths from the file tree, so a `#[path]` attribute is not followed,
+ * and a path reaching a name 2 `cfg` arms define in one file is left to the fallback.
+ */
+function rustFollowPath(whole: string, file: string, ctx: RustPathCtx, depth = 0): NodeV1 | undefined {
+  if (depth > 5) return undefined;
+  const segs = whole.split("::");
+  const name = segs.pop()!;
+  const crateHere = rustCrateOf(file, ctx);
+  let crate: string | undefined;
+  let parts: string[];
+  const first = segs[0];
+  if (first === "crate") {
+    crate = crateHere;
+    parts = segs.slice(1);
+  } else if (first === "self" || first === "super") {
+    const here = crateHere === undefined ? undefined : rustModuleOf(file, crateHere);
+    if (!here) return undefined;
+    crate = crateHere;
+    let i = 0;
+    const base = [...here];
+    for (; segs[i] === "self" || segs[i] === "super"; i++) if (segs[i] === "super") base.pop();
+    parts = [...base, ...segs.slice(i)];
+  } else if (first !== undefined && ctx.crates.has(first)) {
+    crate = ctx.crates.get(first);
+    parts = segs.slice(1);
+  } else if (first !== undefined) {
+    // `dispatcher::f` with no `use`: a child module of this file's own.
+    const here = crateHere === undefined ? undefined : rustModuleOf(file, crateHere);
+    if (!here) return undefined;
+    crate = crateHere;
+    parts = [...here, ...segs];
+  } else {
+    return undefined;
+  }
+  if (crate === undefined) return undefined;
+  const landed = rustModuleFile(crate, parts, ctx);
+  if (!landed) return undefined;
+  const pub = ctx.pubUses.get(landed.file);
+  if (landed.left.length) {
+    const through = pub?.names.find(([n]) => n === landed.left[0]);
+    return through ? rustFollowPath([through[1], ...landed.left.slice(1), name].join("::"), landed.file, ctx, depth + 1) : undefined;
+  }
+  const own = (ctx.perFileName.get(landed.file)?.get(name) ?? []).filter((n) => n.kind === "function" && !n.owner && !n.signature?.startsWith("macro_rules!"));
+  if (own.length === 1) return own[0];
+  if (own.length > 1) return undefined;
+  const named = pub?.names.find(([n]) => n === name);
+  if (named) return rustFollowPath(named[1], landed.file, ctx, depth + 1);
+  for (const glob of pub?.globs ?? []) {
+    const hit = rustFollowPath(`${glob}::${name}`, landed.file, ctx, depth + 1);
+    if (hit) return hit;
+  }
+  return undefined;
+}
 
 /** Path aliases for the files under `dir`, whose targets read from `base`. */
 export interface TsPaths {

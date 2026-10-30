@@ -342,6 +342,7 @@ export function extractGeneric(rel: string, source: string, langName: string): E
     extractUses(tree.rootNode as TsNode, rel, rawEdges);
     extractRustMacroCalls(tree.rootNode as TsNode, rel, defs, rawEdges);
     extractRustAliases(tree.rootNode as TsNode, rel, rawEdges);
+    extractRustPubUses(tree.rootNode as TsNode, rel, rawEdges);
   }
   else if (langName === "php") extractPhpUses(tree.rootNode as TsNode, rel, rawEdges);
   else if (langName === "gleam") extractGleamModules(tree.rootNode as TsNode, rel, defs, rawEdges);
@@ -433,6 +434,20 @@ function rustSelfCallIsInherent(path: string | undefined, name: string, from: Ts
   return false;
 }
 
+/** A call as a whole path, its first name spelt out through the `use` in scope at `at`.
+ * Undefined for a bare name no `use` binds, which is a name and not a path. */
+function rustWholePath(path: string | undefined, name: string, scopes: RustUseScope[], at: number): string | undefined {
+  const written = (path ? `${path}::${name}` : name).replace(/::<[^<>]*>/g, "").replace(/<[^<>]*>/g, "").replace(/\s+/g, "");
+  const [first, ...rest] = written.split("::");
+  const around = scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => b.start - a.start);
+  for (const scope of around) {
+    const full = scope.fulls.get(first!);
+    if (full) return [full, ...rest].join("::");
+    if (scope.closed) break;
+  }
+  return rest.length ? written : undefined;
+}
+
 /** Whether the name a call's path starts with could be brought in from another file: a path
  * spelling it out, a rename, a `use` naming it, or a glob that may. */
 function rustOwnerBrought(path: string | undefined, scopes: RustUseScope[], at: number, anyGlob: boolean): boolean {
@@ -486,6 +501,8 @@ function rustCallOwner(path: string | undefined, enc: Def | undefined): string |
 /** A Rust call by what its syntax says the target is: `Engine::new` on that type alone,
  * so `Vec::new` or an enum variant finds nothing; `x.f()` on some type's method; `f!()` on
  * a macro; `f()` and `module::f()` on a free function. */
+const withRustPath = (path: string | undefined): Partial<RawEdge> => (path ? { rustPath: path } : {});
+
 function rustCallEdge(
   source: string,
   rel: string,
@@ -508,9 +525,9 @@ function rustCallEdge(
 /** What one `use` declaration binds: each local name → the first segment of its path.
  * `use std::{fs, io::{self, Read as R}}` binds fs, io and R to std, and in `use { a::x,
  * b::y }` each item has its own first segment. Globs bind no name. */
-function rustUseBindings(text: string): Map<string, string> {
-  const out = new Map<string, string>();
-  const walk = (item: string, root: string | undefined, parent: string | undefined): void => {
+function rustUseBindings(text: string): Map<string, { first: string; full: string }> {
+  const out = new Map<string, { first: string; full: string }>();
+  const walk = (item: string, root: string | undefined, parent: string | undefined, above: string[] = []): void => {
     const brace = item.indexOf("{");
     if (brace >= 0) {
       const prefix = item.slice(0, brace).replace(/::\s*$/, "").trim();
@@ -524,7 +541,7 @@ function rustUseBindings(text: string): Map<string, string> {
         else if (c === "}") depth--;
         else if (i === inner.length || (c === "," && depth === 0)) {
           const part = inner.slice(start, i).trim();
-          if (part) walk(part, root ?? segments[0], segments.at(-1) ?? parent);
+          if (part) walk(part, root ?? segments[0], segments.at(-1) ?? parent, [...above, ...segments]);
           start = i + 1;
         }
       }
@@ -536,7 +553,9 @@ function rustUseBindings(text: string): Map<string, string> {
     if (!last || last === "*") return;
     const name = alias?.trim() ?? (last === "self" ? parent : last);
     const first = root ?? segments[0];
-    if (name && name !== "_" && first) out.set(name, first);
+    const whole = [...above, ...segments];
+    if (last === "self") whole.pop();
+    if (name && name !== "_" && first) out.set(name, { first, full: whole.join("::").replace(/\s+/g, "") });
   };
   walk(text.replace(/\/\/[^\n]*/g, "").replace(/^\s*(pub(\s*\([^)]*\))?\s+)?use\s+/, "").replace(/;\s*$/, "").trim(), undefined, undefined);
   return out;
@@ -549,6 +568,8 @@ interface RustUseScope {
   /** A `mod` body sees nothing of the module around it, unless it globs `super`. */
   closed: boolean;
   names: Map<string, string>;
+  /** Each name's whole `use` path. */
+  fulls: Map<string, string>;
   /** `use a::Engine as E` → E: Engine. */
   renames: Map<string, string>;
 }
@@ -565,8 +586,9 @@ function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; g
       if (glob === "super") scope.closed = false;
       // `super::*` and `self::*` in a `mod tests` name this same file.
       if (glob && glob !== "super" && glob !== "self") globs.push(glob);
-      for (const [name, first] of rustUseBindings(n.text)) {
+      for (const [name, { first, full }] of rustUseBindings(n.text)) {
         scope.names.set(name, first);
+        scope.fulls.set(name, full);
         names.add(name);
       }
       for (const m of n.text.matchAll(/(\w+)\s+as\s+(\w+)/g)) scope.renames.set(m[2]!, m[1]!);
@@ -574,7 +596,7 @@ function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; g
     }
     let inner = scope;
     if (n.type === "mod_item" || n.type === "block") {
-      inner = { start: n.startIndex, end: n.endIndex ?? n.startIndex, closed: n.type === "mod_item", names: new Map(), renames: new Map() };
+      inner = { start: n.startIndex, end: n.endIndex ?? n.startIndex, closed: n.type === "mod_item", names: new Map(), fulls: new Map(), renames: new Map() };
       scopes.push(inner);
     }
     for (let i = 0; i < (n.namedChildCount ?? 0); i++) {
@@ -582,7 +604,7 @@ function rustUses(root: TsNode): { scopes: RustUseScope[]; names: Set<string>; g
       if (c) visit(c, inner);
     }
   };
-  const top: RustUseScope = { start: 0, end: Number.POSITIVE_INFINITY, closed: true, names: new Map(), renames: new Map() };
+  const top: RustUseScope = { start: 0, end: Number.POSITIVE_INFINITY, closed: true, names: new Map(), fulls: new Map(), renames: new Map() };
   scopes.push(top);
   visit(root, top);
   return { scopes, names, globs, anyGlob };
@@ -598,6 +620,19 @@ function rustUsedAt(scopes: RustUseScope[], name: string, at: number): string | 
     if (scope.closed) return undefined;
   }
   return undefined;
+}
+
+/** A file's top-level `pub use` lines, which a path through this module may have to follow. */
+function extractRustPubUses(root: TsNode, rel: string, rawEdges: RawEdge[]): void {
+  const names: [string, string][] = [];
+  const globs: string[] = [];
+  for (let i = 0; i < (root.namedChildCount ?? 0); i++) {
+    const c = root.namedChild?.(i);
+    if (c?.type !== "use_declaration" || !/^\s*pub\b/.test(c.text)) continue;
+    for (const [name, { full }] of rustUseBindings(c.text)) names.push([name, full]);
+    for (const m of c.text.matchAll(/([\w:]+)::\*/g)) globs.push(m[1]!);
+  }
+  if (names.length || globs.length) rawEdges.push({ source: rel, relation: "imports", file: rel, rustPubUses: { names, globs } });
 }
 
 /** `type Alias = Engine;` → a raw edge resolve.ts reads as: Alias's members are Engine's. */
@@ -660,6 +695,7 @@ function extractRustMacroCalls(root: TsNode, rel: string, defs: Def[], rawEdges:
       const pathRoot = rustPathRoot(path, scopes, c.startIndex);
       rawEdges.push({
         ...rustCallEdge(source, rel, c.text, owner, pathRoot, "free", rustBounds(owner, c), c.startIndex, rustOwnerBrought(path, scopes, c.startIndex, anyGlob)),
+        ...withRustPath(rustWholePath(path, c.text, scopes, c.startIndex)),
         ...(!path && !usedNames.has(c.text) ? { onlyModules: globs } : {}),
       });
     }
@@ -983,7 +1019,7 @@ function tagsExtract(
     const owner = langName === "rust" ? rustRealOwner(rustCallOwner(c.path, enc), rustScopes, c.at) : undefined;
     rawEdges.push(
       langName === "rust"
-        ? rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob))
+        ? { ...rustCallEdge(enc ? enc.id : rel, rel, c.name, owner, rustPathRoot(c.path, rustScopes, c.at, c.form === "method" ? undefined : c.name), c.form ?? "free", rustBounds(owner, c.node), c.at, rustOwnerBrought(c.path, rustScopes, c.at, !!rustUsed?.anyGlob)), ...(c.form === "method" ? {} : withRustPath(rustWholePath(c.path, c.name, rustScopes, c.at))) }
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }

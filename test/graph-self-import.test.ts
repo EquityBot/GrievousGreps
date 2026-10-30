@@ -309,3 +309,53 @@ macro_rules! top {
   });
   assert.deepEqual(calls(graph, "src/routing.rs#top"), ["src/routing.rs#on", "src/routing.rs#on_service"]);
 });
+
+const tracingLike = {
+  "Cargo.toml": `[workspace]\nmembers = ["core", "main-crate", "sub"]\n`,
+  "core/Cargo.toml": `[package]\nname = "tracing-core"\n`,
+  "core/src/lib.rs": "pub mod dispatcher;\n",
+  "core/src/dispatcher.rs": "pub fn with_default() {}\npub fn get_default() {}\n",
+  "main-crate/Cargo.toml": `[package]\nname = "tracing"\n[dependencies]\ntracing-core = { path = "../core" }\n`,
+  "main-crate/src/lib.rs": "pub mod subscriber;\npub mod dispatcher;\npub use tracing_core::dispatcher::get_default;\n",
+  "main-crate/src/subscriber.rs": "pub fn with_default() {}\n",
+  "main-crate/src/dispatcher.rs": "pub use tracing_core::dispatcher::*;\n",
+  "sub/Cargo.toml": `[package]\nname = "sub"\n[dependencies]\ntracing = { path = "../main-crate" }\ntracing-core = { path = "../core" }\n`,
+};
+
+test("Rust: a path follows the workspace's crates, its module files and `pub use`, past a repeated name", async (t) => {
+  const graph = await build(t, {
+    ...tracingLike,
+    "sub/src/a.rs": `use tracing::dispatcher;
+use tracing::subscriber::with_default as wd;
+use crate::b::local;
+pub fn spelt() { tracing::subscriber::with_default(); }
+pub fn other_crate() { tracing_core::dispatcher::with_default(); }
+pub fn through_glob() { dispatcher::with_default(); }
+pub fn renamed() { wd(); }
+pub fn reexported() { tracing::get_default(); }
+pub fn own() { local(); crate::b::local(); super::a::near(); }
+pub fn near() {}
+`,
+    "sub/src/b.rs": "pub fn local() {}\npub fn near() {}\n",
+    "sub/src/lib.rs": "pub mod a;\npub mod b;\n",
+  });
+  assert.deepEqual(calls(graph, "sub/src/a.rs#spelt"), ["main-crate/src/subscriber.rs#with_default"]);
+  assert.deepEqual(calls(graph, "sub/src/a.rs#other_crate"), ["core/src/dispatcher.rs#with_default"]);
+  assert.deepEqual(calls(graph, "sub/src/a.rs#through_glob"), ["core/src/dispatcher.rs#with_default"]);
+  assert.deepEqual(calls(graph, "sub/src/a.rs#renamed"), ["main-crate/src/subscriber.rs#with_default"]);
+  assert.deepEqual(calls(graph, "sub/src/a.rs#reexported"), ["core/src/dispatcher.rs#get_default"]);
+  assert.deepEqual(calls(graph, "sub/src/a.rs#own"), ["sub/src/a.rs#near", "sub/src/b.rs#local"]);
+});
+
+test("Rust: a repeated name no path settles is stated, and a dependency's stays silent", async (t) => {
+  const graph = await build(t, {
+    ...tracingLike,
+    "sub/Cargo.toml": `[package]\nname = "sub"\n[dependencies]\noutside = "1"\n`,
+    "sub/src/a.rs": "pub fn bare() { with_default(); }\n",
+    "sub/src/lib.rs": "pub mod a;\n",
+    "sub/src/ext.rs": `use outside::with_default;\npub fn out() { with_default(); }\n`,
+  });
+  assert.deepEqual(calls(graph, "sub/src/a.rs#bare"), []);
+  assert.deepEqual(stated(graph, "sub/src/a.rs#bare"), [["with_default", "2 definitions of that name"]]);
+  assert.deepEqual(stated(graph, "sub/src/ext.rs#out"), []);
+});

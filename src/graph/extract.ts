@@ -122,6 +122,10 @@ export interface RawEdge {
   rustAlias?: { alias: string; target: string; start: number; end: number; root?: string };
   /** Where a Rust call sits, for the module its aliases read in. */
   rustAt?: number;
+  /** The call as a whole path, with the `use` that begins it spelt out: `crate::a::f`. */
+  rustPath?: string;
+  /** What a file's `pub use` makes visible through it, for a path to follow. */
+  rustPubUses?: { names: [string, string][]; globs: string[] };
   /** The call's type name could have come from another file, by a `use`, a glob or its path. */
   rustOwnerBrought?: boolean;
   /** calls, with a free rustForm: beyond its own file, the name can only come from these
