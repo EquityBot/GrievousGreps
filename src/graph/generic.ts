@@ -498,6 +498,17 @@ function rustValueChain(value: TsNode | null | undefined, owner: string | undefi
   return { fn: rustWholePath(path, name, scopes, n.startIndex) ?? `${path}::${name}`, root, methods: [] };
 }
 
+/** Whether an `if` or `while` condition binds a name: only its `let` patterns do. */
+function rustConditionBinds(condition: TsNode, named: RegExp): boolean {
+  if (condition.type === "let_condition") return named.test(condition.childForFieldName?.("pattern")?.text ?? "");
+  if (condition.type !== "let_chain") return false;
+  for (let i = 0; i < (condition.namedChildCount ?? 0); i++) {
+    const part = condition.namedChild?.(i);
+    if (part && rustConditionBinds(part, named)) return true;
+  }
+  return false;
+}
+
 /** The local `name` as seen from `from`: the nearest binding before it. A binding this cannot read
  * (a pattern, a loop, a closure's argument) answers nothing, so it never reads past a shadowing
  * one to an older type. */
@@ -521,7 +532,7 @@ function rustLocalChain(name: string, from: TsNode, owner: string | undefined, s
       }
     } else if (n.type === "match_arm" || n.type === "for_expression" || n.type === "if_expression" || n.type === "while_expression" || n.type === "closure_expression") {
       const head = n.type === "match_arm" || n.type === "for_expression" ? n.childForFieldName?.("pattern") : n.type === "closure_expression" ? n.childForFieldName?.("parameters") : n.childForFieldName?.("condition");
-      if (head && child !== head && named.test(head.text)) return undefined;
+      if (head && child !== head && (n.type === "if_expression" || n.type === "while_expression" ? rustConditionBinds(head, named) : named.test(head.text))) return undefined;
     } else if (n.type === "function_item") {
       const params = n.childForFieldName?.("parameters");
       for (let i = 0; i < (params?.namedChildCount ?? 0); i++) {

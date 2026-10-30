@@ -419,3 +419,24 @@ pub fn generic<C: crate::mock::Lone>(c: C) { c.only(); }
   assert.deepEqual(has("src/t.rs#stops", "#run"), [], "a u8 has no run of the repo's");
   assert.deepEqual(has("src/t.rs#generic", "#only"), ["src/mock.rs#only"], "a generic parameter falls back on the name");
 });
+
+test("Rust: only a binding pattern shadows a local, not a condition naming it", async (t) => {
+  const graph = await build(t, {
+    "src/lib.rs": `pub struct Foo;
+impl Foo { pub fn go(&self) {} pub fn ready(&self) -> bool { true } }
+pub struct Bar;
+impl Bar { pub fn go(&self) {} }
+pub fn cond(x: Foo) { if x.ready() { x.go(); } }
+pub fn loops(x: Foo) { while x.ready() { x.go(); } }
+pub fn matched(x: Foo, b: bool) { match b { true => x.go(), _ => {} } }
+pub fn shadow(x: Foo, o: Option<Bar>) { if let Some(x) = o { x.go(); } }
+pub fn chain(x: Foo, o: Option<Bar>) { while let Some(x) = o { x.go(); } }
+`,
+  });
+  const go = "src/lib.rs#go";
+  assert.ok(calls(graph, "src/lib.rs#cond").includes(go), "a condition binds nothing");
+  assert.ok(calls(graph, "src/lib.rs#loops").includes(go), "nor a loop's");
+  assert.deepEqual(calls(graph, "src/lib.rs#matched"), [go]);
+  assert.deepEqual(calls(graph, "src/lib.rs#shadow"), [], "`if let` rebinds it");
+  assert.deepEqual(calls(graph, "src/lib.rs#chain"), [], "`while let` rebinds it");
+});
