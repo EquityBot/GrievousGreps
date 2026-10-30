@@ -158,6 +158,34 @@ test("Python function-local imports do not become named imports in another funct
   }), []);
 });
 
+test("Python calls through a def's own import resolve to the imported file", () => {
+  const files = {
+    "first/helpers.py": "def parse_value(value):\n    return value\n",
+    "second/helpers.py": "def parse_value(value):\n    return value\n",
+  };
+  assert.deepEqual(calls({
+    ...files,
+    "consumer.py": "def run():\n    from first.helpers import parse_value\n    return parse_value(1)\n",
+  }), ["first/helpers.py#parse_value"]);
+  assert.deepEqual(calls({
+    ...files,
+    "consumer.py": "class Case:\n    def run(self):\n        from second.helpers import parse_value as parse\n        return parse(1)\n",
+  }, "consumer.py#Case.run"), ["second/helpers.py#parse_value"]);
+  assert.deepEqual(calls({
+    ...files,
+    "consumer.py": "def run():\n    import first.helpers as h\n    return h.parse_value(1)\n",
+  }), ["first/helpers.py#parse_value"]);
+  // Bound two ways, or reassigned in the def: dropped, not guessed.
+  assert.deepEqual(calls({
+    ...files,
+    "consumer.py": "def run():\n    try:\n        from first.helpers import parse_value\n    except ImportError:\n        from second.helpers import parse_value\n    return parse_value(1)\n",
+  }), []);
+  assert.deepEqual(calls({
+    ...files,
+    "consumer.py": "def run():\n    from first.helpers import parse_value\n    parse_value = print\n    return parse_value(1)\n",
+  }), []);
+});
+
 test("Python named imports do not select the first duplicate definition", () => {
   assert.deepEqual(calls({
     "validators.py": definitions + definitions,

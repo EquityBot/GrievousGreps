@@ -645,11 +645,11 @@ function walk(node: SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEdge[], m
           : ctx.importedSymbols,
       importedModules:
         ctx.lang === "python" && (desc.kind === "function" || desc.kind === "method")
-          ? withoutPythonShadowedModules(ctx.importedModules, node)
+          ? withPythonLocalImports(withoutPythonShadowedModules(ctx.importedModules, node), node, "modules")
           : ctx.importedModules,
       pythonNamedImports:
         ctx.lang === "python" && (desc.kind === "function" || desc.kind === "method")
-          ? withoutPythonShadowedModules(ctx.pythonNamedImports, node)
+          ? withPythonLocalImports(withoutPythonShadowedModules(ctx.pythonNamedImports, node), node, "symbols")
           : ctx.pythonNamedImports,
       pythonImportedNames:
         ctx.lang === "python" && (desc.kind === "function" || desc.kind === "method")
@@ -998,6 +998,77 @@ function withPythonLocalImportNames(names: ReadonlySet<string>, definition: Synt
   return local.size === 0 ? names : new Set([...names, ...local]);
 }
 
+/** What a def's own imports bind, for its body and nested defs. A name bound two
+ * ways (`try: from a import f` / `except: from b import f`) or also assigned in the
+ * def stays out of both maps, so a call through it drops rather than guesses. */
+function pythonLocalImports(definition: SyntaxNode): {
+  symbols: Map<string, { name: string; specifier: string }>;
+  modules: Map<string, string>;
+  ambiguous: Set<string>;
+} {
+  const symbols = new Map<string, { name: string; specifier: string }>();
+  const modules = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  const body = definition.childForFieldName("body");
+  if (!body) return { symbols, modules, ambiguous };
+  const claim = (local: string, target: string, seen: Map<string, string>): void => {
+    if (seen.has(local) && seen.get(local) !== target) ambiguous.add(local);
+    seen.set(local, target);
+  };
+  const seen = new Map<string, string>();
+  const visit = (node: SyntaxNode): void => {
+    if (node.type === "function_definition" || node.type === "class_definition" || node.type === "lambda") return;
+    if (node.type === "import_statement" || node.type === "import_from_statement") {
+      const moduleNode = node.type === "import_from_statement"
+        ? (node.childForFieldName("module_name") ??
+          node.namedChildren.find((c) => c.type === "dotted_name" || c.type === "relative_import"))
+        : undefined;
+      if (node.type === "import_from_statement" && !moduleNode) return;
+      for (const child of node.namedChildren) {
+        if (sameSyntaxNode(child, moduleNode)) continue;
+        if (child.type !== "aliased_import" && child.type !== "dotted_name") continue;
+        const name = child.childForFieldName("name")?.text ?? child.text;
+        const alias = child.childForFieldName("alias")?.text;
+        if (moduleNode) {
+          const local = alias ?? name;
+          claim(local, `${moduleNode.text} ${name}`, seen);
+          symbols.set(local, { name, specifier: moduleNode.text });
+          modules.set(local, joinModulePath(moduleNode.text, name));
+        } else {
+          // `import a.b` binds the top package, left alone as at module level.
+          const local = alias ?? name.split(".")[0];
+          claim(local, name, seen);
+          if (alias) modules.set(alias, name);
+        }
+      }
+      return;
+    }
+    for (const child of node.namedChildren) visit(child);
+  };
+  visit(body);
+  const params = definition.childForFieldName("parameters");
+  if (params) collectPythonBindingNames(params, ambiguous);
+  collectPythonScopeBindings(body, ambiguous, false);
+  return { symbols, modules, ambiguous };
+}
+
+/** `outer` plus what `definition`'s own imports add to `which`. */
+function withPythonLocalImports<T>(
+  outer: ReadonlyMap<string, T>,
+  definition: SyntaxNode,
+  which: "symbols" | "modules",
+): ReadonlyMap<string, T> {
+  const local = pythonLocalImports(definition);
+  const own = local[which] as unknown as Map<string, T>;
+  if (own.size === 0) return outer;
+  const out = new Map(outer);
+  for (const [name, value] of own) {
+    if (local.ambiguous.has(name)) out.delete(name);
+    else out.set(name, value);
+  }
+  return out;
+}
+
 /** `a.b` + `c` → `a.b.c`; a relative prefix keeps its dots (`.` + `c` → `.c`). */
 function joinModulePath(prefix: string, tail: string): string {
   if (!prefix) return tail;
@@ -1085,7 +1156,7 @@ function collectPythonWalrusTargets(node: SyntaxNode, names: Set<string>): void 
  * walrus, match captures, del, local imports and nested def or class names.
  * Nested functions, classes and lambdas are not entered.
  */
-function collectPythonScopeBindings(body: SyntaxNode, names: Set<string>): void {
+function collectPythonScopeBindings(body: SyntaxNode, names: Set<string>, withImports = true): void {
   const visit = (node: SyntaxNode): void => {
     if (node.type === "function_definition" || node.type === "class_definition" || node.type === "lambda") {
       const name = node.childForFieldName("name");
@@ -1126,7 +1197,7 @@ function collectPythonScopeBindings(body: SyntaxNode, names: Set<string>): void 
     if (node.type === "delete_statement") {
       collectPythonBindingNames(node, names);
     }
-    if (node.parent?.type !== "module" && (node.type === "import_statement" || node.type === "import_from_statement")) {
+    if (withImports && node.parent?.type !== "module" && (node.type === "import_statement" || node.type === "import_from_statement")) {
       for (const child of node.namedChildren) {
         if (child.type === "aliased_import") {
           const alias = child.childForFieldName("alias");
