@@ -260,6 +260,20 @@ export function resolveEdges(
     const list = rustFieldTypes.get(`${recv.owner}.${recv.field}`);
     return list?.find((f) => f.file === file)?.type ?? (list?.length === 1 ? list[0].type : undefined);
   };
+  const rustUseNames = new Map<string, NonNullable<RawEdge["rustUseNames"]>>();
+  for (const e of rawEdges) if (e.rustUseNames) rustUseNames.set(e.file, e.rustUseNames);
+  // A type the repo holds no such method for can still take one from a repo trait in scope:
+  // 1 is the edge, more are said. Returns whether any trait provides the name.
+  const rustTraitProvides = (e: RawEdge, through: string | null): boolean => {
+    const scope = rustUseNames.get(e.file);
+    const found = (globalName.get(e.name!) ?? []).filter((n) => n.owner
+      && (globalName.get(n.owner) ?? []).some((o) => o.kind === "interface")
+      && reachable(e.file, n.path)
+      && (n.path === e.file || scope?.glob || scope?.names.includes(n.owner)));
+    if (found.length === 1 && found[0].id !== e.source) add(e.source, found[0].id, "calls", "inferred");
+    else if (found.length > 1) opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through });
+    return found.length > 0;
+  };
   const rustPathCtx: RustPathCtx = { crates: opts.rustCrateDirs ?? new Map(), byId, perFileName, pubUses: rustPubUses };
   // The type a receiver is by the end of its chain, each step read off a signature. Undefined
   // when a step's signature does not say, and the method falls back on its name.
@@ -434,11 +448,17 @@ export function resolveEdges(
         continue;
       }
       if (e.viaMember) {
-        if (e.rustChain?.root && (RUST_STD_CRATES.has(e.rustChain.root) || opts.rustExternalCrates?.has(e.rustChain.root))) continue;
+        if (e.rustChain?.root && (RUST_STD_CRATES.has(e.rustChain.root) || opts.rustExternalCrates?.has(e.rustChain.root))) {
+          rustTraitProvides(e, e.rustChain.type ?? null);
+          continue;
+        }
         const recv = e.rustChain ? rustChainType(e.rustChain, e) : e.recvType;
         if (!recv && !e.rustForm) continue;
         const real = !recv ? { type: "" } : e.file.endsWith(".rs") ? rustRealType(recv, e.file, e.rustAt ?? 0, e.rustOwnerBrought === true) : { type: recv };
-        if (real.root && opts.rustExternalCrates?.has(real.root)) continue; // an alias of a dependency's type
+        if (real.root && opts.rustExternalCrates?.has(real.root)) { // an alias of a dependency's type
+          rustTraitProvides(e, real.type);
+          continue;
+        }
         const recvType = real.type;
         if (e.rustSelfInImpl) {
           const others = (ownerMethod.get(`${recvType}.${e.name}`) ?? []).filter((n) => n.id !== e.source);
@@ -472,10 +492,17 @@ export function resolveEdges(
         const owned = (globalName.get(recv ?? "") ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
         const unseen = !owned && !hit && !e.rustBounds?.length && !RUST_PRELUDE_TYPES.has(recv ?? "") && !rustAliases.has(recv ?? "")
           && (recv ?? "").length > 1 && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" || n.kind === "method");
-        // A method whose receiver the code shows a type for: past that type, as the name alone
-        // read it before, unless the type is plainly the standard library's.
+        // A method whose receiver has a type the code states: that type's or a trait's, and never
+        // another type's by name alone. A name no one can place falls through to the name.
         if (e.rustForm === "method" && !hit) {
-          if (recv && RUST_STD_TYPES.has(recvType)) continue;
+          const std = RUST_STD_TYPES.has(recvType) || RUST_PRELUDE_TYPES.has(recvType);
+          const repoType = (globalName.get(recvType) ?? []).some((n) => RUST_OWNER_KINDS.has(n.kind));
+          if (recv && (std || repoType || real.root || rustAliases.has(recv))) {
+            if (!rustTraitProvides(e, recvType) && repoType && (globalName.get(e.name!) ?? []).some((n) => n.kind === "function" && n.owner)) {
+              opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: recvType });
+            }
+            continue;
+          }
         } else if (e.file.endsWith(".rs") && (hit === "ambiguous" || !hit) && !/^[A-Z]/.test(e.name!) && (owned || unseen)) {
           opts.unresolvedCalls?.push({ source: e.source, name: e.name!, through: recv ?? null });
         }

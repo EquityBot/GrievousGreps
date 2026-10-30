@@ -522,3 +522,51 @@ pub mod c {
   assert.deepEqual(calls(graph, "src/lib.rs#here"), ["src/lib.rs#f"]);
   assert.deepEqual(calls(graph, "src/lib.rs#there"), ["src/lib.rs#f~2"], "its own Alias, not a's");
 });
+
+test("Rust: a repo trait in scope provides a method on a std or dependency receiver, one trait only", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n[dependencies]\ndep = "1"\n`,
+    "src/lib.rs": `pub mod hidden;
+pub trait Ext { fn ext_call(&self) -> usize; }
+impl<T> Ext for [T] { fn ext_call(&self) -> usize { 0 } }
+pub fn param(v: &Vec<i32>) -> usize { v.ext_call() }
+pub fn local() -> usize { let v = Vec::<i32>::new(); v.ext_call() }
+pub struct Holder { items: Vec<i32> }
+impl Holder { pub fn field(&self) -> usize { self.items.ext_call() } }
+pub fn outside(v: dep::Thing) -> usize { v.ext_call() }
+pub fn not_in_scope(v: &Vec<i32>) { v.tucked(); }
+pub fn plain(v: &mut Vec<i32>) { v.push(1); }
+pub trait One { fn twice(&self); }
+pub trait Two { fn twice(&self); }
+pub fn both(v: &Vec<i32>) { v.twice(); }
+pub fn push_owner() { Other.push(); }
+pub struct Other;
+impl Other { pub fn push(&self) {} }
+`,
+    "src/hidden.rs": "pub trait Tucked { fn tucked(&self); }\n",
+  });
+  for (const f of ["param", "local", "outside"]) assert.deepEqual(calls(graph, `src/lib.rs#${f}`), ["src/lib.rs#ext_call"], f);
+  assert.deepEqual(calls(graph, "src/lib.rs#field"), ["src/lib.rs#ext_call"]);
+  assert.deepEqual(calls(graph, "src/lib.rs#not_in_scope"), [], "a trait no `use` brings in provides nothing");
+  assert.deepEqual(calls(graph, "src/lib.rs#plain"), [], "no trait provides it: the std type's own");
+  assert.deepEqual(calls(graph, "src/lib.rs#both"), []);
+  assert.deepEqual(stated(graph, "src/lib.rs#both"), [["twice", "Vec"]]);
+});
+
+test("Rust: a receiver whose type is known never falls back on another type's method", async (t) => {
+  const graph = await build(t, {
+    "Cargo.toml": `[package]\nname = "app"\n[dependencies]\ndep = "1"\n`,
+    "src/lib.rs": `use dep::A;
+pub struct B;
+impl B { pub fn f(&self) {} }
+pub struct Cart;
+pub fn used(x: A) { x.f(); }
+pub fn pathed(x: dep::A) { x.f(); }
+pub fn own(x: Cart) { x.f(); }
+pub fn built() { let x = dep::A::new(); x.f(); }
+`,
+  });
+  for (const f of ["used", "pathed", "built"]) assert.deepEqual(calls(graph, `src/lib.rs#${f}`), [], f);
+  assert.deepEqual(calls(graph, "src/lib.rs#own"), []);
+  assert.deepEqual(stated(graph, "src/lib.rs#own"), [["f", "Cart"]], "the repo's own type lacks it: said, not bound");
+});

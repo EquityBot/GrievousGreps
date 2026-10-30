@@ -139,6 +139,8 @@ export interface RawEdge {
   rustTemplate?: boolean;
   /** `Self::f` inside a trait impl's own `f`: the inherent `f` if there is one, else itself. */
   rustSelfInImpl?: boolean;
+  /** What a file's `use` lines bring in, for the traits whose methods it can call. */
+  rustUseNames?: { names: string[]; glob: boolean };
   rustFields?: { owner: string; fields: [string, string][] };
   /** The call as a whole path, with the `use` that begins it spelt out: `crate::a::f`. */
   rustPath?: string;

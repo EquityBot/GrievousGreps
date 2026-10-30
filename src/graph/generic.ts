@@ -1178,6 +1178,9 @@ function tagsExtract(
         : { source: enc ? enc.id : rel, relation: "calls", file: rel, name: c.name },
     );
   }
+  if (rustUsed && (rustUsed.names.size || rustUsed.anyGlob)) {
+    rawEdges.push({ source: rel, relation: "imports", file: rel, rustUseNames: { names: [...rustUsed.names], glob: rustUsed.anyGlob } });
+  }
   for (const r of refs) {
     if (defNameAt.has(r.at)) continue;
     const enc = enclosingDef(defs, r.at);
