@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildGraph } from "../src/graph/build.js";
+import * as traverse from "../src/graph/traverse-cli.js";
+import type { GraphV1 } from "../src/graph/types.js";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -276,4 +278,19 @@ test("V6: `Self::f` in a trait impl's own `f` is the type's inherent method, not
   });
   assert.deepEqual(graph.edges.filter((e) => e.relation === "calls" && e.target === e.source && e.source.includes("accept")), []);
   assert.deepEqual(calls(graph, "src/l.rs#go"), ["src/l.rs#go"], "inherent recursion stays");
+});
+
+test("a call through a `.d.ts` did not resolve, and the message names the file", async (t) => {
+  const graph = await build(t, {
+    "dts/utils.d.ts": "export declare function expectType<T>(v: T): void;\n",
+    "dts/a.ts": `import { expectType } from "./utils";\nexport function run() { expectType(1); }\n`,
+    "src/other.ts": "export function other() {}\n",
+  });
+  assert.deepEqual(graph.unresolvedCalls, [{ source: "dts/a.ts#run", name: "expectType", through: "./utils", file: "dts/utils.d.ts" }]);
+  const g = graph as unknown as GraphV1;
+  assert.match(traverse.unresolvedNoteFor(g, "in", "expectType")!, /through \.\/utils, in dts\/utils\.d\.ts, which is not indexed/);
+  assert.match(traverse.noSymbolText(g, "expectType")!, /did not resolve/);
+  assert.match(traverse.noSymbolText(g, "expectType")!, /dts\/utils\.d\.ts/);
+  assert.doesNotMatch(traverse.noSymbolText(g, "expectType")!, /no symbol|no definition|spelling/);
+  assert.equal(traverse.noSymbolText(g, "nothingCallsThis"), null);
 });

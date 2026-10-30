@@ -140,4 +140,6 @@ export interface UnresolvedCallV1 {
   /** The import the call went through, or null for a name an assignment or second import
    * leaves with more than one target. */
   through: string | null;
+  /** The file that import names, when it is one the graph does not index, such as a `.d.ts`. */
+  file?: string;
 }

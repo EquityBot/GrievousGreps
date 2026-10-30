@@ -10,7 +10,7 @@ import { loadGraphCached } from '../graph/load.js';
 import { ensureFreshChildren, ensureFreshGraph, refreshNote } from '../graph/refresh.js';
 import { contextDirFor } from '../context/node-file.js';
 import { resolveSymbol, edgeWalk, type Direction, type EdgeHit } from '../graph/traverse.js';
-import { callersSavings, headerOf, hitLine, looseNoteFor, unresolvedNoteFor } from '../graph/traverse-cli.js';
+import { callersSavings, headerOf, hitLine, looseNoteFor, noSymbolText, unresolvedNoteFor } from '../graph/traverse-cli.js';
 import { withSavings, setInputRate } from '../context/savings.js';
 import { sessionInputRate } from '../claude/session-metrics.js';
 import { grepGraph } from '../search/grep.js';
@@ -300,7 +300,7 @@ async function callSingleTool(
         const matches = resolveSymbol(w, symbol, inOpt);
         if (matches.length === 0) {
           const unresolved = unresolvedNoteFor(w, 'in', symbol);
-          return { text: unresolved ? `${unresolved.trim()}\n${unknownSymbolText(symbol)}` : unknownSymbolText(symbol), isError: true };
+          return { text: unresolved ? `${unresolved.trim()}\n${noSymbolText(w, symbol) ?? unknownSymbolText(symbol)}` : unknownSymbolText(symbol), isError: true };
         }
         const direction: Direction = args.direction === 'out' ? 'out' : 'in';
         // `depth: "all"` (or a huge number) walks the full transitive closure —

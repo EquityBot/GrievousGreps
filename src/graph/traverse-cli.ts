@@ -117,9 +117,17 @@ export function unresolvedNoteFor(graph: GraphV1, direction: Direction, name: st
   if (direction !== "in") return null;
   const calls = (graph.unresolvedCalls ?? []).filter((c) => c.name === name);
   if (calls.length === 0) return null;
-  const named = calls.slice(0, 5).map((c) => (c.through ? `${c.source} (through ${c.through})` : `${c.source} (an assignment or a second import gives it more than one target)`));
+  const named = calls.slice(0, 5).map((c) => (c.through ? `${c.source} (through ${c.file ? `${c.through}, in ${c.file}, which is not indexed` : c.through})` : `${c.source} (an assignment or a second import gives it more than one target)`));
   const more = calls.length > 5 ? ` and ${calls.length - 5} more` : "";
   return `  ⚠ may be incomplete: ${calls.length} call(s) to "${name}" did not resolve to one definition and are not listed: ${named.join(", ")}${more}`;
+}
+
+/** Why a name has no symbol, when calls to it were seen: it is not a misspelling, they did not resolve. */
+export function noSymbolText(graph: GraphV1, name: string): string | null {
+  const calls = (graph.unresolvedCalls ?? []).filter((c) => c.name === name);
+  if (calls.length === 0) return null;
+  const file = calls.find((c) => c.file)?.file;
+  return `"${name}" did not resolve to a symbol in the graph${file ? `: its calls go through ${file}, which is not indexed` : ": the calls above name it"}. Find its uses with ${cmd("graft grep")} "${name}"`;
 }
 
 interface SymbolJson {
@@ -199,7 +207,7 @@ export function runCallersCommand(query: string, dir: string, opts: CallersCliOp
   if (matches.length === 0) {
     const unresolved = unresolvedNoteFor(graph, "in", query);
     if (unresolved) console.error(unresolved.trim());
-    console.error(`✗ no symbol "${query}" in the graph — check spelling or run ${cmd("graft build")}`);
+    console.error(`✗ ${noSymbolText(graph, query) ?? `no symbol "${query}" in the graph — check spelling or run ${cmd("graft build")}`}`);
     process.exit(1);
   }
 

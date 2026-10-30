@@ -13,7 +13,7 @@
  * whole node set, so an incremental build's output is byte-identical to a cold
  * one — the invariant `test/graph-incremental.test.ts` pins down.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, posix, resolve } from "node:path";
 import { walkDir } from "../ingest/fs.js";
 import { assertRealContextDir, contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
@@ -502,6 +502,12 @@ export async function buildGraph(
     ...readTsImports(root, repoFiles),
     unresolvedCalls,
   });
+  for (const call of unresolvedCalls) {
+    if (!call.through?.startsWith(".")) continue;
+    const target = posix.join(posix.dirname(call.source.split("#")[0]), call.through);
+    const file = [".d.ts", ".d.mts", ".d.cts", "/index.d.ts"].map((ext) => target + ext).find((f) => existsSync(join(root, f)));
+    if (file) call.file = file;
+  }
 
   // Guard 5 (minimum-substance): node counts aren't known until nodes are
   // assembled, so the merge-tiny-scopes-into-root guard runs here.
