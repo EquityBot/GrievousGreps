@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { repoWiredForTrail } from "../brand.js";
 import { ignoreInTrailDir } from "../notes/repo-trail.js";
+import { resolveInside } from "../util/safe-fs.js";
 
 /** The map's folder in a repo on trail, relative to the repo. */
 export const TRAIL_MAP_DIR = join(".trail", "cache");
@@ -56,6 +57,9 @@ function moveOldMap(root: string, to: string): void {
     // untracked, or not a git checkout: ours to move
   }
   try {
+    // Committed links are never crossed: not `graft` itself, nor `.trail` or `.trail/cache`.
+    resolveInside(root, from);
+    resolveInside(root, to);
     mkdirSync(join(root, ".trail"), { recursive: true });
     ignoreInTrailDir(root, "cache/");
     renameSync(from, to);

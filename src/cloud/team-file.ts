@@ -59,7 +59,7 @@ export function writeTeamFile(checkout: string, cloud: Pick<Cloud, "url" | "work
     const next: TeamFile = { trail, workspace: cloud.workspace.slug, name: cloud.workspace.name };
     const now = readTeamFile(checkout);
     if (now && now.trail === next.trail && now.workspace === next.workspace && now.name === next.name) return false;
-    writeJsonAtomic(teamPath(checkout), next);
+    writeJsonAtomic(teamPath(checkout), next, false, undefined, checkout); // never through a committed `.trail` link
     return true;
   } catch {
     return false;

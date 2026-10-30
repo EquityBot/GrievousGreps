@@ -5,6 +5,8 @@
  * writes, no spawning): this file is the only place that knows how to actually
  * re-run the wiring, and it is deliberately thin.
  */
+import { homedir } from 'node:os';
+import { linkOutOfRepo } from './init/install-paths.js';
 import { runInit, wiringName } from './claude/init.js';
 import { runHostsInit } from './hosts/init.js';
 import { graftCliPath } from './claude/paths.js';
@@ -43,6 +45,8 @@ export interface UpkeepResult {
  * `opts.global`/`opts.hooks`, replayed from the stamp.
  */
 function rewriteWiring(repo: string, hosts: string[], opts: WiringOpts, toTrail = false): void {
+  // This runs unasked after an upgrade: never write through a link the repo committed.
+  if (linkOutOfRepo(repo, homedir())) throw new Error('a committed link leaves the repo');
   // Moving to trail: everything written from here speaks trail, the repo gets
   // its .trail/, and the hosts are rewired under trail's names.
   if (toTrail) setBrand('trail');

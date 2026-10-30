@@ -182,6 +182,39 @@ export function removeFileInside(base: string, path: string): void {
   rmSync(abs, { force: true });
 }
 
+/**
+ * The first link on the way from `root` to `path` that leaves `root`, or dangles,
+ * or null. Laxer than {@link resolveInside}: wiring may keep `AGENTS.md -> CLAUDE.md`
+ * inside the repo, because a write through that link stays in the repo.
+ */
+export function linkLeavingRoot(root: string, path: string): string | null {
+  let realRoot: string;
+  try {
+    realRoot = realpathSync(root);
+  } catch {
+    return null; // no root, so nothing under it to follow
+  }
+  const parts = relative(root, resolve(root, path)).split(sep).filter(Boolean);
+  let at = resolve(root);
+  for (const part of parts) {
+    at = join(at, part);
+    let st;
+    try {
+      st = lstatSync(at);
+    } catch {
+      return null; // nothing there yet, so nothing below it to follow
+    }
+    if (!st.isSymbolicLink()) continue;
+    try {
+      const real = realpathSync(at);
+      if (real !== realRoot && !real.startsWith(realRoot + sep)) return at;
+    } catch {
+      return at;
+    }
+  }
+  return null;
+}
+
 function isSymlink(path: string): boolean {
   try {
     return lstatSync(path).isSymbolicLink();

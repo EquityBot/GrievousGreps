@@ -17,6 +17,7 @@
  * background `git fetch` refreshes (branches.ts), so nothing here spawns git.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { ensureDirInside, readFileInside, resolveInside, writeFileInside } from "../util/safe-fs.js";
 import { dirname, join } from "node:path";
 
 /** The folder, relative to the top of the checkout. */
@@ -90,11 +91,11 @@ export function hasRepoTrail(checkout: string): boolean {
 /** Make `.trail/learnings/` and its README. Returns whether the folder is new. */
 export function ensureRepoTrail(checkout: string): boolean {
   const created = !hasRepoTrail(checkout);
-  mkdirSync(learningsDir(checkout), { recursive: true });
+  // A committed `.trail` link throws here, before anything is written through it.
+  ensureDirInside(checkout, learningsDir(checkout));
   const readme = join(checkout, TRAIL_DIR, "README.md");
-  let current: string | null = null;
-  try { current = readFileSync(readme, "utf8"); } catch { /* none yet */ }
-  if (current === null || OLD_READMES.includes(current)) writeFileSync(readme, REPO_TRAIL_README);
+  const current = readFileInside(checkout, readme);
+  if (current === null || OLD_READMES.includes(current)) writeFileInside(checkout, readme, REPO_TRAIL_README);
   return created;
 }
 
@@ -120,7 +121,8 @@ export function readLearningFile(checkout: string, name: string): string | null 
 
 /** One line in `.trail/.gitignore`, added once. */
 export function ignoreInTrailDir(dir: string, entry: string): void {
-  const path = join(dir, ".trail", ".gitignore");
+  let path: string;
+  try { path = resolveInside(dir, join(".trail", ".gitignore")); } catch { return; } // a committed link is never followed
   let text = "";
   try { text = readFileSync(path, "utf8"); } catch { /* new */ }
   if (text.split("\n").some((l) => l.trim() === entry)) return;

@@ -53,7 +53,13 @@ export function resolveContextDir(projectDir: string): string {
   return dir;
 }
 
-export function cacheDir(projectDir: string): string { return join(resolveContextDir(projectDir), '.cache'); }
+/** The repo's cache folder. Throws when a committed link would redirect it, so stats,
+ * stamps, session state and every other cache write stay in the repo. */
+export function cacheDir(projectDir: string): string {
+  const dir = join(resolveContextDir(projectDir), '.cache');
+  resolveInside(trustedBaseFor(projectDir, dir), dir);
+  return dir;
+}
 function statsPath(d: string): string { return join(cacheDir(d), 'stats.json'); }
 
 /** Parsed JSON at `p`, or null when absent or unparseable. With `base`, read only

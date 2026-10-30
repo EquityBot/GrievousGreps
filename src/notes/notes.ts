@@ -27,6 +27,7 @@ import { isAlwaysFollow } from "./units.js";
 import { ensureRepoHome, notePlaces, shownPath } from "./home.js";
 import { LEARNING_KEYS, learningFileName, liveLearnings, newLearningId, readLearningFields, type LearningFields } from "./learning-fields.js";
 import { ensureRepoTrail, LEARNINGS_DIR, learningsDir } from "./repo-trail.js";
+import { writeFileInside } from "../util/safe-fs.js";
 import { TOUCH_CHARS, TOUCH_LIMIT } from "./targets.js";
 
 // Where a learning goes, which to show for a query and how one is credited live in their own files.
@@ -307,7 +308,8 @@ export function writeNote(dir: string, input: WriteNoteInput, scope: LearningSco
     ...(input.standing ? { standing: true } : {}),
     ...readLearningFields({ ...input, id: newLearningId(name), scope: inRepo ? "repo" : "personal", applies: inRepo ? undefined : (input.applies ?? place.key), status: "active" }, name),
   };
-  writeFileSync(join(notes, name), renderNote(note));
+  // A committed dangling link at this name reads as free above; it is replaced, not followed.
+  writeFileInside(notes, join(notes, name), renderNote(note));
   return { ...note, path: join(notes, name) };
 }
 

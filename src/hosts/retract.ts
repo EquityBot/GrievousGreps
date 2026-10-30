@@ -40,7 +40,7 @@ import type { Brand } from '../brand.js';
 
 /** Both names a file can go by: graft's, and trail's in a repo that uses trail. */
 const NAMES: readonly Brand[] = ['graft', 'trail'];
-import { resolveInside } from '../util/safe-fs.js';
+import { linkLeavingRoot, resolveInside } from '../util/safe-fs.js';
 
 /** What a retraction did to one target. */
 export type RetractAction =
@@ -533,7 +533,13 @@ function targets(repo: string, opts: RetractOpts): Target[] {
 
 /** What a retraction *would* remove. Pure — touches nothing. */
 export function planRetract(repo: string, opts: RetractOpts = {}): Retraction[] {
-  return targets(repo, { ...opts, apply: false }).map(({ run, ...t }) => ({ ...t, action: run(false) }));
+  return targets(repo, { ...opts, apply: false }).map(({ run, ...t }) => ({ ...t, action: leavesRepo(repo, t) ? 'skipped-unparseable' : run(false) }));
+}
+
+/** A repo target reached through a committed link out of the repo is left alone: its
+ * edit or delete would land wherever the link points. */
+function leavesRepo(repo: string, t: { path: string; scope: string }): boolean {
+  return t.scope === 'repo' && linkLeavingRoot(repo, t.path) !== null;
 }
 
 /**
@@ -543,7 +549,7 @@ export function planRetract(repo: string, opts: RetractOpts = {}): Retraction[] 
  */
 export function runRetract(repo: string, opts: RetractOpts = {}): Retraction[] {
   const apply = opts.apply !== false;
-  return targets(repo, opts).map(({ run, ...t }) => ({ ...t, action: run(apply) }));
+  return targets(repo, opts).map(({ run, ...t }) => ({ ...t, action: leavesRepo(repo, t) ? 'skipped-unparseable' : run(apply) }));
 }
 
 /** The subset worth showing a user: targets that had something to remove. */

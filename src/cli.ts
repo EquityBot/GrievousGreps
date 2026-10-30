@@ -65,7 +65,7 @@ import { aboutTerms, currentSessionCost } from "./notes/session-cost.js";
 import { flatLine, unmarkedWords } from "./notes/flatten.js";
 import { beginLookBack, finishLookBack, type FoundSkill } from "./init/run.js";
 import { keepCommand } from "./init/keep.js";
-import { recordInit, snapInit } from "./init/install-paths.js";
+import { linkOutOfRepo, recordInit, snapInit } from "./init/install-paths.js";
 import { finishPair, PairRun, validPairCode } from "./cloud/pair.js";
 import { currentBranch, noteAuthor, teammatesOn } from "./notes/git-facts.js";
 import { listSkills } from "./skills/skills.js";
@@ -2042,6 +2042,12 @@ function wireTarget(
       if (!quiet) console.error(line);
       else if (line.startsWith("⚠")) report.warnings.push(line);
     };
+    const planted = linkOutOfRepo(repo, home);
+    if (planted) {
+      console.error(`✗ refusing to set up ${repo}: ${planted} is a link that leaves the repository`);
+      process.exitCode = 1;
+      return report;
+    }
     const wantStatusline = statuslineWanted({ statusline: opts.statusline });
 
     // Converge, don't just add. init writes the selected hosts; without this it

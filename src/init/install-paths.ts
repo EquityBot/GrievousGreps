@@ -15,6 +15,7 @@ import { planInit } from '../hosts/plan.js';
 import { cursorHookShimRelPath, HOSTS } from '../hosts/registry.js';
 import { repoPlace } from '../notes/home.js';
 import { recordInstall, snapInstall, type InstallSnap } from './install-record.js';
+import { linkLeavingRoot } from '../util/safe-fs.js';
 
 const SHIMS = ['graft', 'trail'].flatMap((b) => ['hooks', 'statusline'].map((k) => `.claude/helpers/${b}-${k}.cjs`));
 /** The graph build's ignore lines under graft, and under trail the one file that keeps `.trail/cache/` and the status line out of git (#619). */
@@ -63,6 +64,18 @@ function pathsFor(target: string, checkout: string, home: string): string[] {
   return [...writes, ...graftCopies(target), ...oldTrailLayout(target), ...[...SHIMS, ...IGNORES].map((s) => join(target, s)), join(checkout, '.trail', 'README.md')]
     .map((p) => relative(checkout, p).split(sep).join('/'))
     .filter((r) => r && !r.startsWith('..'));
+}
+
+/** The first committed link out of the repo on any path init would write or remove, or null.
+ * Init and the wiring refresh both refuse such a repo rather than write through it. */
+export function linkOutOfRepo(target: string, home: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  const place = repoPlace(target, env);
+  const root = place.git ? place.checkout : target;
+  for (const rel of pathsFor(target, root, home)) {
+    const link = linkLeavingRoot(root, join(root, rel));
+    if (link) return link;
+  }
+  return null;
 }
 
 /** One look per checkout, before init writes anything. */
