@@ -57,12 +57,12 @@ export const UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 /* version comparison                                                         */
 /* -------------------------------------------------------------------------- */
 
-/** Numeric-dotted compare of the release part only (`1.2.3-beta.1` → `1.2.3`).
+/** Numeric-dotted compare of the release part only (`1.2.3-beta.1` and `1.2.3+gg` → `1.2.3`).
  * Prerelease ordering doesn't matter here: the only question either caller asks
  * is "is the thing on npm ahead of what's on disk", and a prerelease that
  * compares equal simply produces no nudge. */
 export function compareVersions(a: string, b: string): number {
-  const parts = (v: string) => String(v).split('-')[0].split('.').map((n) => Number(n) || 0);
+  const parts = (v: string) => String(v).split(/[-+]/)[0].split('.').map((n) => Number(n) || 0);
   const pa = parts(a);
   const pb = parts(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {

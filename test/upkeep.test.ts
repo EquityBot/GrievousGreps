@@ -42,6 +42,8 @@ test('isNewer only fires on a strictly greater candidate', () => {
   assert.equal(isNewer('0.9.0', '0.9.1'), false);
   assert.equal(isNewer(null, '0.9.1'), false); // failed fetch
   assert.equal(isNewer(undefined, '0.9.1'), false); // no cache yet
+  assert.equal(isNewer('0.28.1', '0.28.1+gg'), false); // this distribution's build mark is not a release
+  assert.equal(isNewer('0.28.2', '0.28.1+gg'), true);
 });
 
 test('formatUpdateNudge stays silent unless there is something to say', () => {
