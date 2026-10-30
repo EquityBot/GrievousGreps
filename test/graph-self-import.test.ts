@@ -233,3 +233,15 @@ test("V2: a package name found outside its entries must be exported under that n
   });
   assert.deepEqual(edge(proven, "apps/a.ts#go"), [["packages/core/src/impl.ts#execute", "inferred"]], "the rename is the provenance");
 });
+
+test("V4: an `exports` wildcard substitutes by prefix and suffix", async (t) => {
+  const graph = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { "./api/*": "./dist/impl/*.js", "./v/*.js": "./dist/vers/*.js" } }),
+    "packages/core/src/impl/one.ts": "export function f() {}\n",
+    "packages/core/src/impl/two.ts": "export function f() {}\n",
+    "packages/core/src/vers/three.ts": "export function g() {}\n",
+    "packages/core/src/vers/four.ts": "export function g() {}\n",
+    "apps/a.ts": `import { f } from "@acme/core/api/two";\nimport { g } from "@acme/core/v/three.js";\nexport function go() { f(); g(); }\n`,
+  });
+  assert.deepEqual(edge(graph, "apps/a.ts#go").sort(), [["packages/core/src/impl/two.ts#f", "extracted"], ["packages/core/src/vers/three.ts#g", "extracted"]]);
+});

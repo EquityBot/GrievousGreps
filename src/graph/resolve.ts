@@ -749,7 +749,7 @@ function followTsPackage(name: string, target: { packages: TsPackage[]; rest: st
   let outside = false; // one condition may forward the name out whilst another defines it
   for (const pkg of packages) {
     const tree = rest ? [`src/${rest}`, rest] : ["src/index", "index"];
-    for (const entry of [...(pkg.entries[rest ? `./${rest}` : "."] ?? []), ...tree]) {
+    for (const entry of [...tsPackageEntries(pkg, rest ? `./${rest}` : "."), ...tree]) {
       const module = resolveImport(`./${posix.join(pkg.dir, entry)}`, "repo-root", ctx.byId);
       if (!ctx.byId.has(module)) continue;
       const hit = followTsExport(name, module, ctx, new Set(seen));
@@ -772,6 +772,21 @@ function followTsPackage(name: string, target: { packages: TsPackage[]; rest: st
     }
   }
   return named.size === 1 ? { scoped: [...named.values()][0] } : "unmapped";
+}
+
+/** The files a package's manifest gives a subpath: its own key, or the longest `*` key that fits. */
+function tsPackageEntries(pkg: TsPackage, subpath: string): string[] {
+  if (pkg.entries[subpath]) return pkg.entries[subpath];
+  let best: { prefix: string; stem: string; targets: string[] } | undefined;
+  for (const [key, targets] of Object.entries(pkg.entries)) {
+    const star = key.indexOf("*");
+    if (star < 0) continue;
+    const prefix = key.slice(0, star);
+    const suffix = key.slice(star + 1);
+    if (subpath.length <= prefix.length + suffix.length || !subpath.startsWith(prefix) || !subpath.endsWith(suffix)) continue;
+    if (!best || prefix.length > best.prefix.length) best = { prefix, stem: subpath.slice(star, subpath.length - suffix.length), targets };
+  }
+  return best ? best.targets.map((t) => t.replace("*", best.stem)) : [];
 }
 
 /** `name` as read through what an import or re-export named. */
