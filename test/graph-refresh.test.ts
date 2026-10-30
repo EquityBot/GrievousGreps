@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -44,6 +44,28 @@ function withRefreshDisabled<T>(fn: () => T): T {
     delete process.env.GRAFT_NO_REFRESH;
   }
 }
+
+test("TRAIL_NO_FIRST_BUILD: a query in a repo on trail with no map writes nothing, and a built map still refreshes", async () => {
+  const d = repo();
+  mkdirSync(join(d, ".trail", "learnings"), { recursive: true });
+  const trailEntries = (): string[] => readdirSync(join(d, ".trail")).sort();
+  process.env.TRAIL_NO_FIRST_BUILD = "1";
+  try {
+    const none = await ensureFreshGraph(d);
+    assert.equal(none.refreshed, false);
+    assert.equal(none.note, undefined);
+    assert.deepEqual(trailEntries(), ["learnings"]);
+    assert.equal(existsSync(outOf(d)), false);
+
+    await buildGraph(d);
+    const out = join(d, ".trail", "cache");
+    writeFileSync(join(d, "src", "math.ts"), `${MATH}${MUL}`);
+    assert.equal((await ensureFreshGraph(d)).refreshed, true, "only a missing map is left alone");
+    assert.ok((readGraph(wiringPath(out)) as GraphV1).nodes.some((n) => n.name === "mul"));
+  } finally {
+    delete process.env.TRAIL_NO_FIRST_BUILD;
+  }
+});
 
 test("probeDrift: clean after a build, then reports what moved", async () => {
   const d = repo();

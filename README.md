@@ -649,6 +649,7 @@ trail map --max-dirs N               # raise/lower the number of directories sho
 #   --no-refresh                     # answer from the graph exactly as it is on disk
 #   GRAFT_NO_REFRESH=1               # same, for every command
 #   GRAFT_REFRESH=hash               # hash every file instead of trusting size+mtime
+#   TRAIL_NO_FIRST_BUILD=1           # a repo with no map stays untouched; a built map still refreshes
 
 # learnings
 trail note --title "<about>" [dir]   # save a learning: what this session decided, tried and ruled out (the text on stdin)

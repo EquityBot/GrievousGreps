@@ -87,11 +87,17 @@ export interface RefreshOptions {
 
 const CLEAN: RefreshResult = { refreshed: false };
 
-/** Env kill switch, for CI or anyone who wants queries to never write. */
-function envDisabled(): boolean {
-  const v = process.env.GRAFT_NO_REFRESH;
+function envFlag(name: string): boolean {
+  const v = process.env[name];
   return v !== undefined && v !== "" && v !== "0" && v !== "false";
 }
+
+/** Env kill switch, for CI or anyone who wants queries to never write. */
+const envDisabled = (): boolean => envFlag("GRAFT_NO_REFRESH");
+
+/** Narrower: a map that exists still refreshes, but a repo without one is left
+ * untouched (no lock, no worktree seed, no first build). */
+const envNoFirstBuild = (): boolean => envFlag("TRAIL_NO_FIRST_BUILD");
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -239,6 +245,7 @@ export async function ensureFreshGraph(root: string, opts: RefreshOptions = {}):
     let seededFrom: string | undefined;
     let builtNote: string | undefined;
     if (!existsSync(wiringPath(outDir))) {
+      if (envNoFirstBuild()) return CLEAN;
       // One case has a graph to work with even though this checkout has none: a git
       // worktree, whose parent checkout's `graft/` git could not check out. Copy it
       // in and carry on — the drift below is then exactly the diff between the two
