@@ -95,9 +95,22 @@ const runFiles = (list, ...flags) =>
     stdio: "inherit",
     env: { ...process.env, ...gitEnv, ...tmpEnv, ...homeEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
   });
-const results = [runFiles(files.filter((f) => !ALONE.includes(f)))];
+// `npm test -- --coverage` also writes each run's coverage to coverage-<run>.lcov
+// for the Codecov upload, keeping the spec report on stdout.
+const coverage = process.argv.slice(2).includes("--coverage");
+const coverageFlags = (run) =>
+  coverage
+    ? [
+        "--experimental-test-coverage",
+        "--test-reporter=spec",
+        "--test-reporter-destination=stdout",
+        "--test-reporter=lcov",
+        `--test-reporter-destination=coverage-${run}.lcov`,
+      ]
+    : [];
+const results = [runFiles(files.filter((f) => !ALONE.includes(f)), ...coverageFlags("main"))];
 const alone = files.filter((f) => ALONE.includes(f));
-if (alone.length > 0) results.push(runFiles(alone, "--test-concurrency=1"));
+if (alone.length > 0) results.push(runFiles(alone, "--test-concurrency=1", ...coverageFlags("alone")));
 try {
   rmSync(runTmp, { recursive: true, force: true });
 } catch {
