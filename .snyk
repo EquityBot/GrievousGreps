@@ -1,0 +1,14 @@
+# Snyk (https://snyk.io) policy file.
+version: v1.25.0
+ignore:
+  SNYK-JS-GRAYMATTER-20532010:
+    - '*':
+        reason: >-
+          gray-matter evals ---js and ---coffee front matter. Every call goes
+          through src/util/front-matter.ts, which replaces those engines with
+          one that returns nothing, so no front matter is ever run;
+          test/front-matter.test.ts checks each fence spelling. No fixed
+          gray-matter release exists.
+        expires: 2027-05-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
+patch: {}
