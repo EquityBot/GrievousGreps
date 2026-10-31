@@ -16,7 +16,7 @@
 
 </div>
 
-GrievousGreps is EquityBot's distribution of [Trail-Code](https://github.com/trailhq/Trail-Code), the code graph CLI for coding agents, formerly Graft. It maps every function in a repository and who calls it, so an agent can check what a change reaches before it edits.
+GrievousGreps is EquityBot's distribution of [Trail-Code](https://github.com/trailhq/Trail-Code), the code graph CLI for coding agents, formerly Graft. It maps the functions it can parse in a repository and the callers it can resolve, so an agent can check what a change reaches before it edits. It misses some callers: see [Measured recall](#measured-recall) and [Limits](#limits).
 
 Use it over upstream if your agent relies on `callers`. [Measured recall](#measured-recall) rose on most of 21 public repositories, though not all, and Rust recall is partial. It also makes no background network request until you ask for one, and it refuses to write through a symlink planted in a repository. It installs the same `trail` and `graft` commands, so agent configuration and most commands work as they do upstream. [Compared with upstream](#compared-with-upstream) lists the differences.
 
@@ -42,6 +42,8 @@ trail --version
 ```
 
 `npm link` points the commands at this folder, so keep it. The folder measured about 610 MB with its development dependencies. Installing writes nothing to your agents' settings.
+
+A repository already wired to upstream with `npx` keeps starting upstream's package until you run `trail init` there, which replaces those MCP entries with the installed command.
 
 To update, run `git pull`, `npm ci` and `npm run build` in the folder. `trail upgrade` refuses on this build, because the package on npm is upstream's.
 
@@ -97,7 +99,7 @@ That order rests on this statement: the truth went into a local log that is not 
 
 Rust recall is partial. tokio is the weakest row at 0.33, and tracing is at 0.57. Together they hold 1,594 of the 4,157 calls, and their symbols were chosen for names repeated across crates and types.
 
-About 1 in 6 `[inferred]` edges were wrong, in 2 samples totalling 80 edges (14 false, 95% interval 11% to 27%), at `e37a764` and `949d829`. An edge with that mark is a lead, and the output shows the mark so you can tell it from a resolved edge. Definite edges: 2 of 80 false over the same 2 samples.
+About 1 in 6 `[inferred]` edges were wrong, in 2 samples totalling 80 edges (14 false, 95% interval 11% to 27%), at `e37a764` and `949d829`. An edge with that mark is a lead. `callers`, its JSON and the MCP tool show the mark, and at depth 2 or more they also show it on any hit whose every shortest path crosses such an edge. `blast` does not show it. Definite edges: 2 of 80 false over the same 2 samples.
 
 Recall did not rise everywhere: vue did not move, and trpc moved little. Overall precision fell slightly, and silent undercounts remain.
 
@@ -146,9 +148,9 @@ This table lists what the code changes from upstream 0.28.0. Only [the recall ta
 | Python calls | Calls through a module alias or a re-exported name lose their edge | Follows named imports, module aliases, re-exports and local imports, and picks the nearest of several modules with one name |
 | TypeScript calls | Bound by name lookup where an import is not followed | Follows barrels, namespaces, tsconfig paths and exports maps, and counts JSX elements as calls |
 | Rust calls | Path calls not resolved by owner, and calls inside macros not seen | Scopes `use` to its module, resolves path calls by owner and reads macro bodies where the tokens decide the target. Still partial: see [Limits](#limits) |
-| Usage stats | On by default, with `trail telemetry disable` to stop them | Off by default |
-| Daily npm version check | On by default | Off unless `GRAFT_UPDATE_CHECK=1` |
-| Workspace background reads | On by default | Off unless `TRAIL_CLOUD=1` or you sign in |
+| Usage stats | On by default in published builds, with a notice on first run, unless `DO_NOT_TRACK` or CI is set. `trail telemetry disable` stops them. A build from source has no key, so it sends none | Off by default, and no key in the build |
+| Daily npm version check | On by default, unless `DO_NOT_TRACK` is set | Off unless `GRAFT_UPDATE_CHECK=1` |
+| Workspace background reads | The sign-in link is on wherever usage stats are, and `TRAIL_CLOUD` overrides that. In a repository that keeps learnings, sessions also run a background `git fetch` and `gh` reads unless `TRAIL_NO_FETCH` is set | Off unless `TRAIL_CLOUD=1` or you sign in |
 | Symlinks planted in a repository or output folder | Followed | Refuses to write through them. A link swapped in between the check and the write is out of scope ([SECURITY.md](SECURITY.md)) |
 | Writes outside the repository | `trail init` adds hooks to `~/.claude` and `~/.codex` unless you pass `--no-global`, and `trail login` adds MCP servers | Only with `--global`, on either command, or `trail init --connect` |
 | npm on Windows | The update check fails on the `npm.cmd` shim | Starts npm through the shell |

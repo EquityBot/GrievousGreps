@@ -1,17 +1,21 @@
 # Telemetry
 
-This distribution's builds carry no telemetry key, so they send no usage events, and the rest
-of this page describes upstream's official builds.
+**In this distribution, off by default.** Its builds carry no telemetry key, so they send no
+usage events whatever you set, and its code also leaves the events off until `trail telemetry
+enable`, `GRAFT_TELEMETRY=1` or the `trail init` picker asks for them. No background network
+request is made until you ask for one: `GRAFT_UPDATE_CHECK=1` turns on the daily npm version
+check, and `TRAIL_CLOUD=1` or signing in turns on the workspace side, with its background
+`git fetch`, `gh` reads and sign-in link. Commands that exist to reach the network still do so
+when you run them, such as `trail team`, which fetches `origin` to read teammates' branches.
 
-**Off by default.** Nothing below is recorded or sent, and no background network request
-is made, until you ask for it. `trail telemetry enable`, `GRAFT_TELEMETRY=1` or ticking the
-row in the `trail init` picker turns on the usage events described here. Separately,
-`GRAFT_UPDATE_CHECK=1` turns on the daily npm version check, and `TRAIL_CLOUD=1` or signing
-in turns on the workspace side, with its background `git fetch`, `gh` reads and sign-in
-link. Commands that exist to reach the network still do so when you run them, such as
-`trail team`, which fetches `origin` to read teammates' branches.
+**In upstream's official builds at 0.28.0, on by default.** The usage events start with a
+notice on first run, and [Opting out](#opting-out) lists what stops them. The daily npm version
+check runs unless `DO_NOT_TRACK` is set. The workspace sign-in link is on wherever the usage
+events are, and `TRAIL_CLOUD` overrides that. In a repository that keeps learnings, sessions
+also run a background `git fetch` and `gh` reads unless `TRAIL_NO_FETCH` is set. The rest of
+this page describes those builds' events.
 
-If you turn it on, Trail-code collects a small set of **anonymous** usage events so we can
+Where it is on, Trail-code collects a small set of **anonymous** usage events so we can
 tell whether the thing works: how many repos get past a build, whether an agent reaches for
 Trail-code or falls back to grep, which commands earn their place, and what breaks in
 the wild.
@@ -183,16 +187,15 @@ variables, API keys, model names, hostnames, usernames, or email addresses.
 - IP-based geolocation is used only to derive a country for aggregate stats;
   PostHog does not retain the IP on the event.
 
-## Opting in and out
+## Opting out
 
-Telemetry stays off unless you turn it on. Any one of these keeps it off, or turns it
-off again:
+Any one of these turns the usage events off:
 
-1. **Leave "anonymous usage stats" unchecked in the `trail init` picker.** The answer
-   is remembered for this machine.
+1. **Uncheck "anonymous usage stats" in the `trail init` picker.** The answer is
+   remembered for this machine.
 2. **`trail telemetry disable`** at any time. It outranks `GRAFT_TELEMETRY=1`.
    `trail telemetry status` shows the current state, and `trail telemetry enable`
-   turns it on.
+   turns it back on.
 3. **Set [`DO_NOT_TRACK`](https://web.archive.org/web/20251005054121/https://consoledonottrack.com/)** to any value other
    than `0`. Respected unconditionally: it outranks Trail-code's own setting.
 4. **Run in CI.** `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` and friends switch it off
