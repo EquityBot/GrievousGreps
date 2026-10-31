@@ -31,6 +31,21 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+// These hold real time limits against real processes: a clean-tree probe gives git 150 ms, as a
+// hook must stay quick, and a wait for a workspace has its own limit. Each file passes on its own, but
+// with the other files running beside it git took over 150 ms on every call, so they run after
+// the rest, one at a time.
+const ALONE = [
+  "mcp-connector-review",
+  "skills-probes",
+  "skills-probes-init-paths-1b",
+  "skills-probes-trail-files",
+  "skills-prompt",
+  "skills-prompt-attacks",
+  "skills-session-start",
+  "trail-connect-cli",
+].map((name) => join("test", `${name}.test.ts`));
+
 // Several tests `git init` a scratch repo and `git commit` into it to exercise the
 // incremental/submodule/ingest git paths. Those commits inherit the developer's
 // global git config — so a contributor who signs commits (gpg, or gitsign, whose
@@ -74,20 +89,26 @@ const homeEnv = {
 // A graft repo moves to trail when a session opens on a machine with the trail
 // command, so a contributor who has trail installed would see test repos move.
 // Off for the run; the tests of the move turn it back on.
-const result = spawnSync(process.execPath, ["--import", "tsx", "--test", ...files], {
-  cwd: repoRoot,
-  stdio: "inherit",
-  env: { ...process.env, ...gitEnv, ...tmpEnv, ...homeEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
-});
+const runFiles = (list, ...flags) =>
+  spawnSync(process.execPath, ["--import", "tsx", "--test", ...flags, ...list], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    env: { ...process.env, ...gitEnv, ...tmpEnv, ...homeEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
+  });
+const results = [runFiles(files.filter((f) => !ALONE.includes(f)))];
+const alone = files.filter((f) => ALONE.includes(f));
+if (alone.length > 0) results.push(runFiles(alone, "--test-concurrency=1"));
 try {
   rmSync(runTmp, { recursive: true, force: true });
 } catch {
   /* best effort: a locked file on Windows must not fail the run */
 }
 
-if (result.error) {
-  console.error(`✗ could not start the test runner: ${result.error.message}`);
-  process.exit(1);
+for (const result of results) {
+  if (result.error) {
+    console.error(`✗ could not start the test runner: ${result.error.message}`);
+    process.exit(1);
+  }
+  // A signal-killed run reports null status; treat anything non-zero as failure.
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
-// A signal-killed run reports null status; treat anything non-zero as failure.
-process.exit(result.status ?? 1);
