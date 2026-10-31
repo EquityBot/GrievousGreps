@@ -7,8 +7,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
 import {
   agentRuns, at, box, calling, done, finish, grow, offersLog, one, postBashFailHook, preBashHook, promptHook, reply, resultOf, session, startHook, stateOf, stopHook,
 } from './claude-skills-journey-fixtures.js';
@@ -45,7 +46,10 @@ test('J14a through the hooks: two releases from the block, each corrected, make 
 test('J14c through the hooks: Colima stopped and gh missing before a skill run, the failed probes come first in the block, and two failed runs charge nothing', async () => {
   const { savePersonal } = await import('../src/skills/store.js');
   const { compiled } = await import('./skills-store-fixtures.js');
-  const b = box('r1b-j14c');
+  // The skill runs go, and a machine without it gets a line about that ahead of the block this test reads.
+  const bin = mkdtempSync(join(tmpdir(), 'r1b-j14c-bin-'));
+  for (const file of ['go', 'go.cmd']) writeFileSync(join(bin, file), '', { mode: 0o755 });
+  const b = box('r1b-j14c', { env: { PATH: `${bin}${delimiter}${process.env.PATH}` } });
   try {
     const GO = 'go test -tags integration ./...';
     const c = compiled('shop-integration', { job: 'tests', asks: 'run the integration tests', params: '', check: GO, 'check-shows': 'ok', ready: 'test -S $HOME/.colima/default/docker.sock ; command -v gh-not-here-x' }, {
