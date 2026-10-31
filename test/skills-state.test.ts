@@ -144,12 +144,12 @@ test("recordUse: two uses in a row failing at the same step mark it needs-fix, w
   seed(env, entry({ status: "active" }));
   recordUse(ID, use({ at: "2026-11-02T10:00:00.000Z", failedStep: 4, check: "none", stepsRan: [1, 2, 3] }), env);
   assert.equal(getSkillState(ID, env)!.status, "active");
-  const s = recordUse(ID, use({ at: "2026-11-04T16:02:11.000Z", failedStep: 4, check: "none", stepsRan: [1, 2, 3] }), env)!;
+  const s = recordUse(ID, use({ at: "2026-11-04T10:02:11.000Z", failedStep: 4, check: "none", stepsRan: [1, 2, 3] }), env)!;
   assert.equal(s.status, "needs-fix");
   assert.equal(s.prevStatus, "active");
-  assert.deepEqual(s.lastFails, [{ step: 4, at: "2026-11-02T10:00:00.000Z" }, { step: 4, at: "2026-11-04T16:02:11.000Z" }]);
+  assert.deepEqual(s.lastFails, [{ step: 4, at: "2026-11-02T10:00:00.000Z" }, { step: 4, at: "2026-11-04T10:02:11.000Z" }]);
   assert.equal(s.statusWhy, "step 4 failed on Nov 2 and Nov 4");
-  assert.deepEqual(statusLines(env), [{ at: "2026-11-04T16:02:11.000Z", event: "status", skill: ID, from: "active", to: "needs-fix", reason: "failed-twice" }]);
+  assert.deepEqual(statusLines(env), [{ at: "2026-11-04T10:02:11.000Z", event: "status", skill: ID, from: "active", to: "needs-fix", reason: "failed-twice" }]);
   // Already needs-fix: a third failure changes nothing more.
   recordUse(ID, use({ at: "2026-11-05T10:00:00.000Z", failedStep: 4, check: "none" }), env);
   assert.equal(statusLines(env).length, 1);
