@@ -62,6 +62,8 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A Codecov outage must not turn the tests badge red.
+    continue-on-error: true
     permissions:
       contents: read
       id-token: write # Authenticate the Codecov upload with OIDC; no stored token.
