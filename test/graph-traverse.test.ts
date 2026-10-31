@@ -336,3 +336,75 @@ test("impactOfFile: with no symbol nodes in the file, behaves exactly like impac
   const g = baseGraph();
   assert.deepEqual(impactOfFile(g, fileNode, 2), impactOf(g, fileNode, 2));
 });
+
+// ── Uncertainty along a path ─────────────────────────────────────────────
+
+function inferred(source: string, target: string, relation: Relation = "calls"): EdgeV1 {
+  return { source, target, relation, confidence: "inferred" };
+}
+
+/** The walk's answer as `id@depth`, with `?` on an uncertain hit. */
+function marks(hits: ReturnType<typeof impactOfMany>): string[] {
+  return hits.map((h) => `${h.id}@${h.depth}${h.inferred ? "?" : ""}`);
+}
+
+test("impactOf: an inferred edge marks every hit reached through it", () => {
+  // Target <-inferred- Mid <-extracted- Far: Far's own edge is a fact, but it only
+  // reaches Target through a guess.
+  const [Target, Mid, Far] = ["Target", "Mid", "Far"].map((id) => nodeStub({ id }));
+  const g = graphOf([Target, Mid, Far], [inferred("Mid", "Target"), edge("Far", "Mid")]);
+  assert.deepEqual(marks(impactOf(g, Target, 2)), ["Mid@1?", "Far@2?"]);
+});
+
+test("impactOfMany direction out: the same, walking the other way", () => {
+  const [Far, Mid, Target] = ["Far", "Mid", "Target"].map((id) => nodeStub({ id }));
+  const g = graphOf([Far, Mid, Target], [inferred("Far", "Mid"), edge("Mid", "Target")]);
+  assert.deepEqual(marks(impactOfMany(g, [Far], 2, "out")), ["Mid@1?", "Target@2?"]);
+});
+
+test("impactOf: an extracted edge before the inferred one still ends uncertain", () => {
+  const [Target, Mid, Far] = ["Target", "Mid", "Far"].map((id) => nodeStub({ id }));
+  const g = graphOf([Target, Mid, Far], [edge("Mid", "Target"), inferred("Far", "Mid")]);
+  assert.deepEqual(marks(impactOf(g, Target, 2)), ["Mid@1", "Far@2?"]);
+});
+
+test("impactOf: a definite path of the same depth supersedes an inferred one, in either order", () => {
+  const [Target, Guess, Sure, Both, Beyond] = ["Target", "Guess", "Sure", "Both", "Beyond"].map((id) => nodeStub({ id }));
+  const legs = [inferred("Guess", "Target"), edge("Sure", "Target")];
+  const tops = [edge("Both", "Guess"), edge("Both", "Sure"), edge("Beyond", "Both")];
+  for (const edges of [[...legs, ...tops], [...legs].reverse().concat([...tops].reverse())]) {
+    const hits = impactOf(graphOf([Target, Guess, Sure, Both, Beyond], edges), Target, 3);
+    const byId = new Map(hits.map((h) => [h.id, h]));
+    assert.equal(hits.length, 4, "the count is unchanged: each node once");
+    assert.equal(byId.get("Guess")!.inferred, true);
+    assert.equal(byId.get("Sure")!.inferred, undefined);
+    assert.equal(byId.get("Both")!.inferred, undefined, "a definite path of depth 2 exists");
+    assert.equal(byId.get("Beyond")!.inferred, undefined, "the superseding path carries on");
+  }
+});
+
+test("impactOf: a definite edge beside an inferred one between the same 2 nodes wins, and names its own relation", () => {
+  const [Target, Caller] = ["Target", "Caller"].map((id) => nodeStub({ id }));
+  const hits = impactOf(graphOf([Target, Caller], [inferred("Caller", "Target", "calls"), edge("Caller", "Target", "references")]), Target, 2);
+  assert.deepEqual(marks(hits), ["Caller@1"]);
+  assert.equal(hits[0].relation, "references");
+});
+
+test("impactOf: a longer definite path leaves a hit at its first depth, still marked", () => {
+  // Target <-inferred- Far, and Target <- A <- B <- Far, all extracted.
+  const [Target, Far, A, B] = ["Target", "Far", "A", "B"].map((id) => nodeStub({ id }));
+  const g = graphOf([Target, Far, A, B], [inferred("Far", "Target"), edge("A", "Target"), edge("B", "A"), edge("Far", "B")]);
+  assert.deepEqual(marks(impactOf(g, Target, 3)), ["Far@1?", "A@1", "B@2"]);
+});
+
+test("impactOf: marks never change which nodes are reached, or at what depth", () => {
+  const ids = ["T", "A", "B", "C", "D", "E"];
+  const nodes = ids.map((id) => nodeStub({ id }));
+  const shape: [string, string][] = [["A", "T"], ["B", "T"], ["C", "A"], ["C", "B"], ["D", "C"], ["E", "D"], ["E", "A"]];
+  const reach = (hits: ReturnType<typeof impactOf>) => hits.map((h) => `${h.id}@${h.depth}`);
+  const plain = reach(impactOf(graphOf(nodes, shape.map(([s, t]) => edge(s, t))), nodes[0], 9));
+  for (let mask = 0; mask < 2 ** shape.length; mask++) {
+    const edges = shape.map(([s, t], i) => (mask & (1 << i) ? inferred(s, t) : edge(s, t)));
+    assert.deepEqual(reach(impactOf(graphOf(nodes, edges), nodes[0], 9)), plain);
+  }
+});

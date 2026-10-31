@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { contextDirFor } from '../src/context/node-file.js';
+import { wiringPath } from '../src/graph/write.js';
 import { TOOLS, callTool, canonicalToolName } from '../src/mcp/tools.js';
 
 function builtRepo(): string {
@@ -339,4 +341,15 @@ test('an old name dispatches for real, not just in the alias map', async () => {
   const check = await callTool(d, 'graft_check', {});
   assert.equal(check.isError, false);
   assert.ok(!check.text.startsWith('[graft] refreshed'), 'old check name still skips the refresh');
+});
+
+test('graft_trace_calls with depth marks a hit reached through an inferred edge', async () => {
+  const d = chainRepo();
+  const file = wiringPath(contextDirFor(d));
+  const g = JSON.parse(readFileSync(file, 'utf8'));
+  g.edges.find((x: { source: string; target: string }) => x.source.endsWith('sub') && x.target.endsWith('add')).confidence = 'inferred';
+  writeFileSync(file, JSON.stringify(g));
+  const r = await callTool(d, 'graft_trace_calls', { symbol: 'add', depth: 2 });
+  assert.equal(r.isError, false);
+  assert.match(r.text, /calls ← compute \(.*\[depth 2\] \[inferred\]/);
 });

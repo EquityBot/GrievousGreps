@@ -119,7 +119,7 @@ export interface EdgeHit {
   id: string;
   relation: Relation;
   depth: number;
-  /** The edge is a reading of the code, not a fact the code states. */
+  /** The path to this hit crosses an edge that is a reading of the code, not a fact the code states. */
   inferred?: true;
 }
 
@@ -170,6 +170,12 @@ export function impactOf(graph: GraphV1, symbol: NodeV1, maxDepth = 2): EdgeHit[
  * hit, and an edge between two seeds is never reported), then the walk
  * proceeds exactly like `impactOf`'s: each reached node deduped by id and
  * reported once, at the depth it was first reached from *any* seed.
+ *
+ * A hit is `inferred` when every shortest path to it crosses an inferred edge,
+ * and `relation` is the last edge of the path reported, so a definite path
+ * replaces an inferred one of the same depth. Only paths of the reported depth
+ * count: a node reached by an inferred edge at depth 1 and by definite edges only
+ * at depth 3 stays at depth 1, marked, since that is the hop the hit describes.
  */
 export function impactOfMany(graph: GraphV1, seeds: NodeV1[], maxDepth = 2, direction: Direction = "in"): EdgeHit[] {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -188,24 +194,28 @@ export function impactOfMany(graph: GraphV1, seeds: NodeV1[], maxDepth = 2, dire
     else adj.set(key, [entry]);
   }
 
-  const visited = new Set<string>(seeds.map((s) => s.id));
-  const hits: EdgeHit[] = [];
-  let frontier = [...visited];
+  const seedIds = new Set<string>(seeds.map((s) => s.id));
+  // A level is finished before the next reads its marks, so every hit's mark is final by then.
+  const reached = new Map<string, EdgeHit>();
+  let frontier = [...seedIds];
 
   for (let depth = 1; depth <= maxDepth && frontier.length > 0; depth++) {
     const next: string[] = [];
     for (const current of frontier) {
+      const pathInferred = reached.get(current)?.inferred === true;
       for (const { other, relation, inferred } of adj.get(current) ?? []) {
-        if (visited.has(other)) continue;
-        visited.add(other);
-        hits.push({ node: byId.get(other) ?? null, id: other, relation, depth, ...(inferred ? { inferred: true as const } : {}) });
-        next.push(other);
+        if (seedIds.has(other)) continue;
+        const uncertain = pathInferred || inferred;
+        const prev = reached.get(other);
+        if (prev && (prev.depth < depth || !prev.inferred || uncertain)) continue;
+        if (!prev) next.push(other);
+        reached.set(other, { node: byId.get(other) ?? null, id: other, relation, depth, ...(uncertain ? { inferred: true as const } : {}) });
       }
     }
     frontier = next;
   }
 
-  return hits;
+  return [...reached.values()];
 }
 
 /** Every non-file node whose `path` equals `fileNode.path` — the symbols

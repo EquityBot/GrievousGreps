@@ -9,10 +9,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { contextDirFor } from '../src/context/node-file.js';
+import { wiringPath } from '../src/graph/write.js';
 
 function builtRepo(): string {
   const d = mkdtempSync(join(tmpdir(), 'graft-traversecli-'));
@@ -222,4 +224,28 @@ test('an imported call to a shared name reaches only the definition it imports',
   const parsed = JSON.parse(runCli(['callers', 'shared', d, '--json']).stdout);
   const hits = Object.fromEntries(parsed.matches.map((m: { symbol: { path: string }; hits: unknown[] }) => [m.symbol.path, m.hits.length]));
   assert.deepEqual(hits, { 'src/a.ts': 1, 'src/b.ts': 0 });
+});
+
+/** compute -> sub -> add with sub -> add marked inferred in the built graph: 3 nodes, inferred then extracted. */
+function inferredThenExtractedRepo(): string {
+  const d = builtRepo();
+  const file = wiringPath(contextDirFor(d));
+  const g = JSON.parse(readFileSync(file, 'utf8'));
+  g.edges.find((x: { source: string; target: string }) => x.source.endsWith('sub') && x.target.endsWith('add')).confidence = 'inferred';
+  writeFileSync(file, JSON.stringify(g));
+  return d;
+}
+
+test('graft callers --depth: a hit reached through an inferred edge is marked, in text', () => {
+  const r = runCli(['callers', 'add', inferredThenExtractedRepo(), '--depth', '2']);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /calls ← sub \(.*\[depth 1\] \[inferred\]/);
+  assert.match(r.stdout, /calls ← compute \(.*\[depth 2\] \[inferred\]/);
+});
+
+test('graft callers --depth --json: a hit reached through an inferred edge is marked, with the same hits', () => {
+  const r = runCli(['callers', 'add', inferredThenExtractedRepo(), '--depth', '2', '--json']);
+  assert.equal(r.status, 0);
+  const hits = JSON.parse(r.stdout).matches[0].hits as { name: string; depth: number; inferred?: true }[];
+  assert.deepEqual(hits.map((h) => [h.name, h.depth, h.inferred]), [['sub', 1, true], ['compute', 2, true]]);
 });
