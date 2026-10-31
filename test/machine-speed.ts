@@ -61,3 +61,13 @@ export function timeBar(ms: number, floor: number): number {
   if (process.env.TRAIL_PERF === "1") return ms;
   return Math.max(ms * slowness(), floor);
 }
+
+/**
+ * The environment for a timed child process, without NODE_V8_COVERAGE: under `npm test -- --coverage`
+ * a child that inherits it runs instrumented, several times slower, and its bar would measure V8's
+ * coverage instead of the code. The child's own lines go uncounted in coverage.
+ */
+export function uninstrumented(): NodeJS.ProcessEnv {
+  const { NODE_V8_COVERAGE: _, ...env } = process.env;
+  return env;
+}
