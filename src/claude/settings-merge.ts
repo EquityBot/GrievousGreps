@@ -16,7 +16,6 @@ const FOOTER = 'graft/[\\w./-]+\\.md';
 const ALLOW_ENTRIES = [
   'Bash(trail:*)',
   'Bash(graft:*)',
-  'Bash(npx graft:*)',
   'Bash(graft-dev:*)',
   'Bash(node dist/cli.js:*)',
 ];
