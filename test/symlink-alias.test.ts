@@ -61,12 +61,19 @@ test("a --dir spelled through another name for the repo root is still checked fr
 
 test("a --dir on a drive aliasing a repo directory still checks the committed links below it", async (t) => {
   if (process.platform !== "win32") return t.skip("subst drives are Windows-only");
-  const free = "ZYXWVUTSRQPONMLKJ".split("").find((l) => !existsSync(`${l}:\\`));
-  if (!free) return t.skip("no free drive letter");
   const { repo, outside } = sandbox(t);
   mkdirSync(join(repo, "sub"));
   linkDir(repo, join(repo, "sub", "up"));
-  execFileSync("subst", [`${free}:`, join(repo, "sub")]);
+  // subst itself says which letter is free: a disconnected network drive looks absent to existsSync, and subst refuses it.
+  const free = "ZYXWVUTSRQPONMLKJ".split("").find((l) => {
+    try {
+      execFileSync("subst", [`${l}:`, join(repo, "sub")], { stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!free) return t.skip("no free drive letter");
   t.after(() => execFileSync("subst", [`${free}:`, "/d"]));
   const contextDir = `${free}:\\up\\ctx`;
   assert.throws(() => contextDirFor(repo, contextDir), /symlink/);
