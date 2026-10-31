@@ -176,8 +176,8 @@ test("runLinesChanged: a step that only gains its can't-be-undone mark is a chan
 });
 
 test("review: printDiff never passes a control character through: ESC, NUL, CR, DEL and bidi marks are printed as escapes", () => {
-  const out = printDiff(lines("a"), lines("a", "x\u001b]52;c;Zm9v\u0007y", "n\u0000ul\r", "r‮gnp.exe", "d\u007f"), ["a", "b"]);
-  assert.equal(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/.test(out), false, JSON.stringify(out));
+  const out = printDiff(lines("a"), lines("a", "x\u001b]52;c;Zm9v\u0007y", "n\u0000ul\r", "r\u202egnp.exe", "d\u007f"), ["a", "b"]);
+  assert.equal(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(out), false, JSON.stringify(out));
   assert.ok(out.includes("+x\\u001b]52;c;Zm9v\\u0007y"), out);
   assert.ok(out.includes("+n\\u0000ul\\r"), out);
   assert.ok(out.includes("+r\\u202egnp.exe"), out);

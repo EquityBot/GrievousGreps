@@ -37,7 +37,7 @@ test("riskyCommand: a fix command with a bypass flag, a risky env, a login, Trai
     "cp notes.md ~/.trail/learnings/x.md",
     "git push origin $(cat /tmp/tag)",
     "bash /tmp/fix.sh",
-    "git push origin v1.4.3‮",
+    "git push origin v1.4.3\u202e",
     "",
   ]) assert.equal(riskyCommand(bad), true, bad);
   for (const ok of ["git push origin v1.4.3", "npm run build", "DOCKER_HOST=unix://$HOME/.colima/default/docker.sock go test ./...", "make release VERSION=1.4.3"]) {

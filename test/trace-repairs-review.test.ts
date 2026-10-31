@@ -180,7 +180,7 @@ test("lookalikes, quoting and flakes (pins)", () => {
 
 test("text the reader can't see (bidi controls, zero-width) drops the repair", () => {
   assert.deepEqual(texts(fail("go test ./..."), call("DOCKER_HOST=unix:///x​.sock go test ./...")), []);
-  assert.deepEqual(texts(fail("go test ./..."), call("go test ./..."), [call("colima start --profile a‮b")]), []);
+  assert.deepEqual(texts(fail("go test ./..."), call("go test ./..."), [call("colima start --profile a\u202eb")]), []);
   assert.deepEqual(texts(fail("go test ./..."), call("go test --tags=a\u0007 ./...")), []);
 });
 
