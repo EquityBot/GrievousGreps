@@ -372,3 +372,37 @@ test('without trail, learnings that replace each other in a circle still leave o
   const ctx: string = JSON.parse(runBare(root, repo, 'session-start')).hookSpecificOutput.additionalContext;
   assert.deepEqual(ctx.match(/- Circle [abc]/g), ['- Circle c']);
 });
+
+test('this distribution wins over a newer upstream package in the same project', () => {
+  const root = tmpRepo('shim-prefer-gg');
+  const p = project(root);
+  const modules = join(p, 'node_modules');
+  fakeInstall(join(modules, '@trailhq'), 'trail-code', '0.99.0', '@trailhq/trail-code');
+  fakeInstall(join(modules, '@nanonets'), 'graft', '0.98.0', '@nanonets/graft');
+  fakeInstall(join(modules, '@equitybot'), 'grievousgreps', '0.28.0+gg', '@equitybot/grievousgreps');
+  assert.equal(runShim(root, p), '0.28.0+gg');
+});
+
+test('this distribution wins over a newer upstream package whichever candidate finds it', () => {
+  const root = tmpRepo('shim-prefer-gg-remembered');
+  const p = project(root);
+  fakeInstall(join(p, 'node_modules', '@trailhq'), 'trail-code', '0.99.0', '@trailhq/trail-code');
+  const own = fakeInstall(join(root, 'installed'), 'grievousgreps', '0.28.0+gg', '@equitybot/grievousgreps');
+  assert.equal(runShim(root, p, { remembered: own }), '0.28.0+gg');
+});
+
+test('the newer of 2 copies of this distribution wins, counting the release before a build tag', () => {
+  const root = tmpRepo('shim-gg-versions');
+  const p = project(root);
+  fakeInstall(join(p, 'node_modules', '@equitybot'), 'grievousgreps', '0.28.1+gg', '@equitybot/grievousgreps');
+  const own = fakeInstall(join(root, 'installed'), 'grievousgreps', '0.28.0+gg', '@equitybot/grievousgreps');
+  assert.equal(runShim(root, p, { remembered: own }), '0.28.1+gg');
+});
+
+test('upstream is still the fallback when this distribution is absent', () => {
+  const root = tmpRepo('shim-upstream-fallback');
+  const p = project(root);
+  fakeInstall(join(p, 'node_modules', '@trailhq'), 'trail-code', '0.99.0', '@trailhq/trail-code');
+  fakeInstall(join(p, 'node_modules', '@nanonets'), 'graft', '0.21.0', '@nanonets/graft');
+  assert.equal(runShim(root, p), '0.99.0');
+});

@@ -32,8 +32,14 @@ import { claudeDistDir } from './paths.js';
 //                     remembered file is read only when it is ours and no one else can
 //                     write it.
 //
-// Among the candidates that exist we take the HIGHEST VERSION, not the first hit. First-hit
-// silently pinned users to a stale graft forever: the remembered dir points into one Node
+// Among the candidates that exist we prefer this distribution, then take the HIGHEST
+// VERSION, not the first hit. Upstream's version numbers say nothing about this build, so a
+// newer upstream copy in a project must not displace it.
+// shortcut: a preferred copy that only `npm root -g` can find (not remembered, not on PATH)
+// still loses to an upstream copy the cheap candidates found. Querying npm on every hook to
+// rule that out costs more than the case is worth; running `trail init` remembers the copy.
+//
+// First-hit silently pinned users to a stale graft forever: the remembered dir points into one Node
 // install's global node_modules, so switching Node versions (nvm/volta) or moving the
 // install leaves the old directory on disk and still winning, and `npm i -g
 // @nanonets/graft@latest` upgrades a directory the shim never looks at. The upgrade
@@ -61,10 +67,10 @@ const os = require('os');
 const { pathToFileURL } = require('url');
 const dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-// This distribution is @equitybot/grievousgreps. Upstream ships the same code as
-// @trailhq/trail-code and as @nanonets/graft, its old name; any of them answers,
-// and the newer wins. @trailhq/trail is what builds from source were called
-// before the package was published.
+// This distribution is @equitybot/grievousgreps, and it answers whenever it is
+// found. Upstream ships its own code as @trailhq/trail-code and as @nanonets/graft,
+// its old name; either is the fallback, and the newer wins. @trailhq/trail is what
+// builds from source were called before the package was published.
 const PKGS = ['@equitybot/grievousgreps', '@trailhq/trail-code', '@nanonets/graft', '@trailhq/trail'];
 const BINS = process.platform === 'win32' ? ['trail.cmd', 'graft.cmd'] : ['trail', 'graft'];
 
@@ -131,18 +137,18 @@ function globalRoot() {
   } catch { return null; /* npm unavailable */ }
 }
 
-// The version of the package a dist/claude dir belongs to, or null if unreadable.
-function versionOf(distClaude) {
+// The package.json of the package a dist/claude dir belongs to, or {} if unreadable.
+function pkgOf(distClaude) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(distClaude, '..', '..', 'package.json'), 'utf8')).version || null;
-  } catch { return null; }
+    return JSON.parse(fs.readFileSync(path.join(distClaude, '..', '..', 'package.json'), 'utf8')) || {};
+  } catch { return {}; }
 }
 
 // Numeric-dotted compare of the release part; an unreadable version loses to any known one.
 function newer(a, b) {
   if (!a) return false;
   if (!b) return true;
-  const p = (v) => String(v).split('-')[0].split('.').map((n) => Number(n) || 0);
+  const p = (v) => String(v).split(/[-+]/)[0].split('.').map((n) => Number(n) || 0);
   const pa = p(a), pb = p(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] || 0) - (pb[i] || 0);
@@ -151,13 +157,17 @@ function newer(a, b) {
   return false;
 }
 
-// The highest-versioned dir in \`dirs\` that actually contains \`name\`, or null.
+// The dir in \`dirs\` that actually contains \`name\`, this distribution's before any
+// other and then the highest-versioned, or null.
 function best(dirs, name) {
-  let bestDir = null, bestVer = null;
+  let bestDir = null, bestVer = null, bestOwn = false;
   for (const d of dirs) {
     if (!d || !fs.existsSync(path.join(d, name))) continue;
-    const v = versionOf(d);
-    if (bestDir === null || newer(v, bestVer)) { bestDir = d; bestVer = v; }
+    const pkg = pkgOf(d);
+    const own = pkg.name === PKGS[0];
+    if (bestDir === null || (own && !bestOwn) || (own === bestOwn && newer(pkg.version, bestVer))) {
+      bestDir = d; bestVer = pkg.version; bestOwn = own;
+    }
   }
   return bestDir;
 }
