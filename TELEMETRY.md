@@ -11,8 +11,8 @@ when you run them, such as `trail team`, which fetches `origin` to read teammate
 **In upstream's official builds at 0.28.0, on by default.** The usage events start with a
 notice on first run, and [Opting out](#opting-out) lists what stops them. The daily npm version
 check runs unless `DO_NOT_TRACK` is set. The workspace sign-in link is on wherever the usage
-events are, and `TRAIL_CLOUD` overrides that. In a repository that keeps learnings, sessions
-also run a background `git fetch` and `gh` reads unless `TRAIL_NO_FETCH` is set. The rest of
+events are, and `TRAIL_CLOUD` overrides that. In a repository that keeps learnings, `trail`
+sessions also run a background `git fetch` and `gh` reads unless `TRAIL_NO_FETCH` is set. The rest of
 this page describes those builds' events.
 
 Where it is on, Trail-code collects a small set of **anonymous** usage events so we can
