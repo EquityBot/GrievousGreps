@@ -9,7 +9,7 @@
 
 <div align="center">
 
-[![tests](https://github.com/EquityBot/GrievousGreps/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/ci.yml) [![CodeQL](https://github.com/EquityBot/GrievousGreps/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/codeql.yml)<br>
+[![tests](https://github.com/EquityBot/GrievousGreps/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/ci.yml) [![CodeQL](https://github.com/EquityBot/GrievousGreps/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/codeql.yml) [![Snyk](https://github.com/EquityBot/GrievousGreps/actions/workflows/snyk.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/snyk.yml)<br>
 [![node: 20.16+ | 22.3+](.github/assets/badges/node.svg)](https://nodejs.org/) [![licence: MIT](.github/assets/badges/licence.svg)](LICENSE) [![fork of: Trail-Code](.github/assets/badges/fork-of.svg)](https://github.com/trailhq/Trail-Code)
 
 [Install](#install) · [Quick start](#quick-start) · [Measured recall](#measured-recall) · [Against the alternatives](#against-the-alternatives) · [Compared with upstream](#compared-with-upstream) · [Limits](#limits) · [Credits](#credits)
