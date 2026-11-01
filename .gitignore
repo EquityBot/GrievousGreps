@@ -31,3 +31,5 @@ transcripts/
 # graft's local repository settings — not committed.
 /.graft/
 
+# Coverage reports from `npm test -- --coverage`, uploaded to Codecov by CI.
+coverage-*.lcov

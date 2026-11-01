@@ -53,6 +53,16 @@ test("a package's own name reaches its source through `exports`, at the root and
   assert.deepEqual(calls(graph, "apps/b.ts#run"), ["packages/core/src/deep/entry.ts#dig", "packages/core/src/feat/one.ts#one"]);
 });
 
+test("an `exports` pattern fills every `*` in its target, as Node does", async (t) => {
+  const graph = await build(t, {
+    "packages/core/package.json": JSON.stringify({ name: "@acme/core", exports: { "./feat/*": "./dist/impl/*/*.js" } }),
+    "packages/core/src/impl/one/one.ts": "export function one() {}\n",
+    "packages/core/src/decoy.ts": "export function one() {}\n",
+    "apps/b.ts": `import { one } from "@acme/core/feat/one";\nexport function run() { one(); }\n`,
+  });
+  assert.deepEqual(edge(graph, "apps/b.ts#run"), [["packages/core/src/impl/one/one.ts#one", "extracted"]]);
+});
+
 const edge = (graph: Graph, source: string) =>
   graph.edges.filter((e) => e.relation === "calls" && e.source === source).map((e) => [e.target, e.confidence]);
 

@@ -154,5 +154,6 @@ test('the narrowed guard stays linear: 2 MB of each shape reads in under 20 ms o
   assert.equal(r.signal, null, 'the guard ran past 30 s');
   // 20 ms where the bar was set, scaled to this machine, never under 80 (a backtracking regex takes seconds on 2 MB, on any machine).
   const bar = timeBar(20, 80);
-  for (const row of JSON.parse(r.stdout) as Array<{ ms: number }>) assert.ok(row.ms < bar, `${JSON.stringify(row)} over ${bar.toFixed(1)} ms`);
+  // V8 coverage slows the probe several times over; the 3 legs that run without it enforce the bar, and the 30 s cap still catches backtracking.
+  if (!process.env.NODE_V8_COVERAGE) for (const row of JSON.parse(r.stdout) as Array<{ ms: number }>) assert.ok(row.ms < bar, `${JSON.stringify(row)} over ${bar.toFixed(1)} ms`);
 });

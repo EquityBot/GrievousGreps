@@ -997,7 +997,7 @@ function tsModuleOf(specifier: string, file: string, ctx: TsCtx): TsTarget | "ou
     if (pattern !== undefined) {
       const rest = pattern.endsWith("*") ? specifier.slice(pattern.length - 1) : "";
       for (const mapped of config.paths[pattern] ?? []) {
-        const found = resolveImport(`./${posix.normalize(posix.join(config.base, mapped.replace("*", rest)))}`, "repo-root", ctx.byId);
+        const found = resolveImport(`./${posix.normalize(posix.join(config.base, mapped.replaceAll("*", rest)))}`, "repo-root", ctx.byId);
         if (ctx.byId.has(found)) return { module: found };
       }
       if (pattern !== "*") inRepo = true; // a catch-all states nothing about this name
@@ -1074,7 +1074,7 @@ function tsPackageEntries(pkg: TsPackage, subpath: string): string[] {
     if (subpath.length <= prefix.length + suffix.length || !subpath.startsWith(prefix) || !subpath.endsWith(suffix)) continue;
     if (!best || prefix.length > best.prefix.length) best = { prefix, stem: subpath.slice(star, subpath.length - suffix.length), targets };
   }
-  return best ? best.targets.map((t) => t.replace("*", best.stem)) : [];
+  return best ? best.targets.map((t) => t.replaceAll("*", best.stem)) : [];
 }
 
 /** `name` as read through what an import or re-export named. */

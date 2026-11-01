@@ -180,7 +180,7 @@ test("lookalikes, quoting and flakes (pins)", () => {
 
 test("text the reader can't see (bidi controls, zero-width) drops the repair", () => {
   assert.deepEqual(texts(fail("go test ./..."), call("DOCKER_HOST=unix:///x​.sock go test ./...")), []);
-  assert.deepEqual(texts(fail("go test ./..."), call("go test ./..."), [call("colima start --profile a‮b")]), []);
+  assert.deepEqual(texts(fail("go test ./..."), call("go test ./..."), [call("colima start --profile a\u202eb")]), []);
   assert.deepEqual(texts(fail("go test ./..."), call("go test --tags=a\u0007 ./...")), []);
 });
 
@@ -226,7 +226,8 @@ test("long commands: ignoredFailure stays linear on 2 MB (capped child process)"
   assert.equal(r.signal, null, "ignoredFailure ran past 60 s");
   assert.equal(r.status, 0, r.stderr);
   const rows = JSON.parse(r.stdout) as number[];
-  for (const ms of rows) assert.ok(ms < 1500, `2 MB took ${ms.toFixed(0)} ms (${JSON.stringify(rows.map(Math.round))})`);
+  // V8 coverage slows the probe several times over; the 3 legs that run without it enforce the bar, and the 60 s cap still catches backtracking.
+  if (!process.env.NODE_V8_COVERAGE) for (const ms of rows) assert.ok(ms < 1500, `2 MB took ${ms.toFixed(0)} ms (${JSON.stringify(rows.map(Math.round))})`);
 });
 
 test("the fold's 200-call cap: a repair in the newest 200 calls is found, one whose failure was dropped is not", () => {
