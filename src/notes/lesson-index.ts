@@ -48,6 +48,9 @@ function readIndex(env?: NodeJS.ProcessEnv): { idx: IndexFile; at: number } {
 
 const keyOf = (st: { mtimeMs: number; ctimeMs: number; size: number; ino: number }) => `${st.mtimeMs}:${st.ctimeMs}:${st.size}:${st.ino}`;
 
+/** Whether a file last changed at `ctimeMs` changed strictly before an index written at `at`; the same instant is racy. */
+export const changedBeforeIndex = (ctimeMs: number, at: number): boolean => ctimeMs < at;
+
 function parsed(path: string): Entry['n'] {
   const note = parseNote(readFileSync(path, 'utf8'), path);
   if (!note || note.kind !== 'lesson') return null;
@@ -88,7 +91,7 @@ function readDir(dir: string, idx: IndexFile, at: number): { lessons: IndexedLes
     // Racy git's rule: file times move in clock ticks (by default 15.6 ms on Windows), so a file changed in the
     // tick the index was written can change again, same size and mtime put back, with the same key. Only a file
     // last changed before the index was written keeps its entry; the next write, a tick later, makes it one.
-    if (prev && prev.k === k && st.ctimeMs < at && (prev.n === null || shaped(prev.n))) entry = prev;
+    if (prev && prev.k === k && changedBeforeIndex(st.ctimeMs, at) && (prev.n === null || shaped(prev.n))) entry = prev;
     else {
       try {
         entry = { k, n: parsed(path) };

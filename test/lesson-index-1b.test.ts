@@ -9,7 +9,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, un
 import { join } from 'node:path';
 import { wallLessons, writeLesson } from '../src/skills/lessons.js';
 import { everyRepoDir } from '../src/notes/every-repo.js';
-import { lessonIndexPath, refreshLessonIndex } from '../src/notes/lesson-index.js';
+import { changedBeforeIndex, lessonIndexPath, refreshLessonIndex } from '../src/notes/lesson-index.js';
 import { tmpRepo } from './helpers.js';
 import { timeBar } from './machine-speed.js';
 
@@ -107,6 +107,13 @@ test('D117 (4): an entry for a file changed no earlier than the index was writte
   const before = (lstatSync(a).ctimeMs - 1000) / 1000;
   utimesSync(lessonIndexPath(env), before, before);
   assert.deepEqual(wallLessons('docker-rootless', SHOP, env).map((l) => l.text), ['"rootless Docker not found": colima start']);
+});
+
+test('D117 (4): the racy rule\'s boundary: only a change strictly before the index was written is trusted', () => {
+  // Equal times cannot be planted through utimes reliably, so the rule is checked at its edge directly.
+  assert.equal(changedBeforeIndex(1000, 1000.001), true);
+  assert.equal(changedBeforeIndex(1000, 1000), false, 'a change in the same instant as the index is racy');
+  assert.equal(changedBeforeIndex(1000.001, 1000), false);
 });
 
 test('D117 (4): a broken index reads as none; an entry whose key is not the file\'s, or for a file that is not there, is not read', () => {
