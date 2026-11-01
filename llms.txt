@@ -1,0 +1,27 @@
+# GrievousGreps
+
+> EquityBot's distribution of Trail-Code, the code graph CLI for coding agents (formerly
+> Graft). It maps the functions it can parse in a repository and the callers it can resolve,
+> so an agent can check what a change reaches before it edits. Its caller lists are not
+> complete: check a short or empty list with `trail grep`.
+
+Version `0.28.0+gg`, with no npm package: build it from source with `npm ci`, `npm run build`
+and `npm link`, after removing any upstream copy, since both install the `trail` and `graft`
+commands. Node 20.16 or later on the 20 line, or 22.3 or later. MIT, as upstream.
+
+## Start
+
+- [README](https://github.com/EquityBot/GrievousGreps#readme): install, quick start, measured recall, the differences from upstream and the limits.
+- [Upstream reference](https://github.com/EquityBot/GrievousGreps/blob/main/docs/upstream-guide.md): the commands, languages and graph format inherited from Trail-Code 0.28.0; where it differs, the README wins.
+- [CHANGELOG](https://github.com/EquityBot/GrievousGreps/blob/main/CHANGELOG.md): this distribution's changes in its first section, then upstream's.
+
+## Docs
+
+- [Telemetry](https://github.com/EquityBot/GrievousGreps/blob/main/TELEMETRY.md): off by default, and builds from source carry no telemetry key; lists every event in upstream's contract.
+- [Security policy](https://github.com/EquityBot/GrievousGreps/blob/main/SECURITY.md): reporting a vulnerability.
+- [Credits](https://github.com/EquityBot/GrievousGreps/blob/main/CREDITS.md): contributors of its language support.
+
+## Related
+
+- [EquityBot](https://github.com/EquityBot): other EquityBot tools.
+- [Trail-Code](https://github.com/trailhq/Trail-Code): the upstream project GrievousGreps tracks.
