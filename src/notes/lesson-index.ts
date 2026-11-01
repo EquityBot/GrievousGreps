@@ -5,8 +5,9 @@
  * files a warm read is one readdir and one lstat a file.
  *
  * The index (`~/.trail/state/lesson-index.json`) is only a cache of what the
- * files say: an entry whose key isn't the file's now is read again from the
- * file, a file that is gone is gone, a link is never followed. It is written
+ * files say: an entry whose key isn't the file's now, or whose file changed no
+ * earlier than the index was written, is read again from the file, a file
+ * that is gone is gone, a link is never followed. It is written
  * at Stop and session start only (`write`), never on PostToolUseFailure (R34),
  * which reads it and parses what changed in memory.
  */
@@ -30,18 +31,25 @@ const MAX_INDEX_BYTES = 4 * 1024 * 1024;
 
 export const lessonIndexPath = (env?: NodeJS.ProcessEnv): string => trailPath(env, 'state', 'lesson-index.json');
 
-function readIndex(env?: NodeJS.ProcessEnv): IndexFile {
+/** The index, and `at`: when it was written (its mtime). */
+function readIndex(env?: NodeJS.ProcessEnv): { idx: IndexFile; at: number } {
+  let at: number;
   try {
-    if (lstatSync(lessonIndexPath(env)).size > MAX_INDEX_BYTES) return { v: 1, dirs: {} };
+    const st = lstatSync(lessonIndexPath(env));
+    if (st.size > MAX_INDEX_BYTES) return { idx: { v: 1, dirs: {} }, at: 0 };
+    at = st.mtimeMs;
   } catch {
-    return { v: 1, dirs: {} };
+    return { idx: { v: 1, dirs: {} }, at: 0 };
   }
   const raw = readJsonSafe<IndexFile>(lessonIndexPath(env));
-  if (!raw || raw.v !== 1 || !raw.dirs || typeof raw.dirs !== 'object' || Array.isArray(raw.dirs)) return { v: 1, dirs: {} };
-  return raw;
+  if (!raw || raw.v !== 1 || !raw.dirs || typeof raw.dirs !== 'object' || Array.isArray(raw.dirs)) return { idx: { v: 1, dirs: {} }, at: 0 };
+  return { idx: raw, at };
 }
 
 const keyOf = (st: { mtimeMs: number; ctimeMs: number; size: number; ino: number }) => `${st.mtimeMs}:${st.ctimeMs}:${st.size}:${st.ino}`;
+
+/** Whether a file last changed at `ctimeMs` changed strictly before an index written at `at`; the same instant is racy. */
+export const changedBeforeIndex = (ctimeMs: number, at: number): boolean => ctimeMs < at;
 
 function parsed(path: string): Entry['n'] {
   const note = parseNote(readFileSync(path, 'utf8'), path);
@@ -53,8 +61,8 @@ function parsed(path: string): Entry['n'] {
 const shaped = (n: unknown): n is NonNullable<Entry['n']> => !!n && typeof n === 'object' && typeof (n as { id?: unknown }).id === 'string'
   && (n as { kind?: unknown }).kind === 'lesson' && typeof (n as { date?: unknown }).date === 'string' && typeof (n as { body?: unknown }).body === 'string';
 
-/** The lessons in `dir`, by file name order, with the index's entries for `dir` brought up to date. */
-function readDir(dir: string, idx: IndexFile): { lessons: IndexedLesson[]; changed: boolean } {
+/** The lessons in `dir`, by file name order, with the index's entries for `dir` (written at `at`) brought up to date. */
+function readDir(dir: string, idx: IndexFile, at: number): { lessons: IndexedLesson[]; changed: boolean } {
   let names: string[];
   try {
     names = readdirSync(dir).filter((n) => n.endsWith('.md')).sort();
@@ -80,7 +88,10 @@ function readDir(dir: string, idx: IndexFile): { lessons: IndexedLesson[]; chang
     const k = keyOf(st);
     const prev = Object.prototype.hasOwnProperty.call(old, name) ? old[name] : undefined;
     let entry: Entry;
-    if (prev && prev.k === k && (prev.n === null || shaped(prev.n))) entry = prev;
+    // Racy git's rule: file times move in clock ticks (by default 15.6 ms on Windows), so a file changed in the
+    // tick the index was written can change again, same size and mtime put back, with the same key. Only a file
+    // last changed before the index was written keeps its entry; the next write, a tick later, makes it one.
+    if (prev && prev.k === k && changedBeforeIndex(st.ctimeMs, at) && (prev.n === null || shaped(prev.n))) entry = prev;
     else {
       try {
         entry = { k, n: parsed(path) };
@@ -108,10 +119,10 @@ function save(idx: IndexFile, keep: string[], env?: NodeJS.ProcessEnv): void {
 
 /** The lesson learnings in each of `dirs`, in that order. `write`: keep what changed in the index (Stop, session start). */
 export function lessonNotesIn(dirs: string[], env: NodeJS.ProcessEnv | undefined, opts: { write?: boolean } = {}): IndexedLesson[][] {
-  const idx = readIndex(env);
+  const { idx, at } = readIndex(env);
   let changed = false;
   const out = dirs.map((d) => {
-    const r = readDir(d, idx);
+    const r = readDir(d, idx, at);
     changed ||= r.changed;
     return r.lessons;
   });

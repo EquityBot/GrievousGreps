@@ -21,7 +21,9 @@ import { timeBar } from "./machine-speed.js";
 const FROM = "[trail] From Trail, the tool this person installed to keep commands that worked as skills.";
 const webshopRelease = () => releaseSkill({ applies: WEBSHOP, trail: "s-7f3a2c" });
 const events: Array<[string, Record<string, string>]> = [];
-const deps = (b: Box, extra: Partial<PromptDeps> = {}): Partial<PromptDeps> => ({ track: (e, p) => events.push([e, p]), gate: gateFor(b), ...extra });
+// The hook's clock stands still: the 400 ms deadline is the deadline test's, and past it a loaded runner's prompt
+// brings nothing, as J11's status question once did.
+const deps = (b: Box, extra: Partial<PromptDeps> = {}): Partial<PromptDeps> => ({ track: (e, p) => events.push([e, p]), gate: gateFor(b), clock: () => 0, ...extra });
 const run = (b: Box, prompt: string, extra: Record<string, unknown> = {}, env = b.env, d: Partial<PromptDeps> = deps(b)) =>
   promptSkills(payload(b, prompt, extra), CWD, env, d);
 
@@ -147,7 +149,7 @@ test("the deadline: slow probes are left out, the block still comes inside 400 m
     return { code: null, out: "", timedOut: true };
   };
   const t0 = Date.now();
-  const out = run(b, "now ff to prod please", {}, b.env, deps(b, { probes: { git: slow } }));
+  const out = run(b, "now ff to prod please", {}, b.env, deps(b, { clock: Date.now, probes: { git: slow } }));
   const took = Date.now() - t0;
   assert.ok(out.context?.startsWith("[trail] Skill ship-beta-then-prod fits"));
   assert.ok(!out.context!.includes("ready:"));
@@ -265,7 +267,10 @@ test("credit in the prompt hook (D57): a passed check settles the use on the nex
   const b = box("credit");
   save(b, webshopRelease());
   writeFileSync(join(b.repo, "wip.txt"), "x");
-  run(b, "can you pull and publish 1.4.2");
+  // The checkout's git answers at once: two real calls can overrun the probes' 300 ms on a Windows runner, and a probe
+  // left out is not a failed one (on-branch went missing).
+  const git: NonNullable<PromptDeps["probes"]>["git"] = (args) => ({ code: 0, out: args[0] === "status" ? "?? wip.txt\n" : "beta\n", timedOut: false });
+  run(b, "can you pull and publish 1.4.2", {}, b.env, deps(b, { probes: { git } }));
   grow(b, [
     typedIn(b, "can you pull and publish 1.4.2", 0),
     ...ranIn(b, "git pull --ff-only origin main", "Already up to date.", 5),

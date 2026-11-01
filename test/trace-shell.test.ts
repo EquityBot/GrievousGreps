@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { timeBar } from "./machine-speed.js";
 import {
   PLUMBING, RUNNERS, bareCommand, commandKind, envPrefix, isLookOnly, isMultiLine, isTrailCommand, isWork, leadingCds, normalizeCommand, onlyTrail, programOf, relativizePaths,
   simpleCommands, splitTop, stepMatches, stripLeadingSleep, stripOutputFilters, stripTimeout, stripTrailingEcho,
@@ -432,6 +433,10 @@ test("the readers stay fast and never throw on long or deeply nested commands", 
     "echo x\n".repeat(2000), `${"sleep 1; ".repeat(3000)}npm test`, `${"timeout 5 ".repeat(3000)}npm test`, `${"(".repeat(5000)}npm test${")".repeat(5000)}`,
     `${"{ ".repeat(3000)}npm test; ${"} ".repeat(3000)}`, `npm test${" && echo x".repeat(3000)}`, `${"cd a && ".repeat(3000)}npm test`, `${"bash -c ".repeat(2000)}trail x`,
   ];
+  // The readers are linear; what this catches is a quadratic one (re-reading every tail took 8 s on 7 KB, and these
+  // are 10 to 30 KB). 1.5 s where the bar was set, scaled to this machine and never under 6 s: the && case takes
+  // about 300 ms on a quiet Windows laptop and took 1,507 ms on a loaded Windows runner.
+  const bar = timeBar(1500, 6000);
   for (const c of cases) {
     const t0 = performance.now();
     for (const f of [splitTop, isMultiLine, programOf, commandKind, isTrailCommand, onlyTrail, normalizeCommand, simpleCommands, (x: string) => stepMatches("npm test", x), (x: string) => stepMatches("npm run build && npm test", x, {}, true)]) {
@@ -439,7 +444,7 @@ test("the readers stay fast and never throw on long or deeply nested commands", 
     }
     const ms = performance.now() - t0;
     // V8 coverage slows these readers several times over; the 3 legs that run without it enforce the limit.
-    if (!process.env.NODE_V8_COVERAGE) assert.ok(ms < 1500, `${c.slice(0, 20)}… took ${ms.toFixed(0)} ms`);
+    if (!process.env.NODE_V8_COVERAGE) assert.ok(ms < bar, `${c.slice(0, 20)}… took ${ms.toFixed(0)} ms, over ${bar.toFixed(0)} ms`);
   }
   // The deep one gets the safe answers.
   const deep = `${"(".repeat(5000)}npm test${")".repeat(5000)}`;
