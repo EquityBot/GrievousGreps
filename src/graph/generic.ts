@@ -566,6 +566,7 @@ function withoutGenerics(path: string): string {
       if (c !== "<") out += c;
       else {
         angles = 1;
+        out = out.trimEnd();
         if (out.endsWith("::")) out = out.slice(0, -2);
       }
     } else if (c === '"' || (c === "'" && (path[i + 1] === "\\" || path[i + 2] === "'"))) {
@@ -584,7 +585,8 @@ function withoutGenerics(path: string): string {
 /** A call as a whole path, its first name spelt out through the `use` in scope at `at`.
  * Undefined for a bare name no `use` binds, which is a name and not a path. */
 function rustWholePath(path: string | undefined, name: string, scopes: RustUseScope[], at: number): string | undefined {
-  const written = withoutGenerics((path ? `${path}::${name}` : name).replace(/\s+/g, ""));
+  // Whitespace goes after the scan: removed first, `break 'a '}'` would read as the char literal `'a'`.
+  const written = withoutGenerics(path ? `${path}::${name}` : name).replace(/\s+/g, "");
   const [first, ...rest] = written.split("::");
   const around = scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => b.start - a.start);
   for (const scope of around) {
