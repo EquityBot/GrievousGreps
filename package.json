@@ -69,6 +69,7 @@
     "@types/node": "^26.1.0",
     "d3-force": "^3.0.0",
     "esbuild": "^0.28.1",
+    "fast-check": "^4.10.2",
     "node-gyp": "^12.4.0",
     "tree-sitter": "^0.21.1",
     "tree-sitter-go": "^0.23.4",
