@@ -162,6 +162,23 @@ test("the deadline: slow probes are left out, the block still comes inside 400 m
   assert.deepEqual(late, {});
 });
 
+test("the hook's own clock: TRAIL_TEST_NOW in a test home stops the deadline, so a journey through the real hooks keeps its block on a slow runner", () => {
+  // No clock passed, as hooksMain passes none; the gate takes the whole 400 ms, as a loaded runner's catch-up can.
+  const slow = (b: Box): Partial<PromptDeps> => ({
+    track: () => {},
+    gate: (input, dir, env) => {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 450);
+      return gateFor(b)(input, dir, env);
+    },
+  });
+  const b = shipBox("own-clock");
+  assert.ok(run(b, "now ff to prod please", {}, b.env, slow(b)).context?.startsWith("[trail] Skill ship-beta-then-prod fits"));
+  // Without TRAIL_TEST_NOW the deadline is the real clock's.
+  const r = shipBox("real-clock");
+  const { TRAIL_TEST_NOW: _fixed, ...realEnv } = r.env;
+  assert.deepEqual(run(r, "now ff to prod please", {}, realEnv, slow(r)), {});
+});
+
 test("ready probes: passed ones in one line, a failed one said first and kept on the injection", () => {
   const clean = shipBox("probes-ok");
   assert.ok(run(clean, "now ff to prod please").context!.includes("\n  ready: no uncommitted changes, on beta\n"));

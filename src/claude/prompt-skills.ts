@@ -7,7 +7,9 @@
  * Hard deadline 400 ms (3.6): past it before the cue, the prompt gets no
  * block (never half of one); the ready probes get what is left, at most
  * 300 ms. The lock waits 150 ms; a timeout is nothing at all. Every throw
- * fails open: nothing out, one line in `state/hook-errors.log`.
+ * fails open: nothing out, one line in `state/hook-errors.log`. The deadline
+ * runs on Trail's clock, so TRAIL_TEST_NOW in a test home (0 rule 10) stops
+ * it: a journey through the real hooks never loses its block to a slow runner.
  *
  * Consent is g5's: `captureAnswer` and `noteSaveRequest` are called with the
  * fold from this hook's own catch-up and nothing here sets a yes or a save
@@ -32,6 +34,7 @@ import { refusalWords } from '../skills/compile-words.js';
 import { hostFacts } from '../skills/host-facts.js';
 import { resolveParams } from '../skills/params.js';
 import { lastUsedIn } from '../skills/state.js';
+import { trailNow } from '../skills/settings.js';
 import { nameTaken } from '../skills/store.js';
 import { candidatesHere, matchCue, nameOf, normalizePrompt, refusedAtRecall, withRunParams, type Candidate, type CueResult, type NormPrompt } from '../skills/recall.js';
 import { checkLine, injectionFor, readOnlyCheck, runBlock, runProbes, useNotice, withReadyFailed, PROBE_BUDGET_MS, type ProbeOpts } from '../skills/runblock.js';
@@ -71,7 +74,7 @@ const ANSWERED: Record<string, string> = { yes: 'yes', show: 'show', no: 'no', o
 
 /** 3.2. */
 export function promptSkills(input: any, dir: string, env: NodeJS.ProcessEnv = process.env, deps: Partial<PromptDeps> = {}): HookOut {
-  const clock = deps.clock ?? Date.now;
+  const clock = deps.clock ?? (() => trailNow(env).getTime());
   const deadline = clock() + PROMPT_DEADLINE_MS;
   const sent: Sent = [];
   try {
