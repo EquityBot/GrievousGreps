@@ -552,15 +552,33 @@ function rustLocalChain(name: string, from: TsNode, owner: string | undefined, s
   return undefined;
 }
 
+/** A path with its generic arguments and their `::` removed: `a::Foo::<Vec<u8>>::new` is `a::Foo::new`.
+ * Inside the arguments, a `<` or `>` within brackets (a `{ 1 < 2 }` const block) and the `>` of `->` are not
+ * angle brackets. */
+function withoutGenerics(path: string): string {
+  let out = "";
+  let angles = 0;
+  let brackets = 0;
+  for (let i = 0; i < path.length; i++) {
+    const c = path[i]!;
+    if (angles === 0) {
+      if (c !== "<") out += c;
+      else {
+        angles = 1;
+        if (out.endsWith("::")) out = out.slice(0, -2);
+      }
+    } else if ("([{".includes(c)) brackets++;
+    else if (")]}".includes(c)) brackets--;
+    else if (brackets === 0 && c === "<") angles++;
+    else if (brackets === 0 && c === ">" && path[i - 1] !== "-") angles--;
+  }
+  return out;
+}
+
 /** A call as a whole path, its first name spelt out through the `use` in scope at `at`.
  * Undefined for a bare name no `use` binds, which is a name and not a path. */
 function rustWholePath(path: string | undefined, name: string, scopes: RustUseScope[], at: number): string | undefined {
-  // Innermost generics go first, so a nested `::<Vec<u8>>` takes as many passes as it is deep.
-  let written = (path ? `${path}::${name}` : name).replace(/\s+/g, "");
-  for (let before = ""; before !== written; ) {
-    before = written;
-    written = written.replace(/::<[^<>]*>/g, "").replace(/<[^<>]*>/g, "");
-  }
+  const written = withoutGenerics((path ? `${path}::${name}` : name).replace(/\s+/g, ""));
   const [first, ...rest] = written.split("::");
   const around = scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => b.start - a.start);
   for (const scope of around) {
