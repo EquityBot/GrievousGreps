@@ -555,7 +555,12 @@ function rustLocalChain(name: string, from: TsNode, owner: string | undefined, s
 /** A call as a whole path, its first name spelt out through the `use` in scope at `at`.
  * Undefined for a bare name no `use` binds, which is a name and not a path. */
 function rustWholePath(path: string | undefined, name: string, scopes: RustUseScope[], at: number): string | undefined {
-  const written = (path ? `${path}::${name}` : name).replace(/::<[^<>]*>/g, "").replace(/<[^<>]*>/g, "").replace(/\s+/g, "");
+  // Innermost generics go first, so a nested `::<Vec<u8>>` takes as many passes as it is deep.
+  let written = (path ? `${path}::${name}` : name).replace(/\s+/g, "");
+  for (let before = ""; before !== written; ) {
+    before = written;
+    written = written.replace(/::<[^<>]*>/g, "").replace(/<[^<>]*>/g, "");
+  }
   const [first, ...rest] = written.split("::");
   const around = scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => b.start - a.start);
   for (const scope of around) {

@@ -85,6 +85,14 @@ fn one(x: i32) {}
   assert.ok(!edges.some((e) => e.startsWith("lib.rs#evaluate ->") && e.endsWith("#new~2")), "Vec::new is not Store::new");
 });
 
+test("Rust: a call's whole path drops nested generic arguments", async () => {
+  await warmGenericGrammars(["rust"]);
+  const path = (call: string) => extractGeneric("lib.rs", `fn t() { ${call}; }\n`, "rust").rawEdges.find((e) => e.relation === "calls")?.rustPath;
+  assert.equal(path("lara::Croft::<u8>::new()"), "lara::Croft::new");
+  assert.equal(path("lara::Croft::<Vec<u8>>::new()"), "lara::Croft::new");
+  assert.equal(path("lara::Croft::<HashMap<String, Vec<u8>>>::new()"), "lara::Croft::new");
+});
+
 test("Rust: a macro body gives an edge only for a target its tokens decide", async () => {
   await warmGenericGrammars(["rust"]);
   const src = `struct Repo;
