@@ -21,7 +21,9 @@ import { at, box, CWD, gateFor, grow, payload, ranIn, replyAt, save, SID, startP
 
 const start = (b: Box, source: string, extra: Record<string, unknown> = {}, env = b.env) =>
   sessionStartSkills(startPayload(b, source, extra), CWD, env, { gate: gateFor(b) });
-const ask = (b: Box, prompt: string, env = b.env) => promptSkills(payload(b, prompt), CWD, env, { gate: gateFor(b), track: () => {} });
+// The prompt hook's 400 ms deadline runs on a clock that stands still here, as in skills-prompt.test.ts: a slow
+// runner past it would bring no block.
+const ask = (b: Box, prompt: string, env = b.env) => promptSkills(payload(b, prompt), CWD, env, { gate: gateFor(b), track: () => {}, clock: () => 0 });
 const webshopRelease = () => releaseSkill({ applies: WEBSHOP, trail: "s-7f3a2c" });
 const HELD_AT = new Date("2026-10-19T18:00:00.000Z");
 
