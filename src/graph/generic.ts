@@ -554,7 +554,7 @@ function rustLocalChain(name: string, from: TsNode, owner: string | undefined, s
 
 /** A path with its generic arguments and their `::` removed: `a::Foo::<Vec<u8>>::new` is `a::Foo::new`.
  * Inside the arguments, a `<` or `>` within brackets (a `{ 1 < 2 }` const block) and the `>` of `->` are not
- * angle brackets. */
+ * angle brackets, and nothing inside a string or char literal (`'}'`) counts. */
 function withoutGenerics(path: string): string {
   let out = "";
   let angles = 0;
@@ -567,6 +567,9 @@ function withoutGenerics(path: string): string {
         angles = 1;
         if (out.endsWith("::")) out = out.slice(0, -2);
       }
+    } else if (c === '"' || (c === "'" && (path[i + 1] === "\\" || path[i + 2] === "'"))) {
+      // A lifetime (`'a`) has no closing quote, so it is not skipped.
+      for (i++; i < path.length && path[i] !== c; i++) if (path[i] === "\\") i++;
     } else if ("([{".includes(c)) brackets++;
     else if (")]}".includes(c)) brackets--;
     else if (brackets === 0 && c === "<") angles++;

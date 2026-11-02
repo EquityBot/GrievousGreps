@@ -93,6 +93,9 @@ test("Rust: a call's whole path drops nested generic arguments", async () => {
   assert.equal(path("lara::Croft::<HashMap<String, Vec<u8>>>::new()"), "lara::Croft::new");
   assert.equal(path("lara::Croft::<{ 1 < 2 }>::new()"), "lara::Croft::new", "a comparison in a const block");
   assert.equal(path("lara::Croft::<Box<dyn Fn(u8) -> u8>>::new()"), "lara::Croft::new", "the arrow of an Fn type");
+  assert.equal(path("lara::Croft::<'}'>::new()"), "lara::Croft::new", "a bracket in a char literal");
+  assert.equal(path("lara::Croft::<{ '\\'' }>::new()"), "lara::Croft::new", "an escaped quote in a char literal");
+  assert.equal(path("lara::Croft::<'a, Vec<u8>>::new()"), "lara::Croft::new", "a lifetime");
 });
 
 test("Rust: a macro body gives an edge only for a target its tokens decide", async () => {
