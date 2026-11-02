@@ -12,6 +12,7 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import type { Summarizer, Synthesizer, SynthNode, SynthLink, FileSummary } from "../src/index.js";
+import { commandOnPath } from "../src/brand.js";
 
 /**
  * A fresh scratch directory, canonicalized.
@@ -42,6 +43,16 @@ export function tmpRepo(tag: string): string {
  */
 export function homeEnv(home: string): NodeJS.ProcessEnv {
   return { ...process.env, HOME: home, USERPROFILE: home };
+}
+
+/**
+ * PATH without the folders that hold an installed `trail`, for a test that starts
+ * on a machine without it. A Trail developer has one, and with it on PATH the first
+ * upkeep moves a graft repo before the test installs its own. The whole folder goes,
+ * so a command that shares it with `trail` goes too.
+ */
+export function pathWithoutTrail(): string {
+  return (process.env.PATH ?? "").split(delimiter).filter((dir) => !commandOnPath("trail", { PATH: dir })).join(delimiter);
 }
 
 /**

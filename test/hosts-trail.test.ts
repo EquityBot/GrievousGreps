@@ -28,7 +28,7 @@ import { runInit } from '../src/claude/init.js';
 import { runUpkeep } from '../src/upkeep-run.js';
 import { readStamp, runningVersion, wiredHostIds } from '../src/upkeep.js';
 import { BRAND_ENV, commandOnPath } from '../src/brand.js';
-import { tmpRepo } from './helpers.js';
+import { pathWithoutTrail, tmpRepo } from './helpers.js';
 
 const ALL = HOSTS.map((h) => h.id);
 /** A graft command an agent would be told to run. `graft/` (the code map's folder) is not one. */
@@ -226,6 +226,8 @@ test('a session start that moves a graft repo to trail moves the other agents to
   Object.assign(process.env, { HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, '.trail') });
   try {
     delete process.env[BRAND_ENV];
+    const noTrail = pathWithoutTrail();
+    process.env.PATH = noTrail;
     runInit(repo, { build: false, global: false });
     runHostsInit(repo, { agents: ['agents', 'cursor', 'gemini', 'kiro'], home, global: false });
     runUpkeep(repo, runningVersion(), { background: false, home });
@@ -235,7 +237,7 @@ test('a session start that moves a graft repo to trail moves the other agents to
     const bin = mkdtempSync(join(tmpdir(), 'bin-trail-'));
     writeFileSync(join(bin, 'trail'), '#!/bin/sh\nexit 0\n');
     chmodSync(join(bin, 'trail'), 0o755);
-    process.env.PATH = `${bin}${delimiter}${saved.PATH}`;
+    process.env.PATH = `${bin}${delimiter}${noTrail}`;
     assert.match(runUpkeep(repo, runningVersion(), { background: false, home }).lines.join('\n'), /just moved to it/);
 
     const files = filesUnder(repo);

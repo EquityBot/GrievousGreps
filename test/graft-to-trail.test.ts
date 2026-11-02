@@ -15,7 +15,7 @@ import { runUpkeep, shouldMoveToTrail } from '../src/upkeep-run.js';
 import { fitTrailServerToMachine } from '../src/hosts/claude-global.js';
 import { BRAND_ENV, repoWiredForTrail } from '../src/brand.js';
 import { runInit } from '../src/claude/init.js';
-import { tmpRepo } from './helpers.js';
+import { pathWithoutTrail, tmpRepo } from './helpers.js';
 
 process.env.TRAIL_NO_FETCH = '1';
 delete process.env.GRAFT_NO_TRAIL_SWITCH;
@@ -51,6 +51,8 @@ test('a graft repo moves to trail once the trail command is installed, and only 
   process.env.USERPROFILE = home;
   try {
     delete process.env[BRAND_ENV];
+    const noTrail = pathWithoutTrail();
+    process.env.PATH = noTrail;
     runInit(repo, { build: false, global: false });
     assert.ok(existsSync(join(repo, '.claude', 'skills', 'graft', 'SKILL.md')), 'wired as graft');
     // Stamp it at this version, so only the move can trigger a refresh.
@@ -58,7 +60,7 @@ test('a graft repo moves to trail once the trail command is installed, and only 
     assert.equal(shouldMoveToTrail(repo), false, 'no trail command yet');
     assert.equal(shouldMoveToTrail(repo, { ...process.env, PATH: binWith('trail'), GRAFT_NO_TRAIL_SWITCH: '1' }), false, 'a machine can opt out');
 
-    process.env.PATH = `${binWith('trail')}${delimiter}${saved.path}`;
+    process.env.PATH = `${binWith('trail')}${delimiter}${noTrail}`;
     const first = runUpkeep(repo, runningVersion(), { background: false, home });
     assert.match(first.lines.join('\n'), /graft is now trail, and this repo just moved to it/);
     assert.ok(repoWiredForTrail(repo));
