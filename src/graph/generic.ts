@@ -559,7 +559,8 @@ function withoutGenerics(path: string): string {
   let out = "";
   let angles = 0;
   let brackets = 0;
-  for (let i = 0; i < path.length; i++) {
+  let i = 0;
+  while (i < path.length) {
     const c = path[i]!;
     if (angles === 0) {
       if (c !== "<") out += c;
@@ -569,11 +570,13 @@ function withoutGenerics(path: string): string {
       }
     } else if (c === '"' || (c === "'" && (path[i + 1] === "\\" || path[i + 2] === "'"))) {
       // A lifetime (`'a`) has no closing quote, so it is not skipped.
-      for (i++; i < path.length && path[i] !== c; i++) if (path[i] === "\\") i++;
+      i++;
+      while (i < path.length && path[i] !== c) i += path[i] === "\\" ? 2 : 1;
     } else if ("([{".includes(c)) brackets++;
     else if (")]}".includes(c)) brackets--;
     else if (brackets === 0 && c === "<") angles++;
     else if (brackets === 0 && c === ">" && path[i - 1] !== "-") angles--;
+    i++;
   }
   return out;
 }
