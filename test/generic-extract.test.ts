@@ -85,6 +85,20 @@ fn one(x: i32) {}
   assert.ok(!edges.some((e) => e.startsWith("lib.rs#evaluate ->") && e.endsWith("#new~2")), "Vec::new is not Store::new");
 });
 
+test("Rust: a call's whole path drops nested generic arguments", async () => {
+  await warmGenericGrammars(["rust"]);
+  const path = (call: string) => extractGeneric("lib.rs", `fn t() { ${call}; }\n`, "rust").rawEdges.find((e) => e.relation === "calls")?.rustPath;
+  assert.equal(path("lara::Croft::<u8>::new()"), "lara::Croft::new");
+  assert.equal(path("lara::Croft::<Vec<u8>>::new()"), "lara::Croft::new");
+  assert.equal(path("lara::Croft::<HashMap<String, Vec<u8>>>::new()"), "lara::Croft::new");
+  assert.equal(path("lara::Croft::<{ 1 < 2 }>::new()"), "lara::Croft::new", "a comparison in a const block");
+  assert.equal(path("lara::Croft::<Box<dyn Fn(u8) -> u8>>::new()"), "lara::Croft::new", "the arrow of an Fn type");
+  assert.equal(path("lara::Croft::<'}'>::new()"), "lara::Croft::new", "a bracket in a char literal");
+  assert.equal(path("lara::Croft::<{ '\\'' }>::new()"), "lara::Croft::new", "an escaped quote in a char literal");
+  assert.equal(path("lara::Croft::<'a, Vec<u8>>::new()"), "lara::Croft::new", "a lifetime");
+  assert.equal(path("lara::Croft::<{ 'a: { break 'a '}' } }>::new()"), "lara::Croft::new", "a lifetime beside a char literal");
+});
+
 test("Rust: a macro body gives an edge only for a target its tokens decide", async () => {
   await warmGenericGrammars(["rust"]);
   const src = `struct Repo;
