@@ -64,9 +64,7 @@ export async function promptPart(input: unknown, dir: string, env: NodeJS.Proces
   const started = Date.now();
   try {
     const { promptSkills } = await import('./prompt-skills.js');
-    // The 400 ms deadline runs on Trail's clock: TRAIL_TEST_NOW holds it still in a test home (0 rule 10), so a
-    // journey on a slow runner still gets its block; everywhere else it is the real time.
-    const out = await codexWords(promptSkills(input, dir, env, { clock: () => trailNow(env).getTime() }), input);
+    const out = await codexWords(promptSkills(input, dir, env), input);
     send('prompt', started, [], env);
     return out;
   } catch {
