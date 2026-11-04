@@ -85,8 +85,10 @@ jobs:
         with:
           node-version: "20"
           package-manager-cache: false
+      # Install scripts stay on, as in the test job: esbuild and the tree-sitter
+      # grammars need theirs, and the package's prepare script is the build.
       - name: Install and build
-        run: npm ci
+        run: npm ci # NOSONAR: see above
       - name: Run the docs commands on the release build
         env:
           GG_DOCS_E2E: require

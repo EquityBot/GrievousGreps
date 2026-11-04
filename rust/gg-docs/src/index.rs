@@ -72,14 +72,14 @@ impl Index {
     /// Opens or creates the index at `db` for the folder `root`, rebuilding it if its schema
     /// version or root differs, and waiting up to `LOCK_WAIT` for another process to finish.
     pub fn open(db: &Path, root: &Path) -> Result<Self, String> {
-        pollster::block_on(Self::open_async(db, root))
-    }
-
-    async fn open_async(db: &Path, root: &Path) -> Result<Self, String> {
         if let Some(dir) = db.parent() {
             fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         }
         let root = fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
+        pollster::block_on(Self::open_async(db, root))
+    }
+
+    async fn open_async(db: &Path, root: PathBuf) -> Result<Self, String> {
         let path = db
             .to_str()
             .ok_or_else(|| format!("{}: not UTF-8", db.display()))?;
@@ -117,7 +117,8 @@ impl Index {
         }
         let mut writer = Writer::new(&self.conn, if bulk { BATCH_BYTES } else { u64::MAX });
         for (rel, full, size, mtime_ns) in candidates {
-            let Ok(bytes) = fs::read(&full) else { continue };
+            // pollster runs this one future on this thread, so a blocking read stalls nothing else.
+            let Ok(bytes) = fs::read(&full) else { continue }; // NOSONAR: see above
             let hash = hex(&Sha256::digest(&bytes));
             match stored.remove(&rel) {
                 Some(old) if old.hash == hash => {
@@ -261,7 +262,8 @@ async fn connect(path: &str) -> Result<Connection, String> {
             Ok(db) => return db.connect().map_err(sql),
             // Turso reports a held lock only in its message ("File is locked by another process").
             Err(e) if e.to_string().contains("locked") && Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(25));
+                // pollster has no timer, and this future is the only one on the thread.
+                std::thread::sleep(Duration::from_millis(25)); // NOSONAR: see above
             }
             Err(e) => return Err(format!("{path}: {e}")),
         }
