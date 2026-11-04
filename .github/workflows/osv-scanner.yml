@@ -13,10 +13,14 @@ on:
     branches: [main]
     paths:
       - "**/package-lock.json"
+      - "**/Cargo.lock"
+      - "**/osv-scanner.toml"
       - ".github/workflows/osv-scanner.yml"
   pull_request:
     paths:
       - "**/package-lock.json"
+      - "**/Cargo.lock"
+      - "**/osv-scanner.toml"
       - ".github/workflows/osv-scanner.yml"
 
 permissions:
