@@ -406,7 +406,7 @@ test("the trail skill's description names when to use its commands, and the body
   assert.match(data.description, /When the session finds what the code can't tell\s+the next person/);
   assert.match(data.description, /save a learning with trail note and commit it with the change/);
   assert.match(data.description, /\.trail\/learnings\//, "where the learnings are, for a Claude without trail");
-  assert.match(data.description, /EquityBot\/GrievousGreps/, "and where to get the command");
+  assert.match(data.description, /yungSNAT\/GrievousGreps/, "and where to get the command");
   assert.doesNotMatch(data.description, /npm install -g/, "this distribution is not the upstream package");
   assert.doesNotMatch(data.description, /graft/, "nothing about the old name or the graft\/ folder");
   const moments = content.indexOf("## When to reach for trail");
