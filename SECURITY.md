@@ -14,7 +14,7 @@ running on the machine is out of scope, because that process needs no such route
 ## Reporting a vulnerability
 
 Report it privately through GitHub's private vulnerability reporting:
-https://github.com/EquityBot/GrievousGreps/security/advisories/new. Do not open
+https://github.com/yungSNAT/GrievousGreps/security/advisories/new. Do not open
 an issue for a suspected security vulnerability. Include a clear description,
 reproduction steps, impact and any suggested mitigation.
 

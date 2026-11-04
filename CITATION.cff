@@ -3,9 +3,9 @@ message: "If you use this work, cite it with this metadata and the release tag o
 title: "GrievousGreps"
 type: software
 authors:
-  - name: "EquityBot"
+  - name: "yungSNAT"
 abstract: "A distribution of Trail-Code: a code graph for coding agents, with caller recall measured on public repositories."
-repository-code: "https://github.com/EquityBot/GrievousGreps"
+repository-code: "https://github.com/yungSNAT/GrievousGreps"
 license: MIT
 keywords:
   - call-graph
