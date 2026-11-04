@@ -207,8 +207,10 @@ test("one real lookup on the fresh map: the most central symbol, and what readin
   assert.equal(t.symbol, "retryDo");
   assert.equal(t.question, "how retryDo works");
   assert.ok(t.saved > 0 && t.baseline > t.pack && t.pct > 0 && t.pct <= 100 && t.files >= 1);
-  // The same numbers the agent sees on that query.
-  assert.deepEqual(parseAskSavings(formatAsk(ask(dir, "how does retryDo work", { source: true, limit: 5 }))), { saved: t.saved, pct: t.pct, pack: t.pack, files: t.files, baseline: t.baseline });
+  // The same numbers as the long line on that query, and the agent's default short line carries the saving.
+  const r = ask(dir, "how does retryDo work", { source: true, limit: 5 });
+  assert.deepEqual(parseAskSavings(formatAsk(r, true)), { saved: t.saved, pct: t.pct, pack: t.pack, files: t.files, baseline: t.baseline });
+  assert.ok(formatAsk(r).includes(`tokens saved ≈ ${t.saved.toLocaleString()} (${t.pct}%) at most`));
   assert.equal(tokensOnOneLookup(mkdtempSync(join(tmpdir(), "connect-nograph-"))), null);
 });
 

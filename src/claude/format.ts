@@ -6,7 +6,7 @@ import type { GraphV1, EdgeV1 } from '../graph/types.js';
 // question in both places, and one set of calibrated numbers beats two.
 import { HIGH_FLOOR, STRONG_FLOOR } from '../ask/fuse.js';
 import { dollarsSaved, formatDollars } from '../context/price.js';
-import { savingsTallyOff } from '../context/savings.js';
+import { savingsDetail, savingsTallyOff, shortSavingsLine } from '../context/savings.js';
 import { brand, cmd, tag } from '../brand.js';
 import { flatLine } from '../notes/flatten.js';
 import { isAlwaysFollow } from '../notes/units.js';
@@ -60,10 +60,12 @@ export function renderStatusline(
   return lines;
 }
 
+/** Graph paths use '/'; the edited path is the OS's, so a Windows path is matched with its '\' turned to '/'. */
 function nodeIdsInFile(w: GraphV1, filePath: string): Set<string> {
   const nodes = w.nodes ?? [];
+  const file = filePath.replace(/\\/g, '/');
   return new Set(
-    nodes.filter((n) => n.path && (filePath === n.path || filePath.endsWith(`/${n.path}`)))
+    nodes.filter((n) => n.path && (file === n.path || file.endsWith(`/${n.path}`)))
       .map((n) => n.id),
   );
 }
@@ -229,12 +231,13 @@ export function formatRetrieval(ask: AskJson, cap = 5): string | null {
   if (!hits.length) return null;
   const body = retrievalBody(hits);
   const saved = retrievalTokensSaved(ask, cap);
-  if (saved <= 0) return body;
-  const base = tokensOf(ask.saved!.baselineChars);
+  if (saved <= 0 || !ask.saved) return body;
+  const base = tokensOf(ask.saved.baselineChars);
   const pct = Math.round((saved / base) * 100);
+  if (!savingsDetail()) return `${body}\n${shortSavingsLine(saved, pct, ask.saved.files)}`;
   return (
     `${body}\n${tag()} tokens saved ≈ ${saved.toLocaleString()} (${pct}%); this pack ≈ ` +
-    `${tokensOf(body.length).toLocaleString()} tok vs reading the ${ask.saved!.files} file(s) whole ≈ ` +
+    `${tokensOf(body.length).toLocaleString()} tok vs reading the ${ask.saved.files} file(s) whole ≈ ` +
     `${base.toLocaleString()} tok (estimate).`
   );
 }
@@ -261,14 +264,16 @@ export const NUDGE_CAP = 2;
 
 /** The line injected instead of a weak pack: names the command, says why, once.
  * Deliberately not an imperative about graft in general — it's a fact about this
- * prompt's match quality plus the command that fixes it. */
+ * prompt's match quality plus the command that fixes it, offered only for when the
+ * agent doesn't know where the code is: an unconditional 'run this first' adds a
+ * model request to tasks that never needed one. */
 export function weakMatchNudge(s: SessionState, strong: number): string | null {
   const spent = s.nudges ?? 0;
   if (spent >= NUDGE_CAP) return null;
   s.nudges = spent + 1;
   return (
     `${tag()} no strong match for this prompt (name-field match ${strong.toFixed(2)}); the graph ` +
-    `has more than this probe found. Run \`${cmd('graft ask')} "<your task>" --source\` before grepping.`
+    `has more than this probe found. If you don't yet know where the code is, \`${cmd('graft ask')} "<your task>" --source\` searches all of it.`
   );
 }
 
@@ -318,15 +323,15 @@ export function formatOrientation(indexMd: string, budgetBytes = 1500, staleNote
   // for byte what it always was.
   const b = brand();
   const directive =
-    `${tag()} This repo is indexed by ${b}. To find, understand, or change code, reach for ${b} first; it answers from a prebuilt graph with exact file:line, faster than grep/read. Pick the ONE tool that fits and act on its answer. Most tasks need a single call. If one isn't enough, switch to the tool that fits the next need; don't call the same tool again and again or re-ask a question reworded:\n` +
+    `${tag()} This repo is indexed by ${b}: a prebuilt graph with exact file:line. Use it when its answer replaces reading: who calls a symbol, a file's API, where unfamiliar code lives. Pick the ONE tool that fits and act on its answer. Most tasks need a single call. If one isn't enough, switch to the tool that fits the next need; don't call the same tool again and again or re-ask a question reworded:\n` +
     `  • ${cmd('graft ask')} "<task>" --source: locate + understand. Ranked nodes with the code inlined at each file:line (the ≤8-line crux; add --full for the whole span). The default for "how does X work" / "where is Y".\n` +
     `  • ${cmd('graft grep')} "<literal>": exhaustive find. Every occurrence, grouped by enclosing symbol; use when you need them ALL (ask is ranked top-N and misses instances).\n` +
     `  • ${cmd('graft skeleton')} <file>: a file's whole API in ~200 tokens, every signature + span, ~10x cheaper than reading the file.\n` +
     `  • ${cmd('graft callers')} <sym> [--direction out] [--depth N|all]: exact edges. Who calls it (default), what it calls (--direction out), or the full blast radius (--depth 2, or --depth all for every connected source). Run before you change a symbol.\n` +
     `  • ${cmd('graft map')}: orientation for an unfamiliar repo, directory clusters, hubs, hotspots. map alone is the answer; don't then skeleton every subsystem it names.\n` +
     `  In a monorepo, add --in <path>/ to ask/grep/callers to scope to one sub-project; hits are labeled [scope/].\n` +
-    `  Already know the file or symbol to change? Go straight to it: ${cmd('graft grep')} "<symbol>", read the span, edit. Save ask for when you don't yet know where the code lives.\n` +
-    `  Refactor, rename, or multi-file change? Run ${cmd('graft callers')} <sym> --depth all FIRST to map every connected file; editing the primary file and stopping is the classic miss (platform siblings, a new file to extract).\n` +
+    `  Already know the file to change? Read it and edit; a graph call adds nothing there. Save ask for when you don't yet know where the code lives.\n` +
+    `  Renaming a symbol or changing its signature? ${cmd('graft callers')} <sym> lists the indexed call sites to update and says when it may undercount; --depth all adds the files connected through them.\n` +
     (savingsTallyOff() ? '' : `Each tool opens its output with a "${tag()} tokens saved ≈ N" line, sometimes with its dollar value; when you used ${b} this turn, close your reply with a one-line tally of the total saved, dollars included when given (e.g. 🌱 ${b} saved ~12k tokens (~$0.04) this turn, 3 calls). Never price tokens yourself; never pipe ${b} through head/tail: it is already capped, and clipping drops that line.\n`) +
     teamNotesDirective(notes, keepsNotes) +
     skills;

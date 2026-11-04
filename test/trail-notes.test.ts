@@ -402,7 +402,7 @@ test("the trail skill's description names when to use its commands, and the body
   assert.equal(data.name, "trail");
   assert.ok(data.description.length <= 1024, "skill descriptions are capped at 1,024 characters");
   assert.match(data.description, /ANY task in this repo/);
-  assert.match(data.description, /trail ask before grepping/);
+  assert.match(data.description, /When you don't yet know where the code is, run trail ask/);
   assert.match(data.description, /When the session finds what the code can't tell\s+the next person/);
   assert.match(data.description, /save a learning with trail note and commit it with the change/);
   assert.match(data.description, /\.trail\/learnings\//, "where the learnings are, for a Claude without trail");

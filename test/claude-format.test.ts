@@ -65,6 +65,7 @@ test('formatBlastRadius renders callers or null', () => {
   assert.match(strip(txt!), /blast radius for pkce\.ts/);
   assert.match(strip(txt!), /exchange \(client\.ts\)/);
   assert.equal(formatBlastRadius(wiring2, '/abs/repo/src/unknown.ts'), null);
+  assert.match(strip(formatBlastRadius(wiring2, 'C:\\abs\\repo\\src\\pkce.ts') ?? ''), /exchange \(client\.ts\)/, 'a Windows path');
 });
 
 test('formatRetrieval renders top hits, trims snippet, first pointer only', () => {
@@ -95,6 +96,7 @@ test('formatRetrieval appends a tokens-saved line when ask reports a baseline', 
 
 test('TRAIL_NO_SAVINGS_TALLY drops the request to report a total from tool output and session text', () => {
   const saved = { files: 1, baselineChars: 8000 };
+  process.env.TRAIL_SAVINGS_DETAIL = '1';
   assert.match(savingsLine('body', saved), /At the end of your reply/);
   assert.match(formatOrientation('# repo map'), /one-line tally/);
   process.env.TRAIL_NO_SAVINGS_TALLY = '1';
@@ -107,7 +109,15 @@ test('TRAIL_NO_SAVINGS_TALLY drops the request to report a total from tool outpu
     assert.match(session, /repo map/);
   } finally {
     delete process.env.TRAIL_NO_SAVINGS_TALLY;
+    delete process.env.TRAIL_SAVINGS_DETAIL;
   }
+});
+
+test('by default no tally is asked for: the savings line is short and the session text says nothing of it', () => {
+  const line = savingsLine('body', { files: 1, baselineChars: 8000 });
+  assert.match(line, /^\[graft\] tokens saved ≈ [\d,]+ \(\d+%\) at most, against reading the 1 file\(s\) whole$/);
+  const session = formatOrientation('# repo map');
+  assert.doesNotMatch(session, /tally|tokens saved/);
 });
 
 test('formatRetrieval returns null for no hits', () => {
@@ -194,10 +204,11 @@ test('formatOrientation labels and truncates to budget', () => {
   const md = 'X'.repeat(3000);
   const out = strip(formatOrientation(md, 1500));
   assert.match(out, /repo map/);
-  assert.match(out, /reach for graft first/, 'always-on usage directive present');
-  assert.match(out, /Already know the file or symbol to change\?/, 'known-target edit guidance present');
+  assert.match(out, /This repo is indexed by graft: a prebuilt graph/, 'always-on usage directive present');
+  assert.match(out, /Already know the file to change\? Read it and edit/, 'known-target edit guidance present');
   // index truncated to budget (1500) + the fixed usage directive (per-tool descriptions + discipline).
-  assert.match(out, /Refactor, rename, or multi-file change?/, 'refactor blast-radius nudge present');
+  assert.match(out, /Renaming a symbol or changing its signature\?/, 'rename guidance present');
+  assert.doesNotMatch(out, /reach for graft first|FIRST|before grepping/, 'no steering into calls a task may not need');
   // The guard is on the INDEX being trimmed, not on the directive's exact byte
   // count: an untrimmed 3000-char index would land near 5200. The ceiling has
   // deliberate slack so teaching the directive one more thing (dollar values,
@@ -214,7 +225,7 @@ test('formatOrientation prepends a staleness banner when one is supplied', () =>
   const note = '⚠ graft index may be ahead of your working tree: 3 of 40 indexed files are not on disk';
   const out = strip(formatOrientation(md, 1500, note));
   // banner rides ABOVE the directive so it is the first thing the agent reads.
-  assert.ok(out.indexOf('ahead of your working tree') < out.indexOf('reach for graft first'), 'banner precedes the directive');
+  assert.ok(out.indexOf('ahead of your working tree') < out.indexOf('This repo is indexed by graft'), 'banner precedes the directive');
   // absent by default (fresh index) — no banner noise when nothing supplied.
   assert.doesNotMatch(strip(formatOrientation(md, 1500)), /ahead of your working tree/);
 });

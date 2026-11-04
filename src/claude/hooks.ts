@@ -97,13 +97,34 @@ async function handlePostEdit(input: any, dir: string): Promise<void> {
   patchStats(dir, { dirty: true, staleCount: checkStaleCount(dir), lastFile: basename(file) });
   const out: string[] = [];
   const w = readWiring(dir);
-  if (w) { const br = formatBlastRadius(w, file); if (br) out.push(br); }
+  if (w) { const br = formatBlastRadius(w, file); if (br && firstBlast(input, dir, file)) out.push(br); }
   const overlap = await editOverlap(input, dir, file);
   if (overlap) out.push(overlap);
   const learned = learningsOnTouch(input, dir);
   if (learned) out.push(learned);
   // One hook, one answer: two JSON objects on stdout would be read as neither.
   if (out.length) emit('PostToolUse', out.join('\n\n'));
+}
+
+/** Files whose blast radius was shown, remembered per session: the most recent 40,
+ * like the other said-once lists, so a session past 40 files may see one again. */
+const BLAST_FILES_CAP = 40;
+
+/**
+ * Whether this file's blast radius is new this session; records it when it is.
+ * A file's dependents rarely change within a session, and every further edit to
+ * it repeated the same 64 to 106 tokens. Without a session id every session would
+ * share one record and never see a file's blast radius again, so it is always shown.
+ */
+function firstBlast(input: unknown, dir: string, file: string): boolean {
+  const id = payloadSessionId(input);
+  if (id === 'default') return true;
+  const s = readSession(dir, id);
+  const shown = s.blastFiles ?? [];
+  if (shown.includes(file)) return false;
+  s.blastFiles = [...shown, file].slice(-BLAST_FILES_CAP);
+  writeSession(dir, id, s);
+  return true;
 }
 
 /** Branch-and-function pairs remembered per session, so each is said once. */

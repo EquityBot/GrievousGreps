@@ -311,7 +311,7 @@ export class OnboardingReporter {
 
 /* tokens ------------------------------------------------------------------- */
 
-/** The numbers in `ask`'s `[trail] tokens saved ≈ N (P%) — this pack ≈ … tok vs reading the F source file(s) whole ≈ B tok` line. */
+/** The numbers in `ask`'s long (`formatAsk(r, true)`) `[trail] tokens saved ≈ N (P%) — this pack ≈ … tok vs reading the F source file(s) whole ≈ B tok` line. */
 export function parseAskSavings(text: string): Omit<TokensSummary, "question" | "symbol"> | null {
   const m = text.match(/\[(?:graft|trail)\] tokens saved ≈ ([\d,]+) \((\d+)%\) — this pack ≈ ([\d,]+) tok vs reading the (\d+) source file\(s\) whole ≈ ([\d,]+) tok/);
   if (!m) return null;
@@ -397,7 +397,7 @@ export function tokensOnOneLookup(repo: string, opts: { contextDir?: string; tri
     for (const hub of hubs) {
       const query = `how does ${hub.name} work`;
       const r = ask(repo, query, { source: true, limit: 5, contextDir: opts.contextDir });
-      const got = parseAskSavings(formatAsk(r));
+      const got = parseAskSavings(formatAsk(r, true));
       if (got && got.saved > 0) return { question: `how ${hub.name} works`, symbol: hub.name, ...got };
     }
     return null;
@@ -460,7 +460,7 @@ export function tokensOnLastPr(repo: string, opts: { contextDir?: string; tries?
     if (!loadGraphCached(contextDirFor(repo, opts.contextDir))) return null;
     for (const pr of lastMergedPrs(repo, Math.max(1, opts.tries ?? 3))) {
       const r = ask(repo, pr.title, { source: true, limit: 5, contextDir: opts.contextDir });
-      const got = parseAskSavings(formatAsk(r));
+      const got = parseAskSavings(formatAsk(r, true));
       if (!got || got.saved <= 0) continue;
       const pointed = new Set(r.hits.map((h) => h.pointer.replace(/:L\d+(-L?\d+)?$/, "")));
       const found = pr.files.filter((f) => pointed.has(f)).length;

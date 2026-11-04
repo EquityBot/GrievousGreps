@@ -17,7 +17,8 @@ import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { matter } from "../util/front-matter.js";
 import { assertRealContextDir, contextDirFor } from "../context/node-file.js";
-import { withSavings, savingsFor, savingsTurnNudge, type Savings } from "../context/savings.js";
+import { withSavings, savingsDetail, savingsFor, savingsTurnNudge, shortSavingsLine, type Savings } from "../context/savings.js";
+import { isTestPath } from "../util/paths.js";
 import { loadGraphCached, loadAskIndexCached } from "../graph/load.js";
 import {
   assertPrefixIndexed,
@@ -200,15 +201,7 @@ function loadCorpus(outDir: string): Corpus {
  * far less than a rare, discriminating identifier ("scrolling"). Without idf,
  * pure term-frequency lets an incidental common word dominate the ranking; this
  * is the lexical half of the keyword-collision fix (graph-rank is the other). */
-/** Test files rarely answer "how does X work" / "where is Y" — they mirror the
- * real symbol's tokens, so a test can out-score the definition on a lexical tie
- * and land as the top hit (observed: an `ask` returning a `Test…` function first,
- * sending the agent to the wrong file). A multiplicative de-rank keeps tests in
- * the results (they still matter for "where are the tests") but below the real
- * definition. Covers Go (`_test.go`), JS/TS (`.test.` / `.spec.`), and test dirs. */
-export function isTestPath(path: string): boolean {
-  return /(^|\/)(tests?|__tests__|spec)\/|(_test|\.test|\.spec)\.[a-z]+$|(^|\/)(test_[^/]+|conftest)\.py$/i.test(path || "");
-}
+export { isTestPath };
 const TEST_RANK_PENALTY = 0.35;
 
 function score(
@@ -1534,16 +1527,17 @@ function renderAsk(r: AskResult): { body: string } | { text: string } {
   return { body: lines.join("\n").trimEnd() };
 }
 
-/** Render an {@link AskResult} as a compact markdown context pack. */
-export function formatAsk(r: AskResult): string {
-  return formatAskWithSaved(r).text;
+/** Render an {@link AskResult} as a compact markdown context pack. `detail` gives
+ * the long savings line (see {@link savingsDetail}). */
+export function formatAsk(r: AskResult, detail = savingsDetail()): string {
+  return formatAskWithSaved(r, detail).text;
 }
 
 /** {@link formatAsk}, plus the tokens its pack saved (what {@link askSavedTokens} says), from the one render. */
-export function formatAskWithSaved(r: AskResult): { text: string; savedTokens: number } {
+export function formatAskWithSaved(r: AskResult, detail = savingsDetail()): { text: string; savedTokens: number } {
   const out = renderAsk(r);
   if ("text" in out) return { text: out.text, savedTokens: 0 };
-  const savings = askSavingsLine(r, out.body);
+  const savings = askSavingsLine(r, out.body, detail);
   return { text: (savings ? `${savings}\n\n${out.body}` : out.body) + escalationNudge(r) + "\n", savedTokens: savedTokens(r, out.body) };
 }
 
@@ -1579,12 +1573,13 @@ function escalationNudge(r: AskResult): string {
  * `packChars` is measured from the rendered body: exactly what the agent reads.
  * Header, not footer, for the reason documented on `withSavings`: a trailing
  * line dies to `head -N` and to host output truncation. */
-function askSavingsLine(r: AskResult, body: string): string {
+function askSavingsLine(r: AskResult, body: string, detail: boolean): string {
   const saved = savedTokens(r, body);
   if (saved <= 0 || !r.saved) return ""; // no saving to claim (tiny files); stay quiet
   const pack = toTokens(body.length);
   const base = toTokens(r.saved.baselineChars);
   const pct = Math.round((saved / base) * 100);
+  if (!detail) return shortSavingsLine(saved, pct, r.saved.files);
   return (
     `${tag()} tokens saved ≈ ${saved.toLocaleString()} (${pct}%) — this pack ≈ ` +
     `${pack.toLocaleString()} tok vs reading the ${r.saved.files} source file(s) whole ≈ ` +

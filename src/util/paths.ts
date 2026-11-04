@@ -70,3 +70,14 @@ export function normalizePathPrefix(p: string): string {
   // which is exactly how `pathUnderPrefix` reads an empty prefix.
   return stripTrailingSlashes(out);
 }
+
+/** Test files rarely answer "how does X work" / "where is Y" — they mirror the
+ * real symbol's tokens, so a test can out-score the definition on a lexical tie
+ * and land as the top hit (observed: an `ask` returning a `Test…` function first,
+ * sending the agent to the wrong file). A multiplicative de-rank keeps tests in
+ * the results (they still matter for "where are the tests") but below the real
+ * definition. Covers Go (`_test.go`), JS/TS (`.test.` / `.spec.`), and test dirs.
+ * `callers` uses it too, to quote no call line for a caller in a test. */
+export function isTestPath(path: string): boolean {
+  return /(^|\/)(tests?|__tests__|spec)\/|(_test|\.test|\.spec)\.[a-z]+$|(^|\/)(test_[^/]+|conftest)\.py$/i.test(path || "");
+}
