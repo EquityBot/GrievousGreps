@@ -161,7 +161,8 @@ export function callerBlocks(
       else for (const h of hits) lines.push(hitLine(direction, h, showDepth, quote?.(h, symbol.name)));
       return [...lines, ...unresolved(symbol.name)].join("\n");
     });
-  if (quiet.length > 0) blocks.push([...quietLines(direction, quiet, results.length), ...unresolved(quiet[0].name)].join("\n"));
+  // Matching ignores case, so the quiet definitions can carry more than one name.
+  if (quiet.length > 0) blocks.push([...quietLines(direction, quiet, results.length), ...quiet.flatMap((q) => unresolved(q.name))].join("\n"));
   return blocks;
 }
 

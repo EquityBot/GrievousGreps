@@ -106,16 +106,19 @@ async function handlePostEdit(input: any, dir: string): Promise<void> {
   if (out.length) emit('PostToolUse', out.join('\n\n'));
 }
 
-/** Files whose blast radius was shown, remembered per session. */
+/** Files whose blast radius was shown, remembered per session: the most recent 40,
+ * like the other said-once lists, so a session past 40 files may see one again. */
 const BLAST_FILES_CAP = 40;
 
 /**
  * Whether this file's blast radius is new this session; records it when it is.
  * A file's dependents rarely change within a session, and every further edit to
- * it repeated the same 64 to 106 tokens.
+ * it repeated the same 64 to 106 tokens. Without a session id every session would
+ * share one record and never see a file's blast radius again, so it is always shown.
  */
 function firstBlast(input: any, dir: string, file: string): boolean {
-  const id = input?.session_id || 'default';
+  const id = payloadSessionId(input);
+  if (id === 'default') return true;
   const s = readSession(dir, id);
   const shown = s.blastFiles ?? [];
   if (shown.includes(file)) return false;

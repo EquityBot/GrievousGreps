@@ -329,7 +329,7 @@ export function formatOrientation(indexMd: string, budgetBytes = 1500, staleNote
     `  • ${cmd('graft map')}: orientation for an unfamiliar repo, directory clusters, hubs, hotspots. map alone is the answer; don't then skeleton every subsystem it names.\n` +
     `  In a monorepo, add --in <path>/ to ask/grep/callers to scope to one sub-project; hits are labeled [scope/].\n` +
     `  Already know the file to change? Read it and edit; a graph call adds nothing there. Save ask for when you don't yet know where the code lives.\n` +
-    `  Renaming a symbol or changing its signature? ${cmd('graft callers')} <sym> lists every call site to update, so none is missed; --depth all adds the files connected through them.\n` +
+    `  Renaming a symbol or changing its signature? ${cmd('graft callers')} <sym> lists the indexed call sites to update and says when it may undercount; --depth all adds the files connected through them.\n` +
     (savingsTallyOff() ? '' : `Each tool opens its output with a "${tag()} tokens saved ≈ N" line, sometimes with its dollar value; when you used ${b} this turn, close your reply with a one-line tally of the total saved, dollars included when given (e.g. 🌱 ${b} saved ~12k tokens (~$0.04) this turn, 3 calls). Never price tokens yourself; never pipe ${b} through head/tail: it is already capped, and clipping drops that line.\n`) +
     teamNotesDirective(notes, keepsNotes) +
     skills;

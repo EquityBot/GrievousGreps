@@ -41,12 +41,13 @@ test('post-edit shows a file\'s blast radius once a session, not on every edit t
     edges: [{ source: 'src/client.ts#exchange', target: 'src/pkce.ts#verify', relation: 'calls', confidence: 'extracted' }],
   }));
   process.env.CLAUDE_PROJECT_DIR = d;
-  const edit = async (session: string): Promise<string> => {
+  const edit = async (session?: string): Promise<string> => {
     const output: string[] = [];
     const originalWrite = process.stdout.write;
     process.stdout.write = ((chunk: unknown) => { output.push(String(chunk)); return true; }) as typeof process.stdout.write;
     try {
-      await runWithStdin(JSON.stringify({ session_id: session, tool_input: { file_path: join(d, 'src', 'pkce.ts') } }), () => main('post-edit'));
+      const payload = { ...(session ? { session_id: session } : {}), tool_input: { file_path: join(d, 'src', 'pkce.ts') } };
+      await runWithStdin(JSON.stringify(payload), () => main('post-edit'));
     } finally {
       process.stdout.write = originalWrite;
     }
@@ -56,6 +57,8 @@ test('post-edit shows a file\'s blast radius once a session, not on every edit t
     assert.match(await edit('s1'), /blast radius for pkce\.ts/);
     assert.doesNotMatch(await edit('s1'), /blast radius/, 'the same file again in the same session');
     assert.match(await edit('s2'), /blast radius for pkce\.ts/, 'a new session sees it');
+    assert.match(await edit(), /blast radius for pkce\.ts/, 'without a session id');
+    assert.match(await edit(), /blast radius for pkce\.ts/, 'without a session id there is nothing to remember it by, so it is shown again');
   } finally {
     delete process.env.CLAUDE_PROJECT_DIR;
   }

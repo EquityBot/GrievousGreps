@@ -18,7 +18,7 @@ Built on Trail-Code 0.28.0. Sections below this one are upstream's.
 - **`trail version`** prints the local version and compares nothing.
 - **`callers` names a shared name's definitions without callers once.** Those with callers come first; the rest share one block with up to 3 headers, a count and one undercount note, instead of a note under each, and a caller in a test file gets no quoted call line. In a 30-symbol benchmark sample the repeated note was 40% of answer tokens and the test quotes 8%. With the short savings line below, that sample's answers fall from 28,029 to 11,762 tokens (140 to 59 a correct caller) at the same 200 of 208 callers found.
 - **The tokens-saved line is one short upper bound by default**, with no request to report a running total and no dollar value. `TRAIL_SAVINGS_DETAIL=1` restores the long line.
-- **The blast radius after an edit is shown once per file per session**, not on every edit to the same file.
+- **The blast radius after an edit is shown once per file per session**, not on every edit to the same file. A session remembers its last 40 files; without a session id it is shown every time.
 - **Agent guidance no longer steers every task through a graph call.** It says when an answer replaces reading (callers, a file's API, unfamiliar code) and that a file you will edit still needs reading.
 
 ### Removed

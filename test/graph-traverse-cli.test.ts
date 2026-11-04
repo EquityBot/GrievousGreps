@@ -15,6 +15,8 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { contextDirFor } from '../src/context/node-file.js';
 import { wiringPath } from '../src/graph/write.js';
+import { callerBlocks } from '../src/graph/traverse-cli.js';
+import type { GraphV1, NodeV1 } from '../src/graph/types.js';
 
 function builtRepo(): string {
   const d = mkdtempSync(join(tmpdir(), 'graft-traversecli-'));
@@ -151,6 +153,24 @@ test('many definitions of one name: those with callers first, then the rest coun
   assert.match(quiet, /… and 1 more in 1 file\(s\)/);
   assert.match(quiet, /no indexed callers for 4 of the 5 definitions named "shared"/);
   assert.equal((r.stdout.match(/dropped rather than guessed/g) ?? []).length, 1);
+});
+
+test('callerless definitions whose names differ in case each keep their unresolved-calls note', () => {
+  const node = (path: string, name: string) => ({ id: `${path}#${name}`, name, kind: 'function', path, span: 'L1-L3' }) as unknown as NodeV1;
+  const graph = {
+    nodes: [], edges: [],
+    unresolvedCalls: [
+      { source: 'src/x.ts#useFoo', name: 'Foo', through: './gen' },
+      { source: 'src/y.ts#usefoo', name: 'foo', through: './gen' },
+    ],
+  } as unknown as GraphV1;
+  const blocks = callerBlocks(graph, 'in', false, [
+    { symbol: node('src/a.ts', 'Foo'), hits: [] },
+    { symbol: node('src/b.ts', 'foo'), hits: [] },
+  ]);
+  const text = blocks.join('\n\n');
+  assert.match(text, /call\(s\) to "Foo" did not resolve/);
+  assert.match(text, /call\(s\) to "foo" did not resolve/);
 });
 
 test('A6 --json: the ambiguous-name note includes the candidate count', () => {
