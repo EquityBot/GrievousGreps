@@ -41,11 +41,11 @@ function withDetail<T>(fn: () => T): T {
 
 test("hints the agent reads name trail's commands under trail", () => {
   const lines = withDetail(() =>
-    under("trail", () => [
-      weakMatchNudge({ nudges: 0 } as SessionState, 0.1)!,
-      savingsTurnNudge(1200),
-      zeroHitNote(grepMiss),
-    ]),
+    under("trail", () => {
+      const nudge = weakMatchNudge({ nudges: 0 } as SessionState, 0.1);
+      assert.ok(nudge, "a weak match gets a nudge");
+      return [nudge, savingsTurnNudge(1200), zeroHitNote(grepMiss)];
+    }),
   );
   for (const line of lines) {
     assert.doesNotMatch(line, GRAFT_COMMAND, line);

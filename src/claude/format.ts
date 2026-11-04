@@ -234,10 +234,10 @@ export function formatRetrieval(ask: AskJson, cap = 5): string | null {
   if (saved <= 0 || !ask.saved) return body;
   const base = tokensOf(ask.saved.baselineChars);
   const pct = Math.round((saved / base) * 100);
-  if (!savingsDetail()) return `${body}\n${shortSavingsLine(saved, pct, ask.saved!.files)}`;
+  if (!savingsDetail()) return `${body}\n${shortSavingsLine(saved, pct, ask.saved.files)}`;
   return (
     `${body}\n${tag()} tokens saved ≈ ${saved.toLocaleString()} (${pct}%); this pack ≈ ` +
-    `${tokensOf(body.length).toLocaleString()} tok vs reading the ${ask.saved!.files} file(s) whole ≈ ` +
+    `${tokensOf(body.length).toLocaleString()} tok vs reading the ${ask.saved.files} file(s) whole ≈ ` +
     `${base.toLocaleString()} tok (estimate).`
   );
 }

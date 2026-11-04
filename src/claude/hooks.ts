@@ -116,7 +116,7 @@ const BLAST_FILES_CAP = 40;
  * it repeated the same 64 to 106 tokens. Without a session id every session would
  * share one record and never see a file's blast radius again, so it is always shown.
  */
-function firstBlast(input: any, dir: string, file: string): boolean {
+function firstBlast(input: unknown, dir: string, file: string): boolean {
   const id = payloadSessionId(input);
   if (id === 'default') return true;
   const s = readSession(dir, id);
