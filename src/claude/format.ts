@@ -60,10 +60,12 @@ export function renderStatusline(
   return lines;
 }
 
+/** Graph paths use '/'; the edited path is the OS's, so a Windows path is matched with its '\' turned to '/'. */
 function nodeIdsInFile(w: GraphV1, filePath: string): Set<string> {
   const nodes = w.nodes ?? [];
+  const file = filePath.replace(/\\/g, '/');
   return new Set(
-    nodes.filter((n) => n.path && (filePath === n.path || filePath.endsWith(`/${n.path}`)))
+    nodes.filter((n) => n.path && (file === n.path || file.endsWith(`/${n.path}`)))
       .map((n) => n.id),
   );
 }
@@ -229,8 +231,8 @@ export function formatRetrieval(ask: AskJson, cap = 5): string | null {
   if (!hits.length) return null;
   const body = retrievalBody(hits);
   const saved = retrievalTokensSaved(ask, cap);
-  if (saved <= 0) return body;
-  const base = tokensOf(ask.saved!.baselineChars);
+  if (saved <= 0 || !ask.saved) return body;
+  const base = tokensOf(ask.saved.baselineChars);
   const pct = Math.round((saved / base) * 100);
   if (!savingsDetail()) return `${body}\n${shortSavingsLine(saved, pct, ask.saved!.files)}`;
   return (
