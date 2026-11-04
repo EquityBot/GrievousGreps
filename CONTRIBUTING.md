@@ -1,7 +1,7 @@
 # Contributing
 
 Report GrievousGreps bugs and request features in
-[GitHub issues](https://github.com/EquityBot/GrievousGreps/issues), using a
+[GitHub issues](https://github.com/yungSNAT/GrievousGreps/issues), using a
 public repository to show the problem. For Trail-Code itself, use
 [trailhq/Trail-Code](https://github.com/trailhq/Trail-Code). For a suspected
 security vulnerability, follow [SECURITY.md](SECURITY.md) instead of opening an
