@@ -155,7 +155,7 @@ test('many definitions of one name: those with callers first, then the rest coun
   assert.equal((r.stdout.match(/dropped rather than guessed/g) ?? []).length, 1);
 });
 
-test('callerless definitions whose names differ in case each keep their unresolved-calls note', () => {
+test('callerless definitions whose names differ in case: each name is in the note and keeps its unresolved-calls note', () => {
   const node = (path: string, name: string) => ({ id: `${path}#${name}`, name, kind: 'function', path, span: 'L1-L3' }) as unknown as NodeV1;
   const graph = {
     nodes: [], edges: [],
@@ -164,11 +164,16 @@ test('callerless definitions whose names differ in case each keep their unresolv
       { source: 'src/y.ts#usefoo', name: 'foo', through: './gen' },
     ],
   } as unknown as GraphV1;
+  // The odd name sits past the 3 headers shown, so only the note can name it.
   const blocks = callerBlocks(graph, 'in', false, [
     { symbol: node('src/a.ts', 'Foo'), hits: [] },
-    { symbol: node('src/b.ts', 'foo'), hits: [] },
+    { symbol: node('src/b.ts', 'Foo'), hits: [] },
+    { symbol: node('src/c.ts', 'Foo'), hits: [] },
+    { symbol: node('src/d.ts', 'foo'), hits: [] },
   ]);
   const text = blocks.join('\n\n');
+  assert.match(text, /no indexed callers for any of the 4 definitions named "Foo" or "foo";/);
+  assert.doesNotMatch(text, /grep/, 'no grep for one name when the names differ');
   assert.match(text, /call\(s\) to "Foo" did not resolve/);
   assert.match(text, /call\(s\) to "foo" did not resolve/);
 });

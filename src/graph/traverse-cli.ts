@@ -166,16 +166,19 @@ export function callerBlocks(
   return blocks;
 }
 
-/** The one block for the edgeless definitions of a shared name. */
+/** The one block for the edgeless definitions of a shared name. Matching ignores
+ * case, so the names can differ; each is named, and grep is offered for one name only. */
 function quietLines(direction: Direction, quiet: NodeV1[], total: number): string[] {
   const label = direction === "out" ? "callees" : "callers";
-  const name = quiet[0].name;
+  const names = [...new Set(quiet.map((n) => n.name))];
+  const named = names.map((n) => `"${n}"`).join(" or ");
   const lines = quiet.slice(0, QUIET_SHOWN).map(headerOf);
   const rest = quiet.slice(QUIET_SHOWN);
   if (rest.length > 0) lines.push(`… and ${rest.length} more in ${new Set(rest.map((n) => n.path)).size} file(s)`);
   const which = quiet.length === total ? `any of the ${total}` : `${quiet.length} of the ${total}`;
+  const grep = names.length === 1 ? `, or find its uses with ${cmd("graft grep")} ${named}` : "";
   lines.push(
-    `  no indexed ${label} for ${which} definitions named "${name}"; a cross-file caller of a shared name is dropped rather than guessed, so this may undercount. Pick one with --in <path prefix>, or find its uses with ${cmd("graft grep")} "${name}"`,
+    `  no indexed ${label} for ${which} definitions named ${named}; a cross-file caller of a shared name is dropped rather than guessed, so this may undercount. Pick one with --in <path prefix>${grep}`,
   );
   return lines;
 }
