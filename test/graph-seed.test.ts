@@ -165,7 +165,7 @@ test("a build run from inside a linked worktree indexes that worktree", () => {
   assert.equal(isWorkspaceBuildRoot(wt), false);
   const build = runCli(["build", wt]);
   assert.equal(build.status, 0, build.describe());
-  assert.ok(readGraph(outOf(wt)).nodes.some((n) => n.name === "add"));
+  assert.ok(readGraph(wiringPath(outOf(wt)))?.nodes.some((n) => n.name === "add"));
 });
 
 test("a real linked worktree beside its main checkout is not a second workspace child", () => {
