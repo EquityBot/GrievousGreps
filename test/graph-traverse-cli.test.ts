@@ -129,9 +129,28 @@ test('A6: an ambiguous name (2 definitions) states the candidate count in the ze
   assert.equal(r.status, 0);
   // Both candidates are reported (resolveSymbol returns every match).
   assert.equal((r.stdout.match(/shared · function · src\//g) ?? []).length, 2);
-  // Each zero-hit block states 2 definitions share the name.
-  assert.equal((r.stdout.match(/2 definitions share the name/g) ?? []).length, 2);
-  assert.match(r.stdout, /dropped rather than guessed/);
+  // One note for the edgeless definitions together, stating the count.
+  assert.equal((r.stdout.match(/dropped rather than guessed/g) ?? []).length, 1);
+  assert.match(r.stdout, /no indexed callers for any of the 2 definitions named "shared"/);
+});
+
+test('many definitions of one name: those with callers first, then the rest counted under one note', () => {
+  const d = mkdtempSync(join(tmpdir(), 'graft-traversecli-homonyms-'));
+  mkdirSync(join(d, 'src'), { recursive: true });
+  writeFileSync(join(d, 'src', 'a.ts'), 'export function shared(): number {\n  return 1;\n}\nexport function useA(): number {\n  return shared();\n}\n');
+  for (const f of ['b', 'c', 'd', 'e']) writeFileSync(join(d, 'src', `${f}.ts`), `export function shared(): number {\n  return 2;\n}\n`);
+  execFileSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'build', d], { stdio: 'pipe' });
+  const r = runCli(['callers', 'shared', d]);
+  assert.equal(r.status, 0);
+  const blocks = r.stdout.trim().split('\n\n');
+  const called = blocks.findIndex((b) => b.startsWith('shared · function · src/a.ts') && /useA/.test(b));
+  assert.ok(called >= 0, 'the definition with a caller keeps its own block');
+  assert.equal(blocks.length, called + 2, 'then one block for the 4 without callers');
+  const quiet = blocks[called + 1];
+  assert.equal((quiet.match(/^shared · function · src\//gm) ?? []).length, 3, 'up to 3 are named');
+  assert.match(quiet, /… and 1 more in 1 file\(s\)/);
+  assert.match(quiet, /no indexed callers for 4 of the 5 definitions named "shared"/);
+  assert.equal((r.stdout.match(/dropped rather than guessed/g) ?? []).length, 1);
 });
 
 test('A6 --json: the ambiguous-name note includes the candidate count', () => {
@@ -215,6 +234,18 @@ test('graft callers: quotes the call site, and only where it is the right line',
   // --json is a data contract: the quote is a text-output nicety and must stay out.
   const json = JSON.parse(runCli(['callers', 'add', d, '--json']).stdout);
   assert.ok(!JSON.stringify(json).includes('return add(a, -b)'));
+});
+
+test('graft callers: a caller in a test gets no quote, its line already names it', () => {
+  const d = builtRepo();
+  mkdirSync(join(d, 'test'), { recursive: true });
+  writeFileSync(join(d, 'test', 'math.test.ts'), "import { add } from '../src/math';\nexport function addsTwo(): boolean {\n  return add(1, 1) === 2;\n}\n");
+  execFileSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'build', d], { stdio: 'pipe' });
+  const r = runCli(['callers', 'add', d]);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /calls ← sub \(src\/math\.ts:[^)]*\)\n\s+5: return add\(a, -b\);/, 'production callers keep their quote');
+  assert.match(r.stdout, /calls ← addsTwo \(test\/math\.test\.ts:[^)]*\)(\n|$)/, 'the test caller is listed');
+  assert.doesNotMatch(r.stdout, /add\(1, 1\)/, 'without its call line');
 });
 
 test('an imported call to a shared name reaches only the definition it imports', () => {

@@ -108,7 +108,8 @@ trail map --max-dirs N               # raise/lower the number of directories sho
 #   GRAFT_NO_REFRESH=1               # same, for every command
 #   GRAFT_REFRESH=hash               # hash every file instead of trusting size+mtime
 #   TRAIL_NO_FIRST_BUILD=1           # a repo with no map stays untouched; a built map still refreshes
-#   TRAIL_NO_SAVINGS_TALLY=1         # keep the tokens-saved line, drop the request to report a total
+#   TRAIL_SAVINGS_DETAIL=1           # the long tokens-saved line, with a request to report a total and its dollar value
+#   TRAIL_NO_SAVINGS_TALLY=1         # with TRAIL_SAVINGS_DETAIL, keep the long line but drop that request
 
 # learnings
 trail note --title "<about>" [dir]   # save a learning: what this session decided, tried and ruled out (the text on stdin)

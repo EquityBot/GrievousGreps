@@ -1,9 +1,9 @@
 ---
 name: graft
-description: This repo is indexed by graft/. For ANY task here, whether
-  understanding how something works, finding where code lives, tracing what
-  calls a symbol or what a change breaks, or scoping an edit, get your context
-  from graft before grepping or reading source files.
+description: This repo is indexed by graft/. Use it to understand how
+  something works, find where code lives, trace what calls a symbol or what a
+  change breaks, or scope an edit, whenever its answer replaces reading source
+  files. A file you will edit still needs reading.
 ---
 
 # graft
@@ -121,21 +121,10 @@ you already know where you're working, narrow with `graft ask "<task>" --in <sco
   (a branch switch or unpulled move). Don't read the missing file: `graft grep`
   the symbol to find where it lives now, or run `graft build` to refresh.
 
-## Report what graft saved, every turn
+## The savings line
 Each retrieval tool **opens** its output with a `[graft] tokens saved ≈ N` line:
-the estimated tokens that call saved versus reading the files it covers whole.
-Whenever you used any graft tool in a turn, close your reply with a one-line
-tally summing those numbers across every graft call you made, e.g.
-`🌱 graft saved ~12,400 tokens this turn (3 calls)`. A call with no such line
-(tiny files, where the pointers cost as much as the source) saved nothing, so
-skip it. This is the per-turn figure; the statusline carries the running
-session total.
-
-Once a turn has been billed, each line also states what that call was worth in
-dollars, at the rate this session is actually paying for input tokens; include
-that total alongside the tokens, e.g. `🌱 graft saved ~12,400 tokens (~$0.04)
-this turn`. When a line carries no dollar figure, report tokens alone rather
-than pricing them yourself.
+at most what that call saved against reading the files it covers whole. The
+statusline sums them; nothing to report unless the line asks you to.
 
 **Never pipe a graft command through `head`, `tail`, or `sed -n`.** Every tool
 is already capped and states what it dropped; clipping it costs you hits you
@@ -148,7 +137,7 @@ total is parsed from.
   the exact `file:line`, never a whole file to rebuild understanding graft gives.
 - You may also grep / ls / cat inside `graft/` directly (plain markdown;
   `graft/INDEX.md` indexes the nodes), but the tools above are faster and
-  exhaustive where it matters, so reach for them first.
+  exhaustive where it matters.
 
 When the graft MCP server is connected, these are exposed as tools too:
 `graft_find_code`, `graft_find_all`, `graft_file_api`, `graft_trace_calls` (with

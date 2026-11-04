@@ -44,6 +44,8 @@ export interface SessionState {
   injectedNotes?: string[];
   /** `<branch> <function id>` pairs: a teammate's open branch on a function the agent edited, already put in front of it this session. */
   injectedOverlaps?: string[];
+  /** Edited files whose blast radius was already shown this session, so each is shown once. */
+  blastFiles?: string[];
   /** Weak-match nudges spent this session, capped so the line stays signal.
    * Optional for the same backwards-compatibility reason as above. */
   nudges?: number;

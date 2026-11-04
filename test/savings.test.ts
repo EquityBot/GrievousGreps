@@ -8,6 +8,25 @@ import { savingsFor, savingsLine, withSavings, toTokens, setInputRate } from '..
 import { hasSavingsTally } from '../src/claude/tally.js';
 import type { GraphV1, NodeV1 } from '../src/graph/types.js';
 
+// The long line, with its tally request and dollar value, is opt-in; most of these
+// tests are about it. The default short line has its own test below.
+process.env.TRAIL_SAVINGS_DETAIL = '1';
+
+test('by default the savings line is one short upper bound: one number, no tally request, no dollars', () => {
+  delete process.env.TRAIL_SAVINGS_DETAIL;
+  setInputRate(5);
+  try {
+    const out = withSavings('body', { files: 2, baselineChars: 8000 });
+    const first = out.split('\n')[0];
+    assert.match(first, /^\[graft\] tokens saved ≈ [\d,]+ \(\d+%\) at most, against reading the 2 file\(s\) whole$/);
+    assert.doesNotMatch(out, /end of your reply|\$/);
+    assert.equal((out.match(/\[graft\] tokens saved ≈ [\d,]+/g) ?? []).length, 1);
+  } finally {
+    setInputRate(null);
+    process.env.TRAIL_SAVINGS_DETAIL = '1';
+  }
+});
+
 function fileNode(path: string, chars?: number): NodeV1 {
   return {
     id: path,

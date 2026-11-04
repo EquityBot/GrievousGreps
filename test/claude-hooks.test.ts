@@ -29,6 +29,38 @@ test('post-edit marks dirty and records lastFile', async () => {
   assert.equal(s.lastFile, 'auth.ts');
 });
 
+test('post-edit shows a file\'s blast radius once a session, not on every edit to it', async () => {
+  const d = mkdtempSync(join(tmpdir(), 'graft-hooks-blast-'));
+  mkdirSync(join(d, 'graft', '.graph'), { recursive: true });
+  writeFileSync(join(d, 'graft', '.graph', 'wiring.json'), JSON.stringify({
+    meta: { nodeCount: 2, edgeCount: 1, languages: ['typescript'] },
+    nodes: [
+      { id: 'src/pkce.ts#verify', name: 'verify', path: 'src/pkce.ts', summary_state: 'ready' },
+      { id: 'src/client.ts#exchange', name: 'exchange', path: 'src/client.ts', summary_state: 'ready' },
+    ],
+    edges: [{ source: 'src/client.ts#exchange', target: 'src/pkce.ts#verify', relation: 'calls', confidence: 'extracted' }],
+  }));
+  process.env.CLAUDE_PROJECT_DIR = d;
+  const edit = async (session: string): Promise<string> => {
+    const output: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown) => { output.push(String(chunk)); return true; }) as typeof process.stdout.write;
+    try {
+      await runWithStdin(JSON.stringify({ session_id: session, tool_input: { file_path: join(d, 'src', 'pkce.ts') } }), () => main('post-edit'));
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+    return output.join('');
+  };
+  try {
+    assert.match(await edit('s1'), /blast radius for pkce\.ts/);
+    assert.doesNotMatch(await edit('s1'), /blast radius/, 'the same file again in the same session');
+    assert.match(await edit('s2'), /blast radius for pkce\.ts/, 'a new session sees it');
+  } finally {
+    delete process.env.CLAUDE_PROJECT_DIR;
+  }
+});
+
 test('post-edit ignores edits inside graft/', async () => {
   const d = mkdtempSync(join(tmpdir(), 'graft-hooks-'));
   process.env.CLAUDE_PROJECT_DIR = d;

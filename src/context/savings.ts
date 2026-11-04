@@ -78,11 +78,30 @@ export function setInputRate(usdPerMtok: number | null): void {
       : null;
 }
 
-/** `TRAIL_NO_SAVINGS_TALLY`: keep the `tokens saved` line, drop the request to
- * report a total to the user. */
-export function savingsTallyOff(): boolean {
-  const v = process.env.TRAIL_NO_SAVINGS_TALLY;
+function envOn(name: string): boolean {
+  const v = process.env[name];
   return v !== undefined && v !== '' && v !== '0' && v !== 'false';
+}
+
+/** `TRAIL_SAVINGS_DETAIL`: the long savings line, with its working, the request
+ * to report a running total and that total's dollar value. Off by default: every
+ * line is read by the agent as input on every call, the tally request adds an
+ * output line every turn, and the hooks, `trail status` and the statusline read
+ * only the number, which the short line keeps. */
+export function savingsDetail(): boolean {
+  return envOn('TRAIL_SAVINGS_DETAIL');
+}
+
+/** No request to report a total to the user: the default, and under
+ * `TRAIL_NO_SAVINGS_TALLY` even with {@link savingsDetail}. */
+export function savingsTallyOff(): boolean {
+  return !savingsDetail() || envOn('TRAIL_NO_SAVINGS_TALLY');
+}
+
+/** The default savings line: the number the hooks sum, marked as the upper bound
+ * it is, since nobody reads every file a lookup covers. */
+export function shortSavingsLine(savedTokens: number, pct: number, files: number): string {
+  return `${tag()} tokens saved ≈ ${savedTokens.toLocaleString()} (${pct}%) at most, against reading the ${files} file(s) whole`;
 }
 
 /** Appended to every retrieval footer so the agent reports the turn's running
@@ -127,6 +146,7 @@ export function savingsLine(body: string, saved: Savings | undefined): string {
   if (base <= pack) return '';
   const delta = base - pack;
   const pct = Math.round((delta / base) * 100);
+  if (!savingsDetail()) return shortSavingsLine(delta, pct, saved.files);
   return (
     `${tag()} tokens saved ≈ ${delta.toLocaleString()} (${pct}%) — this output ≈ ` +
     `${pack.toLocaleString()} tok vs reading the ${saved.files} file(s) it covers whole ≈ ` +

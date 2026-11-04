@@ -20,7 +20,7 @@ test('skill template is a well-formed SKILL.md', () => {
   assert.match(body, /\[scope\/\]/, 'body teaches the [scope/] label on multi-scope hits');
   assert.match(body, /--in <scope>\//, 'body teaches narrowing with ask --in <scope>/');
   assert.match(body, /tokens saved/i, 'body references the tokens-saved footer');
-  assert.match(body, /every turn/i, 'body tells the agent to report savings each turn');
+  assert.doesNotMatch(body, /tally|every turn/i, 'body asks for no per-turn savings report: that is opt-in, in the tool output');
 });
 
 // Design 1.7, as D101 reworded it: what the agent must and must not do with learned skills, words exactly. No line tells

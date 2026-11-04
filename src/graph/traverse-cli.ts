@@ -19,6 +19,7 @@ import { loadGraphCached } from "./load.js";
 import { resolveSymbol, edgeWalk, type Direction, type EdgeHit } from "./traverse.js";
 import type { GraphV1, NodeV1 } from "./types.js";
 import { cmd } from "../brand.js";
+import { isTestPath } from "../util/paths.js";
 
 export interface CallersCliOptions {
   in?: string;
@@ -67,14 +68,16 @@ interface Quote {
  *
  * Only for a resolved hit whose span we can read: an unresolved import has no
  * file, and a hit at depth 2+ references something in between rather than the
- * symbol asked about, so quoting it would point at the wrong line.
+ * symbol asked about, so quoting it would point at the wrong line. Not for a
+ * caller in a test either: its line already names the test and its span, and
+ * those quotes were 8% of answer tokens in a 30-symbol benchmark sample.
  */
 function quoteFor(
   hit: EdgeHit,
   name: string,
   read: (path: string) => string[] | null,
 ): Quote | undefined {
-  if (!hit.node || hit.depth > 1) return undefined;
+  if (!hit.node || hit.depth > 1 || isTestPath(hit.node.path)) return undefined;
   return referenceLine(hit.node.path, hit.node.span, [wordRe(name)], read) ?? undefined;
 }
 
@@ -120,6 +123,60 @@ export function unresolvedNoteFor(graph: GraphV1, direction: Direction, name: st
   const named = calls.slice(0, 5).map((c) => (c.through ? `${c.source} (through ${c.file ? `${c.through}, in ${c.file}, which is not indexed` : c.through})` : `${c.source} (an assignment or a second import gives it more than one target)`));
   const more = calls.length > 5 ? ` and ${calls.length - 5} more` : "";
   return `  ⚠ may be incomplete: ${calls.length} call(s) to "${name}" did not resolve to one definition and are not listed: ${named.join(", ")}${more}`;
+}
+
+/** Callerless definitions listed by header before the rest are only counted.
+ * Everyone's connected, says Lain; most homonyms are not. */
+const QUIET_SHOWN = 3;
+
+/**
+ * The report for a walk: one block per definition, in the order given. When several
+ * definitions share the name, those with no edges come last in one block (up to
+ * {@link QUIET_SHOWN} headers, a count of the rest and one undercount note) instead
+ * of the same note under each: hono's `verify` has 111 definitions, and the repeated
+ * note was 40% of the answer tokens in a 30-symbol benchmark sample. The
+ * unresolved-calls note is about the name, so it is printed once per name. Shared by
+ * the CLI, the MCP `graft_trace_calls` tool and the workspace report.
+ */
+export function callerBlocks(
+  graph: GraphV1,
+  direction: Direction,
+  showDepth: boolean,
+  results: { symbol: NodeV1; hits: EdgeHit[] }[],
+  quote?: (hit: EdgeHit, name: string) => Quote | undefined,
+): string[] {
+  const noted = new Set<string>();
+  const unresolved = (name: string): string[] => {
+    if (noted.has(name)) return [];
+    noted.add(name);
+    const note = unresolvedNoteFor(graph, direction, name);
+    return note ? [note] : [];
+  };
+  const quiet = results.length > 1 ? results.filter((r) => r.hits.length === 0).map((r) => r.symbol) : [];
+  const blocks = results
+    .filter((r) => r.hits.length > 0 || results.length === 1)
+    .map(({ symbol, hits }) => {
+      const lines = [headerOf(symbol)];
+      if (hits.length === 0) lines.push(looseNoteFor(direction, symbol.name, 1));
+      else for (const h of hits) lines.push(hitLine(direction, h, showDepth, quote?.(h, symbol.name)));
+      return [...lines, ...unresolved(symbol.name)].join("\n");
+    });
+  if (quiet.length > 0) blocks.push([...quietLines(direction, quiet, results.length), ...unresolved(quiet[0].name)].join("\n"));
+  return blocks;
+}
+
+/** The one block for the edgeless definitions of a shared name. */
+function quietLines(direction: Direction, quiet: NodeV1[], total: number): string[] {
+  const label = direction === "out" ? "callees" : "callers";
+  const name = quiet[0].name;
+  const lines = quiet.slice(0, QUIET_SHOWN).map(headerOf);
+  const rest = quiet.slice(QUIET_SHOWN);
+  if (rest.length > 0) lines.push(`… and ${rest.length} more in ${new Set(rest.map((n) => n.path)).size} file(s)`);
+  const which = quiet.length === total ? `any of the ${total}` : `${quiet.length} of the ${total}`;
+  lines.push(
+    `  no indexed ${label} for ${which} definitions named "${name}"; a cross-file caller of a shared name is dropped rather than guessed, so this may undercount. Pick one with --in <path prefix>, or find its uses with ${cmd("graft grep")} "${name}"`,
+  );
+  return lines;
 }
 
 /** Why a name has no symbol, when calls to it were seen: it is not a misspelling, they did not resolve. */
@@ -254,17 +311,8 @@ export function runCallersCommand(query: string, dir: string, opts: CallersCliOp
     return;
   }
 
-  const lines: string[] = [];
   // One reader for the whole walk: several hits usually live in the same file.
   const read = fileReader(root);
-  for (const { symbol, hits } of results) {
-    lines.push(headerOf(symbol));
-    if (hits.length === 0) lines.push(looseNoteFor(direction, symbol.name, matches.length));
-    else for (const h of hits) lines.push(hitLine(direction, h, showDepth, quoteFor(h, symbol.name, read)));
-    const unresolved = unresolvedNoteFor(graph, direction, symbol.name);
-    if (unresolved) lines.push(unresolved);
-    lines.push("");
-  }
-  const body = lines.join("\n").replace(/\n+$/, "\n");
-  process.stdout.write(withSavings(body, saved));
+  const blocks = callerBlocks(graph, direction, showDepth, results, (h, name) => quoteFor(h, name, read));
+  process.stdout.write(withSavings(`${blocks.join("\n\n")}\n`, saved));
 }

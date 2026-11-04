@@ -29,13 +29,7 @@ import { checkGraph } from "./check.js";
 import { loadGraphCached } from "./load.js";
 import { buildRepoMap, formatRepoMap } from "./map.js";
 import { discoverWorkspaceChildren } from "./scopes.js";
-import {
-  callersSavings,
-  headerOf,
-  hitLine,
-  looseNoteFor,
-  unresolvedNoteFor,
-} from "./traverse-cli.js";
+import { callerBlocks, callersSavings } from "./traverse-cli.js";
 import { edgeWalk, resolveSymbol, type Direction } from "./traverse.js";
 import { wiringPath } from "./write.js";
 import type { GraphV1 } from "./types.js";
@@ -693,15 +687,7 @@ export function federateCallers(
     if (matches.length === 0) continue;
     found = true;
     const results = matches.map((m) => ({ symbol: m, hits: edgeWalk(graph, m, direction, depth) }));
-    const lines = [`## ${child}/`];
-    for (const { symbol: sym, hits } of results) {
-      lines.push(headerOf(sym));
-      if (hits.length === 0) lines.push(looseNoteFor(direction, sym.name, matches.length));
-      else for (const h of hits) lines.push(hitLine(direction, h, showDepth));
-      const unresolved = unresolvedNoteFor(graph, direction, sym.name);
-      if (unresolved) lines.push(unresolved);
-    }
-    const body = lines.join("\n");
+    const body = [`## ${child}/`, ...callerBlocks(graph, direction, showDepth, results)].join("\n");
     blocks.push(withSavings(body, callersSavings(graph, results)));
   }
 

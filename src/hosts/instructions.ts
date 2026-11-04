@@ -23,10 +23,11 @@ function graftBody(): string {
 This repo is indexed in \`graft/\`: small linked markdown nodes that explain each
 system and carry exact file:line spans, kept in sync with the code through git.
 
-For ANY task here — understanding how something works, finding where code lives,
-or scoping a change — get context from the graph before grepping or opening
-source files. Re-ask freely (it's cheap) and reuse literal identifiers you
-already have (symbol, error string, file name) as the query. New to this repo?
+Use the graph when its answer replaces reading: understanding how something
+works, finding where unfamiliar code lives, or scoping a change. A file you will
+edit still needs opening. Pick the one command that fits and act on its answer,
+reusing literal identifiers you already have (symbol, error string, file name)
+as the query. New to this repo?
 Run \`graft map\` first — a token-budgeted orientation (dir clusters, hubs,
 hotspots), no LLM, no key.
 

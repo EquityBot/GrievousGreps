@@ -29,12 +29,24 @@ function under<T>(name: "trail" | "graft", fn: () => T): T {
 
 const grepMiss = { pattern: "x", filesSearched: 3, truncated: { files: 1 } } as unknown as GrepResult;
 
+/** The turn nudge is opt-in (`TRAIL_SAVINGS_DETAIL`); these tests check its spelling, so they turn it on. */
+function withDetail<T>(fn: () => T): T {
+  process.env.TRAIL_SAVINGS_DETAIL = "1";
+  try {
+    return fn();
+  } finally {
+    delete process.env.TRAIL_SAVINGS_DETAIL;
+  }
+}
+
 test("hints the agent reads name trail's commands under trail", () => {
-  const lines = under("trail", () => [
-    weakMatchNudge({ nudges: 0 } as SessionState, 0.1)!,
-    savingsTurnNudge(1200),
-    zeroHitNote(grepMiss),
-  ]);
+  const lines = withDetail(() =>
+    under("trail", () => [
+      weakMatchNudge({ nudges: 0 } as SessionState, 0.1)!,
+      savingsTurnNudge(1200),
+      zeroHitNote(grepMiss),
+    ]),
+  );
   for (const line of lines) {
     assert.doesNotMatch(line, GRAFT_COMMAND, line);
     assert.match(line, /trail/, line);
@@ -43,7 +55,7 @@ test("hints the agent reads name trail's commands under trail", () => {
 
 test("under graft the same hints keep graft's words", () => {
   assert.match(under("graft", () => weakMatchNudge({ nudges: 0 } as SessionState, 0.1)!), /^\[graft\] .*`graft ask "<your task>" --source`/);
-  assert.match(under("graft", () => savingsTurnNudge(1200)), /🌱 graft saved/);
+  assert.match(withDetail(() => under("graft", () => savingsTurnNudge(1200))), /🌱 graft saved/);
 });
 
 test("a trail tally counts as telling the user what was saved", () => {
