@@ -25,3 +25,7 @@ commands. Node 20.16 or later on the 20 line, or 22.3 or later. MIT, as upstream
 
 - [EquityBot](https://github.com/EquityBot): other EquityBot tools.
 - [Trail-Code](https://github.com/trailhq/Trail-Code): the upstream project GrievousGreps tracks.
+
+## Reuse
+
+- [Reusing this code](https://github.com/EquityBot/GrievousGreps/blob/main/AGENTS.md#reusing-this-code): Ryan Duguid's changes to Trail-Code, under MIT; keep the notices and licences; public credit is requested.
