@@ -62,9 +62,9 @@ trail grep <pattern>                 # every occurrence, grouped by enclosing sy
 
 `trail init` writes inside the repository, with the tool's own state in `~/.trail`. Claude Code's hooks go in the repository's `.claude` settings. That has a cost: a worktree or an ignored checkout has no hooks until you run `trail init` there.
 
-`trail init --global` closes that gap by adding hooks to `~/.claude`, and to `~/.codex` for Codex, which run in every project on the machine. `trail uninstall` removes what either form wrote.
+`trail init --global` closes that gap by adding hooks to `~/.claude`, and to `~/.codex` for Codex, which run in every project on the machine. `trail uninstall -y` removes what either form wrote; without `-y` it is a dry run.
 
-The map lives in `graft/`, a local cache to keep out of git.
+The map lives in `.trail/cache` in a repository on trail and in `graft/` elsewhere: a local cache to keep out of git.
 
 ## Docs search
 
@@ -159,7 +159,7 @@ Repositories where a competitor's recall beat this tool's:
 
 **Method:** all 3 ran on one Linux machine on 31 October 2026, each capped at 8 GiB and 8 threads with the network blocked. Timings come from one run per repository. Callers came from `graft callers`, codebase-memory-mcp's `trace_path` and Serena's `find_referencing_symbols`, with Serena's references mapped to their enclosing definition. All went through `benchmark/score.mjs` unchanged.
 
-**To rerun it:** `node benchmark/run.mjs` reproduces this tool's column, as [benchmark/](benchmark/README.md) describes. The comparison scripts are not shipped, because they are tied to that machine's sandbox. To repeat the other columns, install the versions above, query each tool as described here and pass the results to `benchmark/score.mjs`.
+**To rerun it:** `node benchmark/run.mjs --tool dist/bin/graft.js` reproduces this tool's column, as [benchmark/](benchmark/README.md) describes. The comparison scripts are not shipped, because they are tied to that machine's sandbox. To repeat the other columns, install the versions above, query each tool as described here and pass the results to `benchmark/score.mjs`.
 
 ## Compared with upstream
 
