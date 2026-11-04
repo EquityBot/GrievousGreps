@@ -9,8 +9,8 @@
 
 <div align="center">
 
-[![tests](https://github.com/EquityBot/GrievousGreps/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/ci.yml) [![Codecov](https://codecov.io/gh/EquityBot/GrievousGreps/graph/badge.svg)](https://codecov.io/gh/EquityBot/GrievousGreps) [![CodeQL](https://github.com/EquityBot/GrievousGreps/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/codeql.yml) [![OSV-Scanner](https://github.com/EquityBot/GrievousGreps/actions/workflows/osv-scanner.yml/badge.svg?branch=main)](https://github.com/EquityBot/GrievousGreps/actions/workflows/osv-scanner.yml) [![SonarCloud](https://sonarcloud.io/api/project_badges/measure?project=EquityBot_GrievousGreps&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=EquityBot_GrievousGreps) [![Codacy code quality](https://app.codacy.com/project/badge/Grade/bd4014dc59804ad5af9125a492369d2c)](https://app.codacy.com/gh/EquityBot/GrievousGreps/dashboard)<br>
-[![OpenSSF Scorecard](https://raw.githubusercontent.com/ryanduguid/.github/badges/EquityBot/GrievousGreps.svg)](https://scorecard.dev/viewer/?uri=github.com/EquityBot/GrievousGreps) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16136/badge)](https://www.bestpractices.dev/projects/16136)<br>
+[![tests](https://github.com/yungSNAT/GrievousGreps/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/yungSNAT/GrievousGreps/actions/workflows/ci.yml) [![Codecov](https://codecov.io/gh/EquityBot/GrievousGreps/graph/badge.svg)](https://codecov.io/gh/EquityBot/GrievousGreps) [![CodeQL](https://github.com/yungSNAT/GrievousGreps/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/yungSNAT/GrievousGreps/actions/workflows/codeql.yml) [![OSV-Scanner](https://github.com/yungSNAT/GrievousGreps/actions/workflows/osv-scanner.yml/badge.svg?branch=main)](https://github.com/yungSNAT/GrievousGreps/actions/workflows/osv-scanner.yml) [![SonarCloud](https://sonarcloud.io/api/project_badges/measure?project=EquityBot_GrievousGreps&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=EquityBot_GrievousGreps) [![Codacy code quality](https://app.codacy.com/project/badge/Grade/bd4014dc59804ad5af9125a492369d2c)](https://app.codacy.com/gh/EquityBot/GrievousGreps/dashboard)<br>
+[![OpenSSF Scorecard](https://raw.githubusercontent.com/ryanduguid/.github/badges/EquityBot/GrievousGreps.svg)](https://scorecard.dev/viewer/?uri=github.com/yungSNAT/GrievousGreps) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16136/badge)](https://www.bestpractices.dev/projects/16136)<br>
 [![node: 20.16+ | 22.3+](.github/assets/badges/node.svg)](https://nodejs.org/) [![licence: MIT](.github/assets/badges/licence.svg)](LICENSE) [![fork of: Trail-Code](.github/assets/badges/fork-of.svg)](https://github.com/trailhq/Trail-Code)
 
 [Install](#install) · [Quick start](#quick-start) · [Docs search](#docs-search) · [Measured recall](#measured-recall) · [Against the alternatives](#against-the-alternatives) · [Compared with upstream](#compared-with-upstream) · [Limits](#limits) · [Credits](#credits)
@@ -34,7 +34,7 @@ npm uninstall -g @trailhq/trail-code @nanonets/graft
 Then build it and link the commands:
 
 ```bash
-git clone https://github.com/EquityBot/GrievousGreps
+git clone https://github.com/yungSNAT/GrievousGreps
 cd GrievousGreps
 npm ci
 npm run build
@@ -225,4 +225,4 @@ MIT, as upstream: see [LICENSE](LICENSE). [NOTICE](NOTICE) keeps the attribution
 
 ---
 
-<p align="center"><sub>Some say it has never missed a caller. It has, and the table says how many. All we know is, it's called GrievousGreps.<br>Reusing this code? Keep its notices and licence, and please credit Ryan Duguid. AI agents: see <a href="https://github.com/EquityBot/GrievousGreps/blob/main/AGENTS.md#reusing-this-code">AGENTS.md</a>.<br>Made by <a href="https://github.com/EquityBot">EquityBot</a>. <i>Ad gloriam eius, non meam.</i></sub></p>
+<p align="center"><sub>Some say it has never missed a caller. It has, and the table says how many. All we know is, it's called GrievousGreps.<br>Reusing this code? Keep its notices and licence, and please credit Ryan Duguid. AI agents: see <a href="https://github.com/yungSNAT/GrievousGreps/blob/main/AGENTS.md#reusing-this-code">AGENTS.md</a>.<br>Made by <a href="https://github.com/yungSNAT">EquityBot</a>. <i>Ad gloriam eius, non meam.</i></sub></p>
