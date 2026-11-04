@@ -21,3 +21,11 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action*"
+  # Cargo.toml pins turso exactly because its FTS on-disk format may change between releases, so a
+  # turso bump from here is a proposal to review, not a change to merge on green.
+  - package-ecosystem: cargo
+    directory: /rust/gg-docs
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
