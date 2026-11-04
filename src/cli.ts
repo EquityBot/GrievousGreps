@@ -1878,7 +1878,7 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
       if (TRAIL && !tops.includes(".trail/")) tops.push(".trail/");
       // Only what git sees as new or changed: a teammate's init over committed files has nothing to commit.
       const changedTops = tops.filter((t) => {
-        const r = spawnSync("git", ["status", "--porcelain", "--", t], { cwd: repo, encoding: "utf8" });
+        const r = spawnSync("git", ["status", "--porcelain", "--", t], { cwd: repo, encoding: "utf8" }); // NOSONAR: uses the person's git on PATH with separate arguments and no shell.
         return r.status !== 0 || r.stdout.trim().length > 0;
       });
       tops.splice(0, tops.length, ...changedTops);
@@ -1937,7 +1937,7 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
     // Sorted so `claude,cursor` and `cursor,claude` aggregate as one value.
     track(
       "init_completed",
-      { agents: [...ids].sort().join(","), consent: consent === undefined ? "unasked" : String(consent) },
+      { agents: [...ids].sort().join(","), consent: consent === undefined ? "unasked" : String(consent) }, // NOSONAR: agent IDs are strings, sorted lexically for a deterministic telemetry value.
       { repo },
     );
     return { ids, laptop: laptop ?? ids };

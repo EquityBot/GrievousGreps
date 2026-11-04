@@ -37,11 +37,11 @@ jobs:
       # are native addons, and the node-gyp devDependency chooses their toolchain,
       # so keep it at 12.x whilst this matrix holds Node 20.
       - name: Install and build
-        run: npm ci
+        run: npm ci # NOSONAR: locked dependencies need native grammar and prepare lifecycle scripts.
       - name: Type check
         run: |
-          npx tsc --noEmit -p tsconfig.json
-          npx tsc --noEmit -p viewer/tsconfig.json
+          node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json
+          node node_modules/typescript/bin/tsc --noEmit -p viewer/tsconfig.json
       - name: Test
         run: npm test ${{ matrix.os == 'ubuntu-latest' && matrix.node == 'current' && '-- --coverage' || '' }}
       - name: Keep the coverage reports for the Codecov upload
@@ -133,6 +133,6 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - run: npm ci
+      - run: npm ci # NOSONAR: locked dependencies need native grammar and prepare lifecycle scripts.
       - name: Exercise every breadth grammar
         run: node --import tsx --test test/generic-node24.test.ts
