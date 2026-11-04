@@ -1,0 +1,28 @@
+[package]
+name = "gg-docs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+publish = false
+description = "Ranked, always-fresh search over a folder's Markdown for GrievousGreps"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+ignore = "0.4.34"
+pollster = "1.0"
+serde_json = "1.0"
+sha2 = "0.11"
+# Pre-release: 0.9 is the first with the en_stem FTS tokeniser. Pinned exactly because the FTS
+# index method is experimental and its on-disk format may change between releases.
+turso = "=0.9.0-pre.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.clippy]
+too_many_lines = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * The `trail` CLI, also run as `graft`, its old name. Commands: build, ask,
- * check, viz, mcp, callers, skeleton, grep, map, init. Git is the sync: commit
+ * check, viz, mcp, callers, skeleton, grep, map, docs, init. Git is the sync: commit
  * graft/ and a clone has the graph. A workspace parent (≥2 git children)
  * federates query commands across children.
  *
@@ -54,7 +54,8 @@ import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { installBrainsServer, installCursorBrainsServer, removeBrainsServer, removeCursorBrainsServer } from "./hosts/claude-global.js";
 import { upsertCodexToml } from "./hosts/mcp-config.js";
 import { homedir } from "node:os";
-import { UPGRADE_UNAVAILABLE, formatVersionReport, readCurrentVersion } from "./cli-meta.js";
+import { UPGRADE_UNAVAILABLE, formatVersionReport, readCurrentVersion, resolvePackageJsonPath } from "./cli-meta.js";
+import type { DocsCommand } from "./docs/docs-cli.js";
 import { nativeFallbackNotice } from "./graph/native.js";
 import { patchBuildConfig, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
@@ -1128,6 +1129,59 @@ grouped(program.command("map"), GROUP.find)
       return;
     }
     process.stdout.write(formatRepoMap(map));
+  });
+
+// `trail docs`: ranked search over the repository's Markdown and text, answered
+// by the gg-docs binary (src/docs/docs-cli.ts says how it is found). Apart from
+// the graph: `ask` and the MCP tools are unchanged.
+const docs = grouped(program.command("docs"), GROUP.find).description(
+  "Ranked search over the repository's Markdown and text, refreshed before every answer ($0, no LLM)",
+);
+const DOCS_ROOT = ["--root <dir>", "folder to search (default: the enclosing git checkout, else the current folder)"] as const;
+
+async function docsAction(c: DocsCommand, root: string | undefined): Promise<void> {
+  const { runDocs } = await import("./docs/docs-cli.js");
+  process.exitCode = runDocs(c, { root, pkgRoot: dirname(resolvePackageJsonPath(import.meta.url)) });
+}
+
+docs
+  .command("search")
+  .description("Best-matching sections for a query, best first: path:line, title, heading and snippet")
+  .argument("<query...>", "words to look for")
+  .option("-n, --limit <n>", "number of results (default 10)")
+  .option("--json", "output as JSON")
+  .option(...DOCS_ROOT)
+  .action(async (query: string[], opts: { limit?: string; json?: boolean; root?: string }) => {
+    await docsAction({ sub: "search", query, limit: opts.limit, json: opts.json }, opts.root);
+  });
+
+docs
+  .command("get")
+  .description("Print a document, or some of its lines, by its path in the folder")
+  .argument("<path>", "path relative to the folder, as search prints it")
+  .option("--from <line>", "first line to print, from 1")
+  .option("-l, --lines <n>", "number of lines to print")
+  .option(...DOCS_ROOT)
+  .action(async (path: string, opts: { from?: string; lines?: string; root?: string }) => {
+    await docsAction({ sub: "get", path, from: opts.from, lines: opts.lines }, opts.root);
+  });
+
+docs
+  .command("status")
+  .description("Indexed documents and sections, after bringing the index up to date")
+  .option("--json", "output as JSON")
+  .option(...DOCS_ROOT)
+  .action(async (opts: { json?: boolean; root?: string }) => {
+    await docsAction({ sub: "status", json: opts.json }, opts.root);
+  });
+
+docs
+  .command("update")
+  .description("Bring the index up to date and say what was added, updated and removed")
+  .option("--json", "output as JSON")
+  .option(...DOCS_ROOT)
+  .action(async (opts: { json?: boolean; root?: string }) => {
+    await docsAction({ sub: "update", json: opts.json }, opts.root);
   });
 
 // `trail note`: what a session worked out, saved for the next person. Listed
@@ -2797,7 +2851,7 @@ if (TRAIL) {
   program.addCommand(statusCommand().helpGroup(GROUP.setup));
 
   // Help lists the groups in this order, and the commands within each.
-  const order = ["ask", "grep", "skeleton", "callers", "map", "note", "check", "team", "skills", "init", "build", "status", "upgrade", "uninstall", "telemetry", "workspace", "login", "logout", "blast"];
+  const order = ["ask", "grep", "skeleton", "callers", "map", "docs", "note", "check", "team", "skills", "init", "build", "status", "upgrade", "uninstall", "telemetry", "workspace", "login", "logout", "blast"];
   const rank = (c: Command) => {
     const i = order.indexOf(c.name());
     return i === -1 ? order.length : i;
@@ -2811,6 +2865,7 @@ if (TRAIL) {
     skeleton: "a file's whole API in ~200 tokens",
     callers: "who calls it, or what it calls with --direction out",
     map: "directory clusters, hubs and hotspots",
+    docs: "the repo's Markdown and text, best section of each file first · search, get, status, update",
     note: "save what this session worked out, as a learning in .trail/",
     skills: "the steps that worked, kept as skills when you say so · on, off, show, forget",
     init: "wire trail into your agents",
