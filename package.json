@@ -15,11 +15,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EquityBot/GrievousGreps.git"
+    "url": "git+https://github.com/yungSNAT/GrievousGreps.git"
   },
-  "homepage": "https://github.com/EquityBot/GrievousGreps#readme",
+  "homepage": "https://github.com/yungSNAT/GrievousGreps#readme",
   "bugs": {
-    "url": "https://github.com/EquityBot/GrievousGreps/issues"
+    "url": "https://github.com/yungSNAT/GrievousGreps/issues"
   },
   "type": "module",
   "main": "./dist/index.js",
