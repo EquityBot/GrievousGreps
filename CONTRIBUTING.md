@@ -29,5 +29,19 @@ node --test benchmark/test/score.test.mjs
 New functionality and bug fixes come with automated tests in `test/`, run by
 `npm test` in CI.
 
+`rust/gg-docs`, the binary behind `trail docs`, has its own CI jobs,
+`gg-docs (ubuntu-latest)` and `gg-docs (windows-latest)`. For a change there,
+run in that folder:
+
+```bash
+cargo fmt --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+cargo build --locked --release
+```
+
+Then run `GG_DOCS_E2E=require node --import tsx --test test/docs-cli.test.ts`
+from the repository root, which runs the docs commands on that build.
+
 Use public repositories or fabricated fixtures only, never private code,
 credentials or `.env` content.

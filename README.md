@@ -13,7 +13,7 @@
 [![OpenSSF Scorecard](https://raw.githubusercontent.com/ryanduguid/.github/badges/EquityBot/GrievousGreps.svg)](https://scorecard.dev/viewer/?uri=github.com/EquityBot/GrievousGreps) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16136/badge)](https://www.bestpractices.dev/projects/16136)<br>
 [![node: 20.16+ | 22.3+](.github/assets/badges/node.svg)](https://nodejs.org/) [![licence: MIT](.github/assets/badges/licence.svg)](LICENSE) [![fork of: Trail-Code](.github/assets/badges/fork-of.svg)](https://github.com/trailhq/Trail-Code)
 
-[Install](#install) · [Quick start](#quick-start) · [Measured recall](#measured-recall) · [Against the alternatives](#against-the-alternatives) · [Compared with upstream](#compared-with-upstream) · [Limits](#limits) · [Credits](#credits)
+[Install](#install) · [Quick start](#quick-start) · [Docs search](#docs-search) · [Measured recall](#measured-recall) · [Against the alternatives](#against-the-alternatives) · [Compared with upstream](#compared-with-upstream) · [Limits](#limits) · [Credits](#credits)
 
 </div>
 
@@ -65,6 +65,27 @@ trail grep <pattern>                 # every occurrence, grouped by enclosing sy
 `trail init --global` closes that gap by adding hooks to `~/.claude`, and to `~/.codex` for Codex, which run in every project on the machine. `trail uninstall` removes what either form wrote.
 
 The map lives in `graft/`, a local cache to keep out of git.
+
+## Docs search
+
+`trail docs` (or `graft docs`) searches a repository's Markdown and text files and ranks the sections that best match, so an agent finds the handoff, design note or README section it needs without reading whole files. It is separate from the code map: `ask` and the MCP tools do not use it.
+
+```bash
+trail docs search claim lapse                  # best sections first: path:line, title, heading, snippet
+trail docs get notes/claims.md --from 12 -l 20 # those lines of one file
+trail docs status                              # documents and sections indexed
+trail docs search claim lapse --json           # the same as JSON, for scripts
+```
+
+It searches the enclosing git checkout unless you pass `--root`, skips what `.gitignore` ignores, and brings its index up to date before every answer, so it never answers from files that have since changed. The index is one file per folder under `~/.trail/docs`, or `$TRAIL_HOME/docs`. It makes no network request.
+
+The search runs in `gg-docs`, a Rust program in `rust/gg-docs`. No release of it exists yet, so build it once in your checkout, which needs a Rust toolchain:
+
+```bash
+cargo build --release --locked --manifest-path rust/gg-docs/Cargo.toml
+```
+
+`trail docs` uses the first of these that exists: the file `TRAIL_DOCS_BIN` names; a release binary at `rust/gg-docs/prebuilt/<version>/<target>/`, for `x86_64-pc-windows-msvc` and `x86_64-unknown-linux-musl`; and `rust/gg-docs/target/release/`. A `--json` answer carries a `protocol` number, and the CLI refuses a binary that speaks another.
 
 ## Measured recall
 
@@ -155,6 +176,7 @@ This table lists what the code changes from upstream 0.28.0. Only [the recall ta
 | Symlinks planted in a repository or output folder | Followed | Refuses to write through them. A link swapped in between the check and the write is out of scope ([SECURITY.md](SECURITY.md)) |
 | Writes outside the repository | `trail init` adds hooks to `~/.claude` and `~/.codex` unless you pass `--no-global`, and `trail login` adds MCP servers | Only with `--global`, on either command, or `trail init --connect` |
 | npm on Windows | The update check fails on the `npm.cmd` shim | Starts npm through the shell |
+| Markdown and text search | None | `trail docs`, ranked by section, through the `gg-docs` binary |
 | Distribution | Published on npm, with `trail upgrade` | From source |
 
 Learnings (`trail note`, `check` and `team`), `blast`, the viewer, the MCP server and agent wiring are inherited from upstream. [docs/upstream-guide.md](docs/upstream-guide.md) has the commands, the supported languages and what a node holds.

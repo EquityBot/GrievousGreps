@@ -54,6 +54,44 @@ jobs:
       - name: Test the benchmark scorer
         run: node --test benchmark/test/score.test.mjs
 
+  # rust/gg-docs, the binary behind `trail docs`: its own checks, then the docs
+  # tests through both CLI entry points on the release build, which they find
+  # in target/release. GG_DOCS_E2E=require turns their skip into a failure.
+  gg-docs:
+    name: gg-docs (${{ matrix.os }})
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # rustup installs the toolchain pinned in rust/gg-docs/rust-toolchain.toml.
+      - name: Check the crate
+        working-directory: rust/gg-docs
+        run: |
+          rustup toolchain install
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+          cargo build --locked --release
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          package-manager-cache: false
+      - name: Install and build
+        run: npm ci
+      - name: Run the docs commands on the release build
+        env:
+          GG_DOCS_E2E: require
+        run: node --import tsx --test test/docs-cli.test.ts
+
   # The upload runs apart from the tests so the OIDC token is never available
   # while test code runs.
   codecov:
