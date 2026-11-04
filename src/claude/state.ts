@@ -13,6 +13,7 @@ export {
   LOCK_STALE_MS,
   acquireLock,
   acquireLockIn,
+  claimLock,
   releaseLockIn,
   cacheDir,
   emptyStats,

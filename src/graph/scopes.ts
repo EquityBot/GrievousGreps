@@ -324,8 +324,9 @@ export function assertPrefixIndexed(graph: GraphV1, prefix: string): void {
   );
 }
 
-/** Immediate subdirs of `root` that are themselves git repos (have `.git`).
- * Used by workspace federation (Task 5). */
+/** Immediate subdirs of `root` that are git checkouts (have `.git`, file or folder):
+ * repos, and any linked worktrees of them. Used by workspace federation (Task 5),
+ * where `workspaceRepos` narrows them to one per repository. */
 export function discoverWorkspaceChildren(root: string): string[] {
   const absRoot = resolve(root);
   const includes = readIncludeDirs(absRoot);

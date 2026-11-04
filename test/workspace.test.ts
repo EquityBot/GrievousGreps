@@ -19,11 +19,13 @@ import {
   federateCallers,
   federateGrep,
   isWorkspaceBuildRoot,
+  workspaceRepos,
 } from "../src/graph/workspace.js";
 import { formatAsk } from "../src/ask/ask.js";
 import { grepGraph } from "../src/search/grep.js";
 import { callTool } from "../src/mcp/tools.js";
 import type { GraphV1 } from "../src/graph/types.js";
+import { linkWorktree, runCli } from "./helpers.js";
 
 /** A parent dir with git children (each a `.git` dir + one source file). */
 function workspaceFx(children: Record<string, Record<string, string>>): string {
@@ -79,6 +81,61 @@ test("isWorkspaceBuildRoot: own .git (submodules) → NOT a workspace", () => {
   const p = workspaceFx(REPOS);
   mkdirSync(join(p, ".git"), { recursive: true });
   assert.equal(isWorkspaceBuildRoot(p), false);
+  rmSync(p, { recursive: true, force: true });
+});
+
+test("workspaceRepos: a linked worktree beside its main checkout is not a second repo", () => {
+  const p = workspaceFx({ app: {}, lib: {} });
+  linkWorktree(join(p, "app"), join(p, "a-feature")); // sorts before its main checkout
+  linkWorktree(join(p, "app"), join(p, "z-feature"));
+  assert.deepEqual(workspaceRepos(p).sort(), ["app", "lib"]);
+  rmSync(p, { recursive: true, force: true });
+});
+
+test("workspaceRepos: a folder of worktrees keeps one child per repository", () => {
+  const mains = workspaceFx({ one: {}, two: {} });
+  const p = mkdtempSync(join(tmpdir(), "ws-"));
+  linkWorktree(join(mains, "one"), join(p, "one-b"));
+  linkWorktree(join(mains, "one"), join(p, "one-a"));
+  linkWorktree(join(mains, "two"), join(p, "two-a"));
+  assert.deepEqual(workspaceRepos(p).sort(), ["one-a", "two-a"]);
+  rmSync(mains, { recursive: true, force: true });
+  rmSync(p, { recursive: true, force: true });
+});
+
+test("workspaceRepos: a `.git` file that is no linked worktree is a repo of its own", () => {
+  const p = mkdtempSync(join(tmpdir(), "ws-"));
+  mkdirSync(join(p, "sub"));
+  mkdirSync(join(p, "split"));
+  writeFileSync(join(p, "sub", ".git"), "gitdir: ../../super/.git/modules/sub\n");
+  writeFileSync(join(p, "split", ".git"), "gitdir: /elsewhere/split.git\n");
+  assert.deepEqual(workspaceRepos(p).sort(), ["split", "sub"]);
+  rmSync(p, { recursive: true, force: true });
+});
+
+test("a repo beside its linked worktree is a workspace of one, not one pooled graph", () => {
+  const p = workspaceFx({ repoA: { "src/a.ts": "export const a = 1;\n" } });
+  linkWorktree(join(p, "repoA"), join(p, "feature"));
+  writeFileSync(join(p, "feature", "a.ts"), "export const a = 1;\n");
+  const build = runCli(["build", p]);
+  assert.equal(build.status, 0, build.describe());
+  assert.deepEqual(readWorkspace(p)?.children, ["repoA"]);
+  assert.equal(existsSync(wiringPath(contextDirFor(p))), false, "no graph of both checkouts at the parent");
+  rmSync(p, { recursive: true, force: true });
+});
+
+test("a folder of linked worktrees stays a workspace, also on a rebuild", async () => {
+  const mains = workspaceFx({ repoA: {}, repoB: {} });
+  const p = mkdtempSync(join(tmpdir(), "ws-"));
+  linkWorktree(join(mains, "repoA"), join(p, "a"));
+  linkWorktree(join(mains, "repoB"), join(p, "b"));
+  writeFileSync(join(p, "a", "a.ts"), "export const a = 1;\n");
+  writeFileSync(join(p, "b", "b.ts"), "export const b = 1;\n");
+  assert.equal(isWorkspaceBuildRoot(p), true);
+  assert.deepEqual((await buildWorkspace(p)).children, ["a", "b"]);
+  // workspace.json now exists, so this rebuild comes straight back through the split.
+  assert.deepEqual((await buildWorkspace(p)).children, ["a", "b"]);
+  rmSync(mains, { recursive: true, force: true });
   rmSync(p, { recursive: true, force: true });
 });
 

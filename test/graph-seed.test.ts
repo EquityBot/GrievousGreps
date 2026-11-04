@@ -20,9 +20,10 @@ import { buildGraph } from "../src/graph/build.js";
 import { fingerprintPath } from "../src/graph/fingerprint.js";
 import { ensureFreshGraph, refreshNote } from "../src/graph/refresh.js";
 import { mainWorktreeRoot, seedGraph } from "../src/graph/seed.js";
+import { isWorkspaceBuildRoot, workspaceRepos } from "../src/graph/workspace.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
 import { callTool } from "../src/mcp/tools.js";
-import { tmpRepo } from "./helpers.js";
+import { runCli, tmpRepo } from "./helpers.js";
 
 const MATH = "export function add(a: number, b: number): number {\n  return a + b;\n}\n";
 const MUL = "export function mul(a: number, b: number): number {\n  return a * b;\n}\n";
@@ -141,8 +142,7 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 /** A committed repo with one source file and `graft/` gitignored, as a real repo has. */
-function gitRepo(): string {
-  const d = tmp("repo");
+function gitRepo(d = tmp("repo")): string {
   git(d, "init", "-b", "main");
   mkdirSync(join(d, "src"), { recursive: true });
   writeFileSync(join(d, "src", "math.ts"), MATH);
@@ -157,6 +157,26 @@ function addWorktree(main: string, name: string): string {
   git(main, "worktree", "add", "--detach", wt, "HEAD");
   return wt;
 }
+
+test("a build run from inside a linked worktree indexes that worktree", () => {
+  // Its root's `.git` is a file. Workspace discovery only judges a parent's children,
+  // so running from the worktree itself must stay a plain build of its own files.
+  const wt = addWorktree(gitRepo(), "inside");
+  assert.equal(isWorkspaceBuildRoot(wt), false);
+  const build = runCli(["build", wt]);
+  assert.equal(build.status, 0, build.describe());
+  assert.ok(readGraph(wiringPath(outOf(wt)))?.nodes.some((n) => n.name === "add"));
+});
+
+test("a real linked worktree beside its main checkout is not a second workspace child", () => {
+  const box = tmp("workspace");
+  const main = join(box, "app");
+  mkdirSync(main);
+  gitRepo(main);
+  git(main, "worktree", "add", "--detach", join(box, "a-feature"), "HEAD");
+  assert.deepEqual(workspaceRepos(box), ["app"]);
+  assert.equal(isWorkspaceBuildRoot(box), true);
+});
 
 test("a git worktree starts with no graph, and one query gives it a correct one", async () => {
   const main = gitRepo();

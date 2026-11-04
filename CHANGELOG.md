@@ -21,6 +21,9 @@ Built on Trail-Code 0.28.0. Sections below this one are upstream's.
 - **The tokens-saved line is one short upper bound by default**, with no request to report a running total and no dollar value. `TRAIL_SAVINGS_DETAIL=1` restores the long line.
 - **The blast radius after an edit is shown once per file per session**, not on every edit to the same file. A session remembers its last 40 files; without a session id it is shown every time. On Windows it now appears at all: a path with backslashes never matched the graph's paths.
 - **Agent guidance no longer steers every task through a graph call.** It says when an answer replaces reading (callers, a file's API, unfamiliar code) and that a file you will edit still needs reading.
+- **`blast` separates leads from definite dependents.** A dependent reached only through an inferred edge carries the `[inferred]` mark `callers` prints, in the text, Markdown and JSON reports and in the blast radius after an edit. The summary counts them, and at each depth they follow the definite ones.
+- **A workspace counts a repository once.** A linked worktree is no longer a second child: the main checkout stands for its repository, or the first worktree when the main checkout is elsewhere.
+- **A running build keeps its lock.** A lock past 5 minutes is taken over only once its owner has gone, or at 15 minutes whoever holds it, so a slow first build no longer gets a second build beside it. `sync-run` names itself in the lock it is handed.
 
 ### Removed
 

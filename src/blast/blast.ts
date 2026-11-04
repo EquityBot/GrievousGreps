@@ -48,6 +48,8 @@ export interface Impacted {
   span: string;
   relation: string;
   depth: number;
+  /** Every shortest path to it crosses an inferred edge: a lead, not a fact ({@link EdgeHit}). */
+  inferred?: true;
 }
 
 /**
@@ -243,8 +245,9 @@ export function blastRadius(
       else {
         prev.from.add(file.path);
         // Keep the shallowest reach: a symbol two hops from one changed file and one
-        // hop from another is one hop away from this PR.
-        if (hit.depth < prev.hit.depth) prev.hit = hit;
+        // hop from another is one hop away from this PR. At the same depth a definite
+        // path replaces an inferred one, as it does within one walk (`impactOfMany`).
+        if (hit.depth < prev.hit.depth || (hit.depth === prev.hit.depth && prev.hit.inferred && !hit.inferred)) prev.hit = hit;
       }
     }
   }
@@ -406,6 +409,7 @@ function toImpacted(h: EdgeHit & { node: NodeV1 }): Impacted {
   return {
     id: h.node.id, name: h.node.name, kind: h.node.kind,
     path: h.node.path, span: h.node.span, relation: h.relation, depth: h.depth,
+    ...(h.inferred ? { inferred: true as const } : {}),
   };
 }
 
@@ -480,7 +484,9 @@ function groupByModule(
     for (const s of mod.symbols) for (const p of origins.get(s.id) ?? []) from.add(p);
     mod.from = [...from].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
     mod.files.sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
-    mod.symbols.sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path));
+    // Definite before inferred at each depth, so the lists' caps drop leads first.
+    mod.symbols.sort((a, b) =>
+      a.depth - b.depth || Number(a.inferred === true) - Number(b.inferred === true) || a.path.localeCompare(b.path));
     // Shallowest symbol first after that sort, so it is the cluster's hub: the
     // thing one hop from the diff rather than an arbitrary member.
     const concept = sharedConcept(mod.files, modules);

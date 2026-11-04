@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { readWiring, computeStats } from './stats.js';
-import { patchStats, releaseLock, resolveContextDir } from './state.js';
+import { claimLock, patchStats, releaseLock, resolveContextDir } from './state.js';
 import { graftCliPath } from './paths.js';
 
 /** How long the end-of-turn rebuild may take before it is killed. */
@@ -20,6 +20,9 @@ function realBuild(dir: string, timeout = BUILD_TIMEOUT_MS): void {
 }
 
 export function runSync(dir: string, build: (d: string) => void = realBuild): void {
+  // Whoever took the lock has likely exited by now; it names this process instead, so
+  // it is not taken over while the build below runs.
+  claimLock(dir);
   try {
     build(dir);
     const w = readWiring(dir);
