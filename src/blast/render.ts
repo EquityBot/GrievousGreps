@@ -14,6 +14,7 @@
  */
 import type { BlastReport, ChangedArea, ImpactedModule, Impacted, TestSignal } from "./blast.js";
 import type { Evidence } from "../viz/assemble.js";
+import { INFERRED_MARK } from "../graph/types.js";
 import { fileReader, impactedEvidence, reachTerms } from "./evidence.js";
 import { MAX_REVIEWERS, mention, sinceLabel, type Owner } from "./owners.js";
 import { brand, cmd } from "../brand.js";
@@ -47,6 +48,14 @@ const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n =
 
 function depthLabel(depth: number): string {
   return Number.isFinite(depth) ? `depth ${depth}` : "full closure";
+}
+
+const inferredMark = (s: Impacted): string => (s.inferred ? INFERRED_MARK : "");
+
+/** " (2 [inferred])" beside a dependent count: how much of it is a lead. Nothing when all of it is definite. */
+function inferredCount(r: BlastReport): string {
+  const n = r.modules.reduce((sum, m) => sum + m.symbols.filter((s) => s.inferred).length, 0);
+  return n > 0 ? ` (${n}${INFERRED_MARK})` : "";
 }
 
 /**
@@ -165,7 +174,7 @@ function headline(r: BlastReport, symbols: number): string {
   if (symbols === 0) {
     return `**Nothing outside this diff depends on it.** ${areas} changed; no indexed dependents at ${depthLabel(r.depth)}.`;
   }
-  return `**${areas} changed → ${plural(r.modules.length, "area")} can be affected.** ${plural(symbols, "dependent symbol")}, ${depthLabel(r.depth)}.`;
+  return `**${areas} changed → ${plural(r.modules.length, "area")} can be affected.** ${plural(symbols, "dependent symbol")}${inferredCount(r)}, ${depthLabel(r.depth)}.`;
 }
 
 /**
@@ -199,7 +208,7 @@ function impactTable(r: BlastReport): string[] {
   const rows = ["| Can be affected | Symbols | Nearest hop | Reached from |", "| --- | --: | --- | --- |"];
   for (const mod of shown) {
     const nearest = mod.symbols[0];
-    const hop = nearest ? `\`${nearest.path}:${nearest.span}\` ${nearest.name} — ${nearest.relation}, depth ${nearest.depth}` : "—";
+    const hop = nearest ? `\`${nearest.path}:${nearest.span}\` ${nearest.name} — ${nearest.relation}, depth ${nearest.depth}${inferredMark(nearest)}` : "—";
     // Two names, then a count. Six area names in one cell is what turned this
     // column into a wall wider than the rest of the table put together.
     const names = [...new Set(mod.from.map((f) => areaOf.get(f) ?? f))];
@@ -321,7 +330,7 @@ function detailSections(r: BlastReport, symbols: number, evidence?: (s: Impacted
       out.push("");
       for (const s of mod.symbols) {
         if (listed++ >= MAX_SYMBOLS_LISTED) break;
-        out.push(`- \`${s.path}:${s.span}\` — ${s.name} (${s.relation}, depth ${s.depth})`);
+        out.push(`- \`${s.path}:${s.span}\` — ${s.name} (${s.relation}, depth ${s.depth})${inferredMark(s)}`);
         // The line that reaches the diff, quoted from the same helper the hosted
         // panel uses — a comment that disagreed with the page it links to would be
         // worse than one that said less. Collapsed, so the comment stays short.
@@ -414,7 +423,7 @@ export function textReport(r: BlastReport): string {
   const lines = [
     `blast radius — ${r.basis} (${depthLabel(r.depth)})`,
     `  changed: ${plural(r.changed.length, "file")} in ${plural(r.areas.length, "area")}, ${plural(r.seeds.length, "seed symbol")}`,
-    `  impacted: ${plural(symbols, "symbol")} in ${plural(r.modules.length, "area")}`,
+    `  impacted: ${plural(symbols, "symbol")}${inferredCount(r)} in ${plural(r.modules.length, "area")}`,
     "",
   ];
 
@@ -426,7 +435,7 @@ export function textReport(r: BlastReport): string {
   for (const mod of r.modules) {
     lines.push(`${mod.label} — ${plural(mod.symbols.length, "symbol")} in ${plural(mod.files.length, "file")}`);
     for (const s of mod.symbols.slice(0, 25)) {
-      lines.push(`  ${s.relation} ← ${s.name} (${s.path}:${s.span}) [depth ${s.depth}]`);
+      lines.push(`  ${s.relation} ← ${s.name} (${s.path}:${s.span}) [depth ${s.depth}]${inferredMark(s)}`);
     }
     const hidden = mod.symbols.length - 25;
     if (hidden > 0) lines.push(`  …${plural(hidden, "more symbol")}`);

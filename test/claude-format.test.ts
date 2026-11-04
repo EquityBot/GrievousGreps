@@ -60,6 +60,12 @@ test('incomingEdges: external callers of nodes in the edited file', () => {
   assert.equal(e[0].source, 'src/client.ts#exchange');
 });
 
+test('formatBlastRadius marks an inferred edge the way callers does', () => {
+  const edges = wiring2.edges.map((e: { confidence: string }) => ({ ...e, confidence: 'inferred' }));
+  assert.match(strip(formatBlastRadius({ ...wiring2, edges }, '/abs/repo/src/pkce.ts')!), /exchange \(client\.ts\) \[inferred\]$/m);
+  assert.doesNotMatch(strip(formatBlastRadius(wiring2, '/abs/repo/src/pkce.ts')!), /inferred/);
+});
+
 test('formatBlastRadius renders callers or null', () => {
   const txt = formatBlastRadius(wiring2, '/abs/repo/src/pkce.ts');
   assert.match(strip(txt!), /blast radius for pkce\.ts/);

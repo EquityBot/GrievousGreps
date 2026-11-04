@@ -23,6 +23,10 @@ export interface Stats {
 }
 
 export const LOCK_STALE_MS = 300000;
+/** Past this a lock is taken over even with its pid alive: that pid may be a new process
+ * that got a dead one's number. Longer than a background build's own time limit (a first
+ * build gets 10 minutes, `graph/refresh.ts`), so a running build keeps its lock. */
+export const LOCK_MAX_MS = 15 * 60_000;
 
 export function emptyStats(): Stats {
   return { nodeCount: 0, edgeCount: 0, languages: [], totalCount: 0, readyCount: 0,
@@ -225,15 +229,13 @@ export function acquireLockIn(dir: string): boolean {
   // Base: the context dir's parent, so a symlinked `graft/` or `.cache` is refused
   // rather than locked — and stale-lock cleanup never deletes through it.
   try { ensureDirInside(dirname(dirname(cache)), cache); } catch { return false; }
-  const payload = JSON.stringify({ pid: process.pid, at: new Date().toISOString() });
+  const payload = lockPayload();
   try {
     writeFileSync(p, payload, { flag: 'wx' }); // atomic exclusive create
     return true;
   } catch (e: any) {
     if (e?.code !== 'EEXIST') throw e;
-    let stale: boolean;
-    try { stale = Date.now() - statSync(p).mtimeMs >= LOCK_STALE_MS; } catch { stale = true; }
-    if (!stale) return false;
+    if (!lockStale(cache)) return false;
     try { rmSync(p); } catch { /* another process reclaimed it */ }
     try { writeFileSync(p, payload, { flag: 'wx' }); return true; }
     catch (e2: any) { if (e2?.code === 'EEXIST') return false; throw e2; }
@@ -242,7 +244,51 @@ export function acquireLockIn(dir: string): boolean {
 export function releaseLockIn(cache: string): void {
   try { removeFileInside(dirname(dirname(resolve(cache))), join(resolve(cache), LOCK_FILE)); } catch { /* already gone, or not ours */ }
 }
-/** Whether someone holds the lock in `cache`: the file is there and not yet old enough to reclaim. */
+/** Whether someone holds the lock in `cache`: the file is there and not yet reclaimable. */
 export function lockHeldIn(cache: string): boolean {
-  try { return Date.now() - statSync(join(cache, LOCK_FILE)).mtimeMs < LOCK_STALE_MS; } catch { return false; }
+  return !lockStale(resolve(cache));
+}
+
+/**
+ * Put this process's pid in a lock it was handed. `claude/sync-run.ts` builds for whoever
+ * took the lock, and they have usually exited by then, so without this the lock names a
+ * dead process and reads as abandoned while the build runs.
+ */
+export function claimLock(d: string): void {
+  try {
+    const cache = resolve(cacheDir(d));
+    writeFileInside(dirname(dirname(cache)), join(cache, LOCK_FILE), lockPayload());
+  } catch { /* the age rule still covers it */ }
+}
+
+function lockPayload(): string {
+  return JSON.stringify({ pid: process.pid, at: new Date().toISOString() });
+}
+
+/**
+ * A lock is reclaimable when its owner has gone and it is older than LOCK_STALE_MS, or
+ * when it is older than LOCK_MAX_MS whoever holds it. Age alone took the lock from a
+ * first build still running past five minutes, and the next query started a second build
+ * beside it. A missing file is reclaimable too: there is nothing to wait for.
+ */
+function lockStale(cache: string): boolean {
+  const p = join(cache, LOCK_FILE);
+  let age: number;
+  try { age = Date.now() - statSync(p).mtimeMs; } catch { return true; }
+  if (age < LOCK_STALE_MS) return false;
+  if (age >= LOCK_MAX_MS) return true;
+  // Based as acquireLockIn is, so a link planted at the lock's path names no owner.
+  const pid = readJson<{ pid?: unknown }>(p, dirname(dirname(cache)))?.pid;
+  return !(typeof pid === 'number' && Number.isInteger(pid) && pid > 0 && pidAlive(pid));
+}
+
+/** Whether a process with this pid is running. Signal 0 only tests for it, on Windows too. */
+export function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // EPERM: it's there, owned by someone else.
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
+  }
 }

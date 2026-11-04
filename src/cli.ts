@@ -33,11 +33,10 @@ import { committedAtBase, learningsAtBase, teammateEdits, withBaseLearnings } fr
 import { contextDirFor } from "./context/node-file.js";
 import { loadGraphCached } from "./graph/load.js";
 import { ensureFreshChildren, ensureFreshGraph, refreshNote } from "./graph/refresh.js";
-import { isWorkspaceBuildRoot, readWorkspace } from "./graph/workspace.js";
+import { isWorkspaceBuildRoot, readWorkspace, workspaceRepos } from "./graph/workspace.js";
 import { NOT_GIT_LINE, NOT_GIT_PAIR_REFUSAL, homeFolderRefusal, isGitWorkTree } from "./init-guard.js";
 import { hasGraftIndex, nearestGraftRoot } from "./graph/root.js";
 import { unsupportedExtensions, supportedExtensions } from "./graph/source-files.js";
-import { discoverWorkspaceChildren } from "./graph/scopes.js";
 import {
   runWorkspaceAsk,
   runWorkspaceBuild,
@@ -1608,7 +1607,7 @@ async function runInitCommand(dir: string, opts: InitOptions, progress?: InitPro
     // wiring only the parent leaves each child with no skill, hooks, or MCP.
     // The parent's own wiring stays (queries there federate across children).
     const children = isWorkspaceBuildRoot(repo, program.opts<GlobalOpts>().dir)
-      ? discoverWorkspaceChildren(repo)
+      ? workspaceRepos(repo)
       : [];
     // Parent FIRST: its build is the workspace build, which builds every child's
     // graph, so each child's own `buildGraphIfMissing` then finds one and no-ops.

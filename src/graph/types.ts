@@ -39,6 +39,9 @@ export type Kind =
  * values as stronger. */
 export type Confidence = "lsp_resolved" | "lsp_dispatch" | "extracted" | "inferred";
 
+/** How every command's text output marks a hit reached through an `inferred` edge. */
+export const INFERRED_MARK = " [inferred]";
+
 /** Whether the LLM meaning-layer has been computed for a node. */
 export type SummaryState = "pending" | "ready" | "stale";
 

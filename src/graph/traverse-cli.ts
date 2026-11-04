@@ -17,7 +17,7 @@ import { contextDirFor } from "../context/node-file.js";
 import { withSavings, savingsFor, type Savings } from "../context/savings.js";
 import { loadGraphCached } from "./load.js";
 import { resolveSymbol, edgeWalk, type Direction, type EdgeHit } from "./traverse.js";
-import type { GraphV1, NodeV1 } from "./types.js";
+import { INFERRED_MARK, type GraphV1, type NodeV1 } from "./types.js";
 import { cmd } from "../brand.js";
 import { isTestPath } from "../util/paths.js";
 
@@ -53,7 +53,7 @@ export function hitLine(direction: Direction, hit: EdgeHit, showDepth: boolean, 
   const arrow = ARROW[direction];
   const depthTag = showDepth ? ` [depth ${hit.depth}]` : "";
   const label = hit.node ? `${hit.node.name} (${hit.node.path}:${hit.node.span})` : `${hit.id} (unresolved import)`;
-  const line = `  ${hit.relation} ${arrow} ${label}${depthTag}${hit.inferred ? " [inferred]" : ""}`;
+  const line = `  ${hit.relation} ${arrow} ${label}${depthTag}${hit.inferred ? INFERRED_MARK : ""}`;
   return quote ? `${line}\n      ${quote.n}: ${quote.text.trim()}` : line;
 }
 

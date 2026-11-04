@@ -21,14 +21,15 @@
  * CLI print/exit wrappers and the per-child build orchestration live in
  * `workspace-cli.ts`; `mcp/tools.ts` calls the federate* functions directly.
  */
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, realpathSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { readFileInside, resolveInside, trustedBaseFor, writeFileInside } from "../util/safe-fs.js";
 import { contextDirFor } from "../context/node-file.js";
 import { checkGraph } from "./check.js";
 import { loadGraphCached } from "./load.js";
 import { buildRepoMap, formatRepoMap } from "./map.js";
 import { discoverWorkspaceChildren } from "./scopes.js";
+import { mainWorktreeRoot } from "./seed.js";
 import { callerBlocks, callersSavings } from "./traverse-cli.js";
 import { edgeWalk, resolveSymbol, type Direction } from "./traverse.js";
 import { wiringPath } from "./write.js";
@@ -101,11 +102,47 @@ export function writeWorkspace(root: string, ws: WorkspaceV1, override?: string)
 /** A parent is a workspace BUILD target when it has no own `.git` and ≥2 git
  * children — or it was already split (a `workspace.json` is present). The
  * no-own-`.git` guard keeps a normal repo with git submodules from being
- * mistaken for a workspace. */
+ * mistaken for a workspace, and a linked worktree from being one when run from
+ * inside it. Checkouts are counted, not repos: a repo beside its own linked
+ * worktree is a workspace of one, where a plain build of the parent would pool
+ * both checkouts into one graph. */
 export function isWorkspaceBuildRoot(root: string, override?: string): boolean {
   if (readWorkspace(root, override)) return true;
   if (existsSync(join(root, ".git"))) return false;
   return discoverWorkspaceChildren(root).length >= 2;
+}
+
+/** A path's real form: git writes a worktree's pointer long-form, and `root` may not be. */
+function realPath(path: string): string {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
+/**
+ * The repos among `root`'s git children, one child per repository.
+ *
+ * A linked worktree is another checkout of its main repo, so it stands for that repo
+ * only when no main checkout is here to, and only the first such worktree does: a
+ * folder of nothing but worktrees still federates. Requiring a `.git` folder instead
+ * would empty that workspace, and would drop submodules and `--separate-git-dir`
+ * clones, whose `.git` is a file too and which are repos of their own.
+ *
+ * Here rather than in `discoverWorkspaceChildren` because `mainWorktreeRoot`'s module
+ * reaches the extractor, which `scopes.ts` must not load into the prompt hook.
+ */
+export function workspaceRepos(root: string): string[] {
+  const absRoot = resolve(root);
+  const byRepo = new Map<string, string>();
+  for (const child of discoverWorkspaceChildren(absRoot).sort()) { // NOSONAR: strings only, so the default code-unit order is deterministic
+    const dir = join(absRoot, child);
+    const main = mainWorktreeRoot(dir);
+    const repo = realPath(main ?? dir);
+    if (main === null || !byRepo.has(repo)) byRepo.set(repo, child);
+  }
+  return [...byRepo.values()];
 }
 
 /** True when the parent has a mega-graph from an older single-graph build
@@ -152,7 +189,7 @@ export interface WorkspaceGraphs {
  * `missing`, not dropped. */
 export function loadWorkspaceGraphs(root: string, override?: string): WorkspaceGraphs {
   const ws = readWorkspace(root, override);
-  const children = (ws ? ws.children : discoverWorkspaceChildren(root)).slice().sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
+  const children = (ws ? ws.children : workspaceRepos(root)).slice().sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   const loaded: LoadedChild[] = [];
   const missing: string[] = [];
   for (const child of children) {
@@ -719,7 +756,7 @@ export async function splitWorkspace(
   buildChild: (childDir: string, childName: string) => Promise<void>,
   onStart?: (info: { children: string[]; migrated: boolean }) => void,
 ): Promise<{ children: string[]; migrated: boolean }> {
-  const children = discoverWorkspaceChildren(root).slice().sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
+  const children = workspaceRepos(root).slice().sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   const migrated = hasMegaGraph(root, override);
   onStart?.({ children, migrated });
   for (const child of children) await buildChild(join(root, child), child);

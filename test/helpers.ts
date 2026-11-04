@@ -7,10 +7,10 @@
  * than being hand-rolled per file because both carry a platform trap that is
  * invisible until CI runs on Windows: see {@link tmpRepo} and {@link homeEnv}.
  */
-import { existsSync, mkdtempSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { basename, delimiter, join } from "node:path";
 import type { Summarizer, Synthesizer, SynthNode, SynthLink, FileSummary } from "../src/index.js";
 import { commandOnPath } from "../src/brand.js";
 
@@ -30,6 +30,15 @@ import { commandOnPath } from "../src/brand.js";
  */
 export function tmpRepo(tag: string): string {
   return realpathSync.native(mkdtempSync(join(tmpdir(), `graft-${tag}-`)));
+}
+
+/** `dir` as a linked worktree of the main checkout `main`, the shape `git worktree add` leaves. */
+export function linkWorktree(main: string, dir: string): void {
+  const gitdir = join(main, ".git", "worktrees", basename(dir));
+  mkdirSync(gitdir, { recursive: true });
+  writeFileSync(join(gitdir, "commondir"), "../..\n");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, ".git"), `gitdir: ${gitdir}\n`);
 }
 
 /**

@@ -17,7 +17,9 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { runCli, tmpRepo } from "./helpers.js";
-import { changedFiles } from "../src/blast/diff.js";
+import { blastRadius } from "../src/blast/blast.js";
+import { changedFiles, type ChangedFile } from "../src/blast/diff.js";
+import type { Confidence, GraphV1, NodeV1 } from "../src/graph/types.js";
 
 const MATH = `export function add(a: number, b: number): number {
   return a + b;
@@ -87,7 +89,7 @@ function blastJson(args: string[]): {
   unindexed: string[];
   deleted: string[];
   seeds: { name: string; path: string; wholeFile: boolean }[];
-  impacted: { name: string; path: string; depth: number; relation: string }[];
+  impacted: { name: string; path: string; depth: number; relation: string; inferred?: true }[];
   modules: { label: string; files: string[]; symbols: { name: string }[]; from: string[] }[];
 } {
   const r = runCli(["blast", ...args, "--format", "json"]);
@@ -229,6 +231,92 @@ test("blast: a clean tree reports the last commit rather than nothing at all", (
   const report = blastJson([d]);
   assert.equal(report.basis, "HEAD~1...HEAD");
   assert.ok(report.impacted.some((i) => i.name === "total"));
+});
+
+test("blast: an inferred dependent is marked in json and text, a definite one is not", () => {
+  const d = builtRepo();
+  // Calls `add` with no import, so only its unique name links the two.
+  writeFileSync(join(d, "src", "loose.ts"), "export function loose(): number {\n  return add(1, 2);\n}\n");
+  git(d, "add", "-A");
+  git(d, "commit", "-m", "loose");
+  const build = runCli(["build", d]);
+  assert.equal(build.status, 0, build.describe());
+  writeFileSync(join(d, "src", "math.ts"), MATH_EDITED);
+
+  const byName = new Map(blastJson([d]).impacted.map((i) => [i.name, i]));
+  assert.equal(byName.get("loose")?.inferred, true);
+  assert.equal(byName.get("total")?.inferred, undefined);
+
+  const text = runCli(["blast", d]);
+  assert.equal(text.status, 0, text.describe());
+  assert.match(text.stdout, /loose \(src\/loose\.ts:L1-L3\) \[depth 1\] \[inferred\]$/m);
+  assert.match(text.stdout, /total \(src\/total\.ts:L2-L4\) \[depth 1\]$/m);
+  assert.match(text.stdout, /\(1 \[inferred\]\)/);
+});
+
+/** A graph with a function node per `path#name`, a file node per path, and `calls` edges. */
+function callGraph(symbols: string[], edges: [source: string, target: string, confidence: Confidence][]): GraphV1 {
+  const sym = (id: string): NodeV1 => {
+    const [path, name] = id.split("#");
+    return {
+      id, name, kind: "function", path, span: "L1-L3", signature: null, exported: true,
+      origin: "ast", body_hash: "", summary_state: "pending", summary: null, crux: null,
+    };
+  };
+  const paths = [...new Set(symbols.map((s) => s.split("#")[0]))];
+  return {
+    meta: { version: 1, nodeCount: 0, edgeCount: 0, languages: [] },
+    nodes: [...paths.map((p) => ({ ...sym(`${p}#file`), id: p, kind: "file" as const })), ...symbols.map(sym)],
+    edges: edges.map(([source, target, confidence]) => ({ source, target, relation: "calls", confidence })),
+  };
+}
+
+const edited = (path: string): ChangedFile => ({ path, status: "modified", ranges: [{ start: 1, end: 1 }], hunks: [] });
+
+test("blast: only a dependent every shortest path to which is inferred carries the mark", () => {
+  const g = callGraph(["a.ts#seed", "z.ts#sure", "b.ts#lead", "c.ts#beyond"], [
+    ["z.ts#sure", "a.ts#seed", "extracted"],
+    ["b.ts#lead", "a.ts#seed", "inferred"],
+    ["c.ts#beyond", "b.ts#lead", "extracted"],
+  ]);
+  const report = blastRadius(g, [edited("a.ts")], "test", { depth: 2 });
+  const marks = Object.fromEntries(report.impacted.map((i) => [i.name, i.inferred]));
+  assert.deepEqual(marks, { sure: undefined, lead: true, beyond: true });
+  assert.ok(!("inferred" in report.impacted.find((i) => i.name === "sure")!), "absent, as in callers' JSON");
+});
+
+test("blast: at each depth definite dependents come first, so a list's cap drops leads first", () => {
+  const g = callGraph(["a.ts#seed", "z.ts#sure", "b.ts#lead", "c.ts#beyond"], [
+    ["z.ts#sure", "a.ts#seed", "extracted"],
+    ["b.ts#lead", "a.ts#seed", "inferred"],
+    ["c.ts#beyond", "z.ts#sure", "extracted"],
+  ]);
+  const [area] = blastRadius(g, [edited("a.ts")], "test", { depth: 2 }).modules;
+  assert.deepEqual(area.symbols.map((s) => s.name), ["sure", "lead", "beyond"]);
+  assert.equal(area.label, "sure", "the nearest fact names the area, not a lead that sorts before it");
+});
+
+test("blast: across changed files a definite path beats an inferred one of the same depth", () => {
+  const g = callGraph(["a.ts#one", "b.ts#two", "c.ts#dep"], [
+    ["c.ts#dep", "a.ts#one", "inferred"],
+    ["c.ts#dep", "b.ts#two", "extracted"],
+  ]);
+  for (const changed of [["a.ts", "b.ts"], ["b.ts", "a.ts"]]) {
+    const [dep] = blastRadius(g, changed.map(edited), "test", { depth: 1 }).impacted;
+    assert.equal(dep.inferred, undefined, changed.join(" then "));
+  }
+});
+
+test("blast: a shallower inferred path outranks a deeper definite one, and stays marked", () => {
+  const g = callGraph(["a.ts#one", "b.ts#two", "c.ts#mid", "d.ts#dep"], [
+    ["d.ts#dep", "a.ts#one", "inferred"],
+    ["c.ts#mid", "b.ts#two", "extracted"],
+    ["d.ts#dep", "c.ts#mid", "extracted"],
+  ]);
+  for (const changed of [["a.ts", "b.ts"], ["b.ts", "a.ts"]]) {
+    const dep = blastRadius(g, changed.map(edited), "test", { depth: 2 }).impacted.find((i) => i.name === "dep")!;
+    assert.deepEqual([dep.depth, dep.inferred], [1, true], changed.join(" then "));
+  }
 });
 
 test("diff: hunks carry their text, and the next file's header is not read as a deleted line", () => {

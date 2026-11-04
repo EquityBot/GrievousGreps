@@ -131,6 +131,28 @@ test("blast markdown: one table and three collapsed sections, no per-module head
   assert.ok(!body.includes("<summary>**"), "asterisks would render literally");
 });
 
+test("blast reports: an inferred dependent carries the mark, and the summary counts it", () => {
+  const r = report();
+  r.modules[0].symbols[1].inferred = true;
+  r.modules[1].symbols[0].inferred = true; // api/'s nearest hop, so the table shows it too
+
+  const text = textReport(r);
+  assert.match(text, /impacted: 11 symbols \(2 \[inferred\]\) in 7 areas/);
+  assert.match(text, /^  calls ← s1 \(core\/dep\.ts:L1-L3\) \[depth 1\] \[inferred\]$/m);
+  assert.match(text, /^  calls ← s0 \(core\/dep\.ts:L1-L3\) \[depth 1\]$/m);
+
+  const md = markdownReport(r);
+  assert.match(md, /11 dependent symbols \(2 \[inferred\]\), depth 2\./);
+  assert.match(md, /^- `core\/dep\.ts:L1-L3` — s1 \(calls, depth 1\) \[inferred\]$/m);
+  assert.match(md, /^- `core\/dep\.ts:L1-L3` — s0 \(calls, depth 1\)$/m);
+  assert.match(md, /^\| api\/ \| 2 \| `api\/dep\.ts:L1-L3` s0 — calls, depth 1 \[inferred\] \|/m);
+});
+
+test("blast reports: with every dependent definite, nothing mentions the mark", () => {
+  assert.ok(!textReport(report()).includes("inferred"));
+  assert.ok(!markdownReport(report()).includes("inferred"));
+});
+
 test("blast markdown: test-only dependents are counted, never mixed into the areas", () => {
   const body = markdownReport(report());
 

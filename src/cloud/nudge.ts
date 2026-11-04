@@ -28,7 +28,7 @@ import { currentTranscript } from "../notes/session-cost.js";
 import { durationBucket } from "../telemetry/contract.js";
 import { track } from "../telemetry/track.js";
 import { ensurePrivateDir } from "../util/private-file.js";
-import { readJson, writeJsonAtomic } from "../util/state.js";
+import { pidAlive, readJson, writeJsonAtomic } from "../util/state.js";
 import { claimHandoff, cloudEnabled, cloudForRepo, cloudIn, readClouds, registerHandoff, SECRET_FILE_MODE, serverUrl, trailUrl, writeCloud, type ClaimResult, type HandoffRepo } from "./workspace.js";
 import { dropActivity, syncWorkspaceRepos } from "./workspace-sync.js";
 
@@ -325,7 +325,7 @@ export function resumePair(env: NodeJS.ProcessEnv = process.env, now = Date.now(
       writeState({ pair: undefined }, env);
       return;
     }
-    if (now < p.waitUntil && (p.pid === undefined || alive(p.pid))) return;
+    if (now < p.waitUntil && (p.pid === undefined || pidAlive(p.pid))) return;
     writeState({ pair: { ...p, waitUntil: now + WAIT_MS, pid: undefined } }, env);
     const pid = start([p.state, p.repo, p.server]);
     if (pid !== undefined) writeState({ pair: { ...p, waitUntil: now + WAIT_MS, pid } }, env);
@@ -338,16 +338,6 @@ function startPairWait(args: string[]): number | undefined {
   const child = spawn(process.execPath, [graftCliPath(), "_trail-pair", ...args, "--resumed"], { detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
   return child.pid;
-}
-
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    // EPERM: it's there, owned by someone else.
-    return (err as NodeJS.ErrnoException).code === "EPERM";
-  }
 }
 
 /* -------------------------------------------------------------------------- */
