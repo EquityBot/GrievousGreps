@@ -160,7 +160,7 @@ export async function startFakeWorkspace(opts: FakeWorkspaceOpts = {}): Promise<
     } catch {
       /* kept as null */
     }
-    const path = new URL(req.url ?? "/", "http://x").pathname;
+    const path = new URL(req.url ?? "/", "http://x").pathname; // NOSONAR: a base URL for parsing the request path; no request is made
     const session = req.headers["mcp-session-id"] as string | undefined;
     log.push({ method: req.method ?? "", path, auth: req.headers.authorization, session, protocol: req.headers["mcp-protocol-version"] as string | undefined, body });
     if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));

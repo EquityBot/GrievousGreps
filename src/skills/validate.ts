@@ -77,7 +77,7 @@ export function skillProblems(text: string, folderName: string): string[] {
 
   const out: string[] = [];
   const extra = Object.keys(data).filter((k) => !SPEC_KEYS.includes(k));
-  if (extra.length) out.push(`only ${SPEC_KEYS.join(", ")} may sit at the top level; move ${extra.sort().join(", ")} under metadata`);
+  if (extra.length) out.push(`only ${SPEC_KEYS.join(", ")} may sit at the top level; move ${extra.sort().join(", ")} under metadata`); // NOSONAR: strings only, so the default code-unit order is deterministic
 
   out.push(...nameProblems(data.name, folderName));
 

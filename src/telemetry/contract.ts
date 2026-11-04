@@ -351,5 +351,5 @@ export function langsValue(langs: readonly string[]): string {
   const clean = langs
     .map((l) => l.toLowerCase().trim())
     .filter((l) => l.length > 0 && l.length <= 24 && /^[a-z0-9+#._-]+$/.test(l));
-  return [...new Set(clean)].sort().slice(0, 8).join(',');
+  return [...new Set(clean)].sort().slice(0, 8).join(','); // NOSONAR: strings only, so the default code-unit order is deterministic
 }

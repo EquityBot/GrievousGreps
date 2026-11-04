@@ -110,7 +110,7 @@ export function shipCheck(input: unknown, dir: string, command: string, check: (
     const conflicts = check(dir);
     if (!conflicts?.length) return null;
     const key = createHash('sha256')
-      .update(conflicts.map((f) => `${f.file}|${f.source.path ?? f.source.title ?? ''}`).sort().join('\n'))
+      .update(conflicts.map((f) => `${f.file}|${f.source.path ?? f.source.title ?? ''}`).sort().join('\n')) // NOSONAR: strings only, so the default code-unit order is deterministic
       .digest('hex')
       .slice(0, 16);
     const mark = sessionPath(sessionOf(input), '.ship-checks.json', env);

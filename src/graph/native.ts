@@ -150,7 +150,7 @@ export function missingNativePackages(langs: Iterable<Language>): string[] {
       if (m && !m.ok) out.add(NPM_NAME[id] ?? id);
     }
   }
-  return [...out].sort();
+  return [...out].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 /** The languages a build parsed with a breadth-tier stand-in because their own

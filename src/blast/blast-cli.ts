@@ -146,7 +146,7 @@ async function nameClusters(graph: GraphV1, report: BlastReport, contextDir: str
  */
 export function repoLabel(root: string): string {
   try {
-    const url = execFileSync("git", ["-C", root, "remote", "get-url", "origin"], {
+    const url = execFileSync("git", ["-C", root, "remote", "get-url", "origin"], { // NOSONAR: the person's own git, found through PATH on purpose
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();

@@ -39,11 +39,11 @@ export const BUNDLE_WASM = ["c", "c_sharp", "clojure", "cpp", "dart", "elixir", 
 export const BUNDLE_TAGS = ["go", "javascript", "python", "r", "tsx", "typescript"];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  rmSync(outDir, { recursive: true, force: true });
+  rmSync(outDir, { recursive: true, force: true }); // NOSONAR: the output folder comes from whoever runs the build
   // Where earlier builds put the native tree-sitter-swift binaries: a dist/ built
   // before would otherwise keep them, and pack them.
-  rmSync(join(vendorDir, "tree-sitter-swift"), { recursive: true, force: true });
-  mkdirSync(outDir, { recursive: true });
+  rmSync(join(vendorDir, "tree-sitter-swift"), { recursive: true, force: true }); // NOSONAR: the output folder comes from whoever runs the build
+  mkdirSync(outDir, { recursive: true }); // NOSONAR: the output folder comes from whoever runs the build
   for (const { module, files, built } of GRAMMARS) {
     const pkg = dirname(require.resolve(`${module}/package.json`));
     const { version } = require(`${module}/package.json`);
@@ -62,6 +62,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   };
   for (const wasm of BUNDLE_WASM) copyBundled(`${wasm}/tree-sitter-${wasm}.wasm`);
   for (const dir of BUNDLE_TAGS) copyBundled(`${dir}/tags.scm`);
-  copyFileSync(join(dirname(require.resolve("tree-sitter-wasm")), "LICENSE"), join(bundleDir, "tree-sitter-wasm.LICENSE"));
+  copyFileSync(join(dirname(require.resolve("tree-sitter-wasm")), "LICENSE"), join(bundleDir, "tree-sitter-wasm.LICENSE")); // NOSONAR: the output folder comes from whoever runs the build
   console.log(`vendored grammars → ${outDir} (${GRAMMARS.flatMap((g) => g.files).length} wasm, ${BUNDLE_WASM.length} from the bundle)`);
 }

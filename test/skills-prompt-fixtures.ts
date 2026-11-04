@@ -24,7 +24,7 @@ export function box(tag: string, opts: { now?: string; skills?: boolean; entry?:
   const home = tmpRepo(`recall-${tag}`);
   const repo = join(home, "src", "webshop");
   mkdirSync(repo, { recursive: true });
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "ignore" });
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "ignore" }); // NOSONAR: test fixture; runs the git on PATH on purpose
   git("init", "-q", "-b", "beta");
   git("remote", "add", "origin", "git@github.com:acme/webshop.git");
   git("-c", "user.email=dev@example.com", "-c", "user.name=dev", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "one");

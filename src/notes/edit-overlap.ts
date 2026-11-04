@@ -52,7 +52,7 @@ export interface FunctionOverlap {
 
 function git(repo: string, args: string[]): string | null {
   try {
-    return execFileSync("git", args, {
+    return execFileSync("git", args, { // NOSONAR: the person's own git, found through PATH on purpose
       cwd: repo,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],

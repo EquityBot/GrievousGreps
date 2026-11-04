@@ -171,7 +171,7 @@ export function startMcpServer(root: string, dirOverride?: string, version = '0'
           answer([brainsOnly ? NOT_CONNECTED_LINE : team ? teamLine(team.name, team.workspace) : '']);
           return;
         }
-        within(workspace.instructions(), deadline - Date.now(), '').then(({ value }) =>
+        void within(workspace.instructions(), deadline - Date.now(), '').then(({ value }) =>
           answer([value || (workspace.started() ? '' : workspace.refusal() ? REFUSED_LINE : UNREACHABLE_LINE)]),
         );
         return;
@@ -191,7 +191,7 @@ export function startMcpServer(root: string, dirOverride?: string, version = '0'
         }
         // Paired: the workspace's tools too, as it defines them. A repo tool's name wins a clash.
         const taken = new Set(local.map((t) => t.name));
-        tools.get(deadline).then((remote) =>
+        void tools.get(deadline).then((remote) =>
           reply(id, { tools: [...local, ...remote.filter((t) => !taken.has(t.name))] }),
         );
         return;
@@ -202,13 +202,13 @@ export function startMcpServer(root: string, dirOverride?: string, version = '0'
           reply(id, { prompts: [] });
           return;
         }
-        prompts.get(deadline).then((list) => reply(id, { prompts: list }));
+        void prompts.get(deadline).then((list) => reply(id, { prompts: list }));
         return;
       }
       case 'prompts/get': {
         if (isNotification) return;
         // Every prompt is the workspace's: the repo serves none. Never throws.
-        workspace.getPrompt(String(params?.name ?? ''), (params?.arguments ?? {}) as Record<string, unknown>).then((r) =>
+        void workspace.getPrompt(String(params?.name ?? ''), (params?.arguments ?? {}) as Record<string, unknown>).then((r) =>
           'result' in r ? reply(id, (r.result ?? {}) as object) : replyError(id, r.error.code, r.error.message),
         );
         return;
@@ -219,7 +219,7 @@ export function startMcpServer(root: string, dirOverride?: string, version = '0'
         const args = (params?.arguments ?? {}) as Record<string, unknown>;
         if (!isRepoTool(name) && (paired || brainsOnly)) {
           // The workspace's: passed to it as is. Never throws.
-          workspace.callTool(name, args).then((r) => reply(id, r));
+          void workspace.callTool(name, args).then((r) => reply(id, r));
           return;
         }
         if (brainsOnly) {

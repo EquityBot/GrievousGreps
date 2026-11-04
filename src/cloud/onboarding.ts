@@ -77,7 +77,7 @@ export function repoRef(repo: string): RepoRef {
 export function machineName(): string {
   if (process.platform === "darwin") {
     try {
-      const name = execFileSync("scutil", ["--get", "ComputerName"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 2000 }).trim();
+      const name = execFileSync("scutil", ["--get", "ComputerName"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 2000 }).trim(); // NOSONAR: the person's own scutil, found through PATH on purpose
       if (name) return name.slice(0, 80);
     } catch {
       /* the host name below */
@@ -527,7 +527,7 @@ export function learningsSummary(repo: string, learned: Array<{ note: Note; sess
 
 function git(repo: string, args: string[], timeout = 15_000): string | null {
   try {
-    return execFileSync("git", args, {
+    return execFileSync("git", args, { // NOSONAR: the person's own git, found through PATH on purpose
       cwd: repo,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -599,7 +599,7 @@ function fetchQuietly(repo: string): void {
   try {
     const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
     if (!env.GIT_SSH_COMMAND && !git(repo, ["config", "core.sshCommand"])?.trim()) env.GIT_SSH_COMMAND = "ssh -o BatchMode=yes";
-    execFileSync("git", ["fetch", "--quiet", "--prune", "origin"], { cwd: repo, stdio: "ignore", timeout: 20_000, env });
+    execFileSync("git", ["fetch", "--quiet", "--prune", "origin"], { cwd: repo, stdio: "ignore", timeout: 20_000, env }); // NOSONAR: the person's own git, found through PATH on purpose
   } catch {
     /* offline, or no origin: the refs already here */
   }

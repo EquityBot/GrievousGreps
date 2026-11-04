@@ -107,7 +107,7 @@ function privateDir(dir: string): void {
 function writeWhole(path: string, data: string): void {
   const f = fs();
   privateDir(dirname(path));
-  const tmp = `${path}.${process.pid}.${Math.random().toString(16).slice(2, 8)}.tmp`;
+  const tmp = `${path}.${process.pid}.${Math.random().toString(16).slice(2, 8)}.tmp`; // NOSONAR: a unique name in the owner's private folder, opened with 'wx'; it need not be unguessable
   try {
     const fd = f.openSync(tmp, 'wx', 0o600);
     try {
@@ -292,7 +292,7 @@ function asMark(v: unknown): PostMark | null {
 export function takePostMarks(sessionId: string, env: NodeJS.ProcessEnv = process.env): PostMark[] {
   const f = fs();
   const path = postPath(sessionId, env);
-  const aside = `${path}.${process.pid}.${Math.random().toString(16).slice(2, 8)}.take`;
+  const aside = `${path}.${process.pid}.${Math.random().toString(16).slice(2, 8)}.take`; // NOSONAR: a unique name in the owner's private folder; it need not be unguessable
   try {
     f.renameSync(path, aside);
   } catch {

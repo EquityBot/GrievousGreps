@@ -152,7 +152,7 @@ export interface WorkspaceGraphs {
  * `missing`, not dropped. */
 export function loadWorkspaceGraphs(root: string, override?: string): WorkspaceGraphs {
   const ws = readWorkspace(root, override);
-  const children = (ws ? ws.children : discoverWorkspaceChildren(root)).slice().sort();
+  const children = (ws ? ws.children : discoverWorkspaceChildren(root)).slice().sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   const loaded: LoadedChild[] = [];
   const missing: string[] = [];
   for (const child of children) {
@@ -178,7 +178,7 @@ function resolveWorkspaceIn(
 ): { onlyChild?: string; childIn?: string } {
   if (!scope) return {};
   const [onlyChild, ...rest] = normalizePathPrefix(scope).split("/");
-  const allChildren = [...wg.loaded.map((l) => l.child), ...wg.missing].sort();
+  const allChildren = [...wg.loaded.map((l) => l.child), ...wg.missing].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   if (!allChildren.includes(onlyChild)) {
     throw new Error(`no workspace repo "${onlyChild}" - repos: ${allChildren.join(", ")}`);
   }
@@ -719,7 +719,7 @@ export async function splitWorkspace(
   buildChild: (childDir: string, childName: string) => Promise<void>,
   onStart?: (info: { children: string[]; migrated: boolean }) => void,
 ): Promise<{ children: string[]; migrated: boolean }> {
-  const children = discoverWorkspaceChildren(root).slice().sort();
+  const children = discoverWorkspaceChildren(root).slice().sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   const migrated = hasMegaGraph(root, override);
   onStart?.({ children, migrated });
   for (const child of children) await buildChild(join(root, child), child);

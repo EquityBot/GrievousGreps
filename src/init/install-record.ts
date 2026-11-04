@@ -101,7 +101,7 @@ export function initLeftIt(files: InstallFiles | null, checkout: string, rel: st
 /** The paths of `git status --porcelain -z` (a rename's both sides), for the paths asked about. */
 function dirtyPaths(checkout: string, rels: string[], env: NodeJS.ProcessEnv): Set<string> | null {
   if (!rels.length) return new Set();
-  const r = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all', '--', ...rels], {
+  const r = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all', '--', ...rels], { // NOSONAR: the person's own git, found through PATH on purpose
     cwd: checkout, encoding: 'utf8', timeout: 10_000, env: { ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
   });
   if (r.status !== 0 || typeof r.stdout !== 'string') return null;

@@ -127,10 +127,10 @@ const QUERY = `query($owner: String!, $name: String!, $merged: Int!, $closed: In
 
 /** Whether the repo has a GitHub remote and `gh` is installed and signed in. Nothing leaves the machine. */
 export function ghReady(repo: string, gh = "gh"): boolean {
-  const remotes = spawnSync("git", ["-C", repo, "remote", "-v"], { encoding: "utf8", timeout: 5000 });
+  const remotes = spawnSync("git", ["-C", repo, "remote", "-v"], { encoding: "utf8", timeout: 5000 }); // NOSONAR: the person's own git, found through PATH on purpose
   if (remotes.status !== 0 || !/github/i.test(remotes.stdout)) return false;
   // The token never reaches trail: it's printed to nowhere, and only the exit code is read.
-  const auth = spawnSync(gh, ["auth", "token"], { cwd: repo, stdio: "ignore", timeout: 10_000, env: { ...process.env, GH_PROMPT_DISABLED: "1" } });
+  const auth = spawnSync(gh, ["auth", "token"], { cwd: repo, stdio: "ignore", timeout: 10_000, env: { ...process.env, GH_PROMPT_DISABLED: "1" } }); // NOSONAR: the person's own gh (or the one its caller names), found through PATH on purpose
   return auth.status === 0;
 }
 
@@ -336,7 +336,7 @@ export function repoDocs(repo: string): { id: string; text: string }[] {
 
 /** The repo's revert commits, newest first: what was tried and backed out. */
 export function revertCommits(repo: string): string {
-  const r = spawnSync("git", ["-C", repo, "log", "-n", "400", "--grep=^Revert", "--format=%h %ad %s%n%b%n---", "--date=short"], { encoding: "utf8", timeout: 15_000, maxBuffer: 16 * 1024 * 1024 });
+  const r = spawnSync("git", ["-C", repo, "log", "-n", "400", "--grep=^Revert", "--format=%h %ad %s%n%b%n---", "--date=short"], { encoding: "utf8", timeout: 15_000, maxBuffer: 16 * 1024 * 1024 }); // NOSONAR: the person's own git, found through PATH on purpose
   return r.status === 0 ? scrub(r.stdout.trim()).slice(0, DOC_CHARS) : "";
 }
 
@@ -408,7 +408,7 @@ export async function findReviewLearnings(
       system: BAR,
       schema: LEARNING_SCHEMA,
       // Each finding checked the moment it's written, so init can show it then; the list below is still the answer.
-      ...(opts.onLearning ? { onFinding: (raw: unknown) => verifyReviews([raw], read, docs).forEach(opts.onLearning!) } : {}),
+      ...(opts.onLearning ? { onFinding: (raw: unknown) => verifyReviews([raw], read, docs).forEach(opts.onLearning!) } : {}), // NOSONAR: onLearning takes one argument; forEach's index and array go unused
     },
   );
   const durationMs = Date.now() - started;
@@ -491,7 +491,7 @@ function onItsFiles(touches: string[], f: ReviewFinding): string[] {
 /** How many commits touched each file in the last 60 days: what the team is working on now. */
 function recentEdits(repo: string): Map<string, number> {
   const counts = new Map<string, number>();
-  const r = spawnSync("git", ["-C", repo, "log", "--since=60.days", "--name-only", "--format="], { encoding: "utf8", timeout: 15_000, maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync("git", ["-C", repo, "log", "--since=60.days", "--name-only", "--format="], { encoding: "utf8", timeout: 15_000, maxBuffer: 64 * 1024 * 1024 }); // NOSONAR: the person's own git, found through PATH on purpose
   if (r.status !== 0) return counts;
   for (const f of r.stdout.split("\n")) if (f) counts.set(f, (counts.get(f) ?? 0) + 1);
   return counts;

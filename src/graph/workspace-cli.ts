@@ -92,7 +92,7 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
   ensureGitignored(root, contextDirFor(root, opts.override));
   console.log(`✓ workspace: ${children.length} repos federated → graft/workspace.json`);
   console.log(`  graft/ is git-ignored — each teammate runs \`${cmd("graft build")}\` to regenerate it locally.`);
-  const notice = nativeFallbackNotice({ languages: [...fellBack.languages].sort(), packages: [...fellBack.packages].sort() });
+  const notice = nativeFallbackNotice({ languages: [...fellBack.languages].sort(), packages: [...fellBack.packages].sort() }); // NOSONAR: strings only, so the default code-unit order is deterministic
   if (notice) console.error(notice);
 }
 

@@ -258,7 +258,7 @@ export function repoPlace(start: string, env: NodeJS.ProcessEnv = process.env): 
 /** A repo's first commits (more than one after merging unrelated histories), sorted; [] without git or commits. */
 function rootCommits(checkout: string): string[] {
   try {
-    const out = execFileSync("git", ["rev-list", "--max-parents=0", "HEAD"], {
+    const out = execFileSync("git", ["rev-list", "--max-parents=0", "HEAD"], { // NOSONAR: the person's own git, found through PATH on purpose
       cwd: checkout,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],

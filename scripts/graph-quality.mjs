@@ -27,7 +27,7 @@ const wpath = arg.endsWith(".json") ? arg
   : [join(arg, "graft", ".graph", "wiring.json"), join(arg, "graft", "wiring.json")].find(existsSync);
 if (!wpath || !existsSync(wpath)) { console.error(`no graph found at ${arg} (run \`graft build\` first)`); process.exit(2); }
 
-const g = JSON.parse(readFileSync(wpath, "utf8"));
+const g = JSON.parse(readFileSync(wpath, "utf8")); // NOSONAR: a developer tool reading the graph file its caller names
 const nodes = g.nodes ?? [], edges = g.edges ?? [];
 const ids = new Set(nodes.map((n) => n.id));
 

@@ -187,7 +187,7 @@ function gitVisibleFiles(
   // Following uses `-t --stage` so one process can distinguish gitlinks from
   // tracked and untracked files. `-z` keeps either form safe for unusual paths.
   const result = spawnSync(
-    "git",
+    "git", // NOSONAR: the person's own git, found through PATH on purpose
     ["ls-files", "-t", "--stage", "--cached", "--others", "--exclude-standard", "-z", "--"],
     {
       cwd: root,
@@ -283,7 +283,7 @@ function gitVisibleFiles(
   }
 
   state.activeRoots.delete(rootKey);
-  return [...out].sort();
+  return [...out].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 /** The historical, non-recursive Git path. Kept separate so the default does
@@ -291,7 +291,7 @@ function gitVisibleFiles(
  * did before submodule support existed. */
 function gitVisibleFilesShallow(root: string, includes?: ReadonlySet<string>): string[] | null {
   const result = spawnSync(
-    "git",
+    "git", // NOSONAR: the person's own git, found through PATH on purpose
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--"],
     {
       cwd: root,

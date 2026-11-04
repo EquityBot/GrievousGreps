@@ -169,7 +169,7 @@ export function countSentence(item: InitItem, repoName: string): string {
 const plain = (t: string) => flatLine(t, 160);
 /** A draft line as one line with its own spacing kept (the steps' columns): no control or invisible character, at
  *  most 400 characters. */
-const spaced = (t: string) => Array.from(String(t ?? '').replace(/\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/g, ' ')
+const spaced = (t: string) => Array.from(String(t ?? '').replace(/\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/g, ' ') // NOSONAR: matches VT and FF line breaks on purpose
   .replace(/[\u0000-\u0008\u000e-\u001f\u007f-\u009f\p{Cf}]/gu, '')).slice(0, 400).join('');
 const quoted = (item: InitItem) => (item.kind === 'preference' ? `"${plain(item.title).replace(/"/g, "'")}"` : plain(item.title));
 /** A phrase as a sentence of its own: capital first, full stop last. */

@@ -17,7 +17,7 @@
 import type { OfferMoment, TypedAnswer } from '../trace/types.js';
 import { classifyAnswer } from '../trace/typed.js';
 
-const TRAILING_EMOJI = /[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]+$/u;
+const TRAILING_EMOJI = /[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]+$/u; // NOSONAR: each code point stands alone; the + strips whole ZWJ and skin-tone sequences
 
 /** 1a's answer form: lowercased, outer punctuation and a trailing emoji gone, commas and spaces as single spaces. */
 function form(typed: string): string {

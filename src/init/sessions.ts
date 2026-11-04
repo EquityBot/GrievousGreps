@@ -56,7 +56,7 @@ function scratch(cwd: string, top: string): boolean {
 }
 
 function git(dir: string, args: string[]): string {
-  const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", timeout: 5000 });
+  const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", timeout: 5000 }); // NOSONAR: the person's own git, found through PATH on purpose
   return r.status === 0 ? r.stdout.trim() : "";
 }
 
@@ -155,7 +155,7 @@ function transcriptFiles(home: string): { folder: string; path: string; size: nu
     return [];
   }
   const out: { folder: string; path: string; size: number; mtimeMs: number; readable: boolean }[] = [];
-  for (const folder of folders.sort()) {
+  for (const folder of folders.sort()) { // NOSONAR: strings only, so the default code-unit order is deterministic
     let names: string[];
     try {
       if (!lstatSync(join(projects, folder)).isDirectory()) continue;
@@ -163,7 +163,7 @@ function transcriptFiles(home: string): { folder: string; path: string; size: nu
     } catch {
       continue;
     }
-    for (const name of names.sort()) {
+    for (const name of names.sort()) { // NOSONAR: strings only, so the default code-unit order is deterministic
       const path = join(projects, folder, name);
       let size = 0;
       let mtimeMs = 0;
@@ -355,7 +355,7 @@ export function discoverSessions(repo: string, home: string = homedir(), now: Da
       found.sessionDays += days.size;
       for (const d of days) all.add(d);
     }
-    const sorted = [...all].sort();
+    const sorted = [...all].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
     found.days = sorted.length;
     if (sorted.length) {
       found.from = sorted[0];

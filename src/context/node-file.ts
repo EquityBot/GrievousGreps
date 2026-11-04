@@ -102,7 +102,7 @@ export function slugify(name: string): string {
 export function digestSources(sources: SourceRef[]): string {
   const lines = sources
     .map((s) => `${s.path}:${s.hash}`)
-    .sort()
+    .sort() // NOSONAR: strings only, so the default code-unit order is deterministic
     .join("\n");
   return contentHash(lines);
 }
@@ -210,7 +210,7 @@ function gitAlreadyIgnores(root: string, rel: string): boolean {
   try {
     const env = { ...process.env };
     for (const k of GIT_REPO_ENV) delete env[k];
-    const r = spawnSync("git", ["-c", "core.fsmonitor=false", "check-ignore", "-q", "--", `${rel}/`], {
+    const r = spawnSync("git", ["-c", "core.fsmonitor=false", "check-ignore", "-q", "--", `${rel}/`], { // NOSONAR: the person's own git, found through PATH on purpose
       cwd: root, env, stdio: "ignore", timeout: 5000, windowsHide: true,
     });
     return r.status === 0;

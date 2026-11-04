@@ -52,7 +52,7 @@ export async function startFakeTrail(port = 0): Promise<FakeTrail> {
     } catch {
       /* kept as null */
     }
-    const path = new URL(req.url ?? "/", "http://x").pathname;
+    const path = new URL(req.url ?? "/", "http://x").pathname; // NOSONAR: a base URL for parsing the request path; no request is made
     const auth = req.headers.authorization;
     log.push({ method: req.method ?? "", path, auth, body });
     const authed = auth === `Bearer ${TOKEN}`;
@@ -107,7 +107,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   setInterval(() => {
     for (; shown < t.log.length; shown++) {
       const l = t.log[shown]!;
-      console.log(`${l.method} ${l.path}${l.auth ? " (bearer)" : ""}\n${JSON.stringify(l.body, null, 2)}`);
+      console.log(`${l.method} ${l.path}${l.auth ? " (bearer)" : ""}\n${JSON.stringify(l.body, null, 2)}`); // NOSONAR: a local test server printing the requests it received
     }
   }, 200);
 }

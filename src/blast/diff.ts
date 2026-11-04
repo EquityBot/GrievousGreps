@@ -66,7 +66,7 @@ const MAX_FILE_LINES = 200;
 
 /** Run git in `root`, or return null when git fails (not a repo, unknown ref). */
 function git(root: string, args: string[]): string | null {
-  const res = spawnSync("git", ["-c", "core.quotePath=false", ...args], {
+  const res = spawnSync("git", ["-c", "core.quotePath=false", ...args], { // NOSONAR: the person's own git, found through PATH on purpose
     cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],

@@ -107,7 +107,7 @@ export function readBranchCache(repo: string): BranchCache | null {
 function git(repo: string, args: string[], timeout = 15_000): string | null {
   try {
     // Never a credential prompt: this runs detached, where nobody could answer it.
-    return execFileSync("git", args, {
+    return execFileSync("git", args, { // NOSONAR: the person's own git, found through PATH on purpose
       cwd: repo,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -166,7 +166,7 @@ function closedPrHeads(repo: string): ClosedHeads | null {
   if (!/github\.com[:/]/.test(origin)) return null;
   let out: string;
   try {
-    out = execFileSync("gh", ["pr", "list", "--state", "all", "--limit", "200", "--json", "headRefName,headRefOid,state"], {
+    out = execFileSync("gh", ["pr", "list", "--state", "all", "--limit", "200", "--json", "headRefName,headRefOid,state"], { // NOSONAR: the person's own gh, found through PATH on purpose
       cwd: repo,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],

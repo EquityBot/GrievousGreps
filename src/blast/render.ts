@@ -377,7 +377,7 @@ function detailSections(r: BlastReport, symbols: number, evidence?: (s: Impacted
     out.push("");
     out.push(`${plural(symbolCount, "symbol")}, kept out of the diagram and the table so they cannot crowd out the areas a reviewer has to look at.`);
     out.push("");
-    for (const f of [...files].sort().slice(0, 20)) out.push(`- \`${f}\``);
+    for (const f of [...files].sort().slice(0, 20)) out.push(`- \`${f}\``); // NOSONAR: strings only, so the default code-unit order is deterministic
     if (files.size > 20) out.push(`- …${files.size - 20} more`);
     out.push("");
     out.push("</details>");

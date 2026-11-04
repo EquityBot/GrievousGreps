@@ -227,7 +227,7 @@ function subdirs(dir: string, root: string): string[] {
 /** Every skill for the repo `dir` is in: the team's in the repo, then this machine's, by name. */
 export function listSkills(dir: string): Skill[] {
   const dirs = skillDirs(dir);
-  const names = [...new Set([...subdirs(dirs.repo, dirs.repoRoot), ...subdirs(dirs.home, dirs.homeRoot)])].sort();
+  const names = [...new Set([...subdirs(dirs.repo, dirs.repoRoot), ...subdirs(dirs.home, dirs.homeRoot)])].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   return names.map((n) => readSkill(dirs, n)).filter((s): s is Skill => s !== null);
 }
 

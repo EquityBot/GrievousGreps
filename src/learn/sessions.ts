@@ -192,7 +192,7 @@ export async function findSessionLearnings(
       system: BAR,
       schema: LEARNING_SCHEMA,
       // Each one checked against the digest the moment it's written, for init to show then.
-      ...(opts.onLearning ? { onFinding: (raw: unknown) => verifyLearnings([raw], sources).forEach(opts.onLearning!) } : {}),
+      ...(opts.onLearning ? { onFinding: (raw: unknown) => verifyLearnings([raw], sources).forEach(opts.onLearning!) } : {}), // NOSONAR: onLearning takes one argument; forEach's index and array go unused
     },
   );
   const durationMs = Date.now() - started;

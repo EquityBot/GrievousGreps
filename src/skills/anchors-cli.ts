@@ -168,7 +168,7 @@ function scanNames(files: string[], deadline: number): string[] | null {
     const text = readSmall(f, MAX_SRC_BYTES);
     if (text === null || !registrations(text, names)) return [];
   }
-  const list = [...names].filter((n) => NAME.test(n)).sort();
+  const list = [...names].filter((n) => NAME.test(n)).sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   return list.length === names.size && list.length <= 200 ? list : [];
 }
 

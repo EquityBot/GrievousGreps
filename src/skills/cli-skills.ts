@@ -60,7 +60,7 @@ export const personOnly = (command: string) => `Only the person can run this, in
 const one = (t: string, max = 60) => flatLine(t, max);
 
 /** Every line break a terminal or an agent might honour. */
-const BREAKS = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/;
+const BREAKS = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/; // NOSONAR: matches VT and FF line breaks on purpose
 /** Controls but tab (ESC, BEL, C1) and characters nobody sees: they can rewrite a terminal or hide a marker. */
 const UNSEEN = /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]|[\p{Cf}\ufe00-\ufe0f]/gu;
 const MARKER = /^(\s*)(?:\[(?:trail|graft|trail-code)\]\s*)+/i;

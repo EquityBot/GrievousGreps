@@ -282,7 +282,7 @@ export function isPoll(me: string, calls: RunCall[], normOf: (c: RunCall) => str
 /* ----------------------------------------------------------------- helpers */
 
 function scratchRoots(): string[] {
-  return [tmpdir(), process.env.TMPDIR ?? '', '/tmp', '/private/tmp', '/var/folders'].filter(Boolean).map((p) => resolve(p));
+  return [tmpdir(), process.env.TMPDIR ?? '', '/tmp', '/private/tmp', '/var/folders'].filter(Boolean).map((p) => resolve(p)); // NOSONAR: only compared against to spot scratch paths; nothing is written there
 }
 
 const POSIX_SCRATCH = ['/tmp', '/private/tmp', '/var/folders'];

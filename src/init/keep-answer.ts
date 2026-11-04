@@ -14,7 +14,7 @@
  */
 import type { KeepAnswer } from './types.js';
 
-const NUMS = /^(?:(?:please|keep|just|only)\s+)*(\d{1,2}(?:\s*(?:,|&|\band\b|\s)\s*\d{1,2})*)(?:\s+please)?$/;
+const NUMS = /^(?:(?:please|keep|just|only)\s+)*(\d{1,2}(?:\s*(?:,|&|\band\b|\s)\s*\d{1,2})*)(?:\s+please)?$/; // NOSONAR: parseKeepAnswer collapses whitespace and caps input at 200 characters first
 const ALL = /^(?:please\s+)?(?:keep\s+)?all(?:\s+of\s+them)?(?:\s+please)?$/;
 const NONE = /^(?:(?:keep\s+)?(?:none|nothing)|no)$/;
 
