@@ -18,7 +18,7 @@ import { containerLangOf, containerExtensions } from "./container.js";
 /** Every extension graft has a parser for (depth + breadth + container), sorted
  * and de-duped — the authoritative answer to "what does `-e` actually support". */
 export function supportedExtensions(): string[] {
-  return [...new Set([...depthExtensions(), ...genericExtensions(), ...containerExtensions()])].sort();
+  return [...new Set([...depthExtensions(), ...genericExtensions(), ...containerExtensions()])].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 /** Normalize a user-supplied extension: ensure a leading dot, lower-case. */

@@ -16,7 +16,7 @@ const FILE_MODES = new Set(["100644", "100755"]);
 function git(checkout: string, args: string[], input?: string): Buffer | null {
   try {
     // Never a credential prompt: this runs detached, where nobody could answer it.
-    return execFileSync("git", args, {
+    return execFileSync("git", args, { // NOSONAR: the person's own git, found through PATH on purpose
       cwd: checkout,
       input,
       stdio: ["pipe", "pipe", "ignore"],

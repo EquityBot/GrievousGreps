@@ -96,8 +96,8 @@ export class JobMiner {
           src: { t: h.t, size: h.size, mtimeMs: h.mtimeMs, run: { ...h.src }, prior: prior ? { t: prior.t, ...prior.src } : null, skillSha: '' },
         };
       });
-      const costlyDays = [...days].filter(([, c]) => c).map(([d]) => d).sort();
-      out.push({ job, days: [...days.keys()].sort(), costly: costlyDays.length, good, costlyDays, words: [...(this.words.get(job) ?? [])] });
+      const costlyDays = [...days].filter(([, c]) => c).map(([d]) => d).sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
+      out.push({ job, days: [...days.keys()].sort(), costly: costlyDays.length, good, costlyDays, words: [...(this.words.get(job) ?? [])] }); // NOSONAR: strings only, so the default code-unit order is deterministic
     }
     return out;
   }

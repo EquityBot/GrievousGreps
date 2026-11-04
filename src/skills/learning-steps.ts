@@ -121,12 +121,12 @@ const SENTENCE: Shape[] = [
   // "always run make lint before git push", "run lint before pushing"
   { re: re(String.raw`(?:always\s+)?run\s+${P}\s+(?:before|ahead of|prior to)\s+(?:you\s+)?(?:run\s+|running\s+)?${P}`), make: (m, t) => {
     const p = both(cmdOf(m[1]!, t), cmdOf(m[2]!, t));
-    return p ? [{ t: 'before', first: p[0], then: p[1] }] : null;
+    return p ? [{ t: 'before', first: p[0], then: p[1] }] : null; // NOSONAR: 'then' holds a Cmd object, not a function, so this is no thenable
   } },
   // "before git push, always run make lint"
   { re: re(String.raw`before\s+(?:you\s+)?(?:run\s+|running\s+)?${P}\s*,?\s+(?:always\s+)?run\s+${P}(?:\s+first)?`), make: (m, t) => {
     const p = both(cmdOf(m[2]!, t), cmdOf(m[1]!, t));
-    return p ? [{ t: 'before', first: p[0], then: p[1] }] : null;
+    return p ? [{ t: 'before', first: p[0], then: p[1] }] : null; // NOSONAR: 'then' holds a Cmd object, not a function, so this is no thenable
   } },
 ];
 

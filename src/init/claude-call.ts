@@ -10,7 +10,7 @@ import { flatLine } from "../notes/flatten.js";
 
 /** Whether `claude` (Claude Code) is on PATH. */
 function claudeOnPath(): boolean {
-  const r = spawnSync("claude", ["--version"], { stdio: "ignore", timeout: 10_000 });
+  const r = spawnSync("claude", ["--version"], { stdio: "ignore", timeout: 10_000 }); // NOSONAR: the person's own claude, found through PATH on purpose
   return r.status === 0;
 }
 

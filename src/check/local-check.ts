@@ -246,7 +246,7 @@ function filesAndDirs(list: string[]): { files: string[]; dirs: string[] } {
     const d = repoDir(f);
     if (d) dirs.add(d);
   }
-  return { files: [...files].sort(), dirs: [...dirs].sort() };
+  return { files: [...files].sort(), dirs: [...dirs].sort() }; // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 function words(s: string): string[] {

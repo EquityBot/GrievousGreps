@@ -105,7 +105,7 @@ function renderCard(
   conceptSlugs: string[],
 ): string {
   const uplinks = conceptSlugs
-    .sort()
+    .sort() // NOSONAR: strings only, so the default code-unit order is deterministic
     .map((s) => `[[${s}]]`)
     .join(" ");
   const head = uplinks ? `# ${sourcePath} · ${uplinks}` : `# ${sourcePath}`;
@@ -315,7 +315,7 @@ export function writeCovers(graph: GraphV1, outDir: string): number {
       : [];
 
     const covers: CoverRef[] = [];
-    for (const path of [...new Set(sources.map((s) => s.path ?? ""))].sort()) {
+    for (const path of [...new Set(sources.map((s) => s.path ?? ""))].sort()) { // NOSONAR: strings only, so the default code-unit order is deterministic
       for (const n of symbolsByPath.get(path) ?? []) {
         covers.push({ symbol: n.name, kind: n.kind, at: `${n.path}:${n.span}` });
       }

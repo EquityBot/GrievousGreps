@@ -242,7 +242,7 @@ function localDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const deltaKey = (f: Fixed) => f.delta.map((x) => `${x.kind}:${x.name}`).sort().join(',');
+const deltaKey = (f: Fixed) => f.delta.map((x) => `${x.kind}:${x.name}`).sort().join(','); // NOSONAR: strings only, so the default code-unit order is deterministic
 
 /**
  * Earlier epochs (not this one) where (repo, cls, program) was hit and fixed, in the 45 days up to `now` (moment 3).
@@ -276,7 +276,7 @@ export function repairsSeen(w: WallsFile, repo: string, cls: WallClass, program:
 /** Distinct local days a class was seen on this machine (init's guardrail bar, 4.5), oldest first; none after today. */
 export function wallDays(w: WallsFile, cls: WallClass, now: Date = new Date()): string[] {
   const today = localDay(now);
-  return [...new Set((w.classes?.[cls]?.seen ?? []).map((s) => s.d).filter((d) => d <= today))].sort();
+  return [...new Set((w.classes?.[cls]?.seen ?? []).map((s) => s.d).filter((d) => d <= today))].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 /** Distinct epochs `lessonId` worked in for `cls`, none dated after today. */

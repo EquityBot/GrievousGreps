@@ -148,7 +148,7 @@ export async function checkGraph(
   }
 
   for (const arr of [result.added, result.removed, result.changed, result.stale, result.pendingIds]) {
-    arr.sort();
+    arr.sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   }
 
   result.ok =

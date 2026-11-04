@@ -41,7 +41,7 @@ function holdsCode(dir: string, exts: Set<string>): boolean {
  * dot folders are left out. Empty outside git, or when git can't say.
  */
 export function ignoredCode(root: string, limit = 20): string[] {
-  const r = spawnSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory"], {
+  const r = spawnSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory"], { // NOSONAR: the person's own git, found through PATH on purpose
     cwd: root,
     encoding: "utf8",
     timeout: 3000,

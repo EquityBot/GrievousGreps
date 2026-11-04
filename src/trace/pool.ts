@@ -51,7 +51,7 @@ function cleanEntry(v: unknown): PoolEntry | null {
     words: Array.isArray(e.words) ? e.words.filter((w): w is string => typeof w === 'string').slice(0, MAX_WORDS) : [],
     days,
     lastGoodRun: typeof e.lastGoodRun === 'string' ? e.lastGoodRun : null,
-    lastSeen: typeof e.lastSeen === 'string' ? e.lastSeen : days.map((d) => d.d).sort().at(-1) ?? '',
+    lastSeen: typeof e.lastSeen === 'string' ? e.lastSeen : days.map((d) => d.d).sort().at(-1) ?? '', // NOSONAR: strings only, so the default code-unit order is deterministic
     shownAtInit: e.shownAtInit === true,
   };
 }

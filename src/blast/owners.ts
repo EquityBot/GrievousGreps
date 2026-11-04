@@ -113,7 +113,7 @@ function isBot(name: string, email: string): boolean {
 
 /** Run git in `root`, or null when git fails — not a repo, no git, no history. */
 function git(root: string, args: string[]): string | null {
-  const res = spawnSync("git", ["-c", "core.quotePath=false", ...args], {
+  const res = spawnSync("git", ["-c", "core.quotePath=false", ...args], { // NOSONAR: the person's own git, found through PATH on purpose
     cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -133,7 +133,7 @@ function git(root: string, args: string[]): string | null {
  * cost to graft.
  */
 export function ownersFor(root: string, files: string[], opts: OwnerOptions = {}): Owner[] {
-  const paths = [...files].sort().slice(0, MAX_PATHSPEC);
+  const paths = [...files].sort().slice(0, MAX_PATHSPEC); // NOSONAR: strings only, so the default code-unit order is deterministic
   if (paths.length === 0) return [];
 
   const now = opts.now ?? Date.now();

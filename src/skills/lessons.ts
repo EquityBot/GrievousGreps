@@ -80,7 +80,7 @@ const LEAD = /^(?:(?:no(?!\s+(?:need|reason|point|use|more|longer|way|one|matter
 /** A tag question at the clause's end (", right", ", did it"): not part of the lesson. */
 const TAG = /,\s*(?:right|ok(?:ay)?|yeah|yes|no|eh|huh|(?:did|didn'?t|does|doesn'?t|is|isn'?t|was|wasn'?t)\s+(?:it|you))\s*$/i;
 /** Every line break flatLine knows: the person's clause ends at the first (what follows can be a pasted log). */
-const BREAK = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/;
+const BREAK = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/; // NOSONAR: matches VT and FF line breaks on purpose
 /** A comma before a new subject ends the clause ("don't publish locally, it breaks CI"). */
 const NEW_SUBJECT = /,\s*(?:(?:and|but|so|then)\s+)?(?:i|you|we|it|they|he|she|that|this|there|which)\b/i;
 const QUESTION = /^(?:did|does|can|could|would|will|is|are|was|were|why|what|how|where|when|who|which|shall)\b|^(?:do|have|has)\s+(?:you|we|i|they|it)\b/i;

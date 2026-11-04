@@ -190,7 +190,7 @@ function scriptAnchor(w: string[], step: number, dir: string | null, out: Anchor
   else if (pm === 'bun') name = rest[0] === 'run' ? rest[1] : undefined;
   else name = rest[0] === 'run' ? rest[1] : rest[0] && !PM_OWN.has(rest[0]) ? rest[0] : undefined;
   if (!name || opaque(name) || at === null) return;
-  if (/\/|\.(?:[cm]?[jt]sx?|sh)$/.test(name)) return; // a file run by bun or yarn, not a script
+  if (/\/|\.(?:[cm]?[jt]sx?|sh)$/.test(name)) return; // NOSONAR: '/' anywhere or a script extension at the end, as intended; a file run by bun or yarn, not a script
   // npm run and pnpm run run scripts only; yarn [run] X, pnpm X and bun run X fall back to node_modules/.bin (review).
   const bin = pm === 'yarn' || pm === 'bun' || (pm === 'pnpm' && rest[0] !== 'run');
   out.push({ kind: 'script', name, step, ...(at ? { dir: at } : {}), ...(bin ? { bin: true } : {}) });

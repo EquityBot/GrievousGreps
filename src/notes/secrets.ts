@@ -196,9 +196,9 @@ const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g
  */
 const PLACEHOLDER = /^(?:\$|`|%|\{|<|\*{3}|x{3,}|\.{3}|\[redacted\]|changeme$|password$|secret$|your[_-]|example)/i;
 /** A value that says it is a stand-in: `sb_secret_placeholder`, `fake-key-for-tests`, `nn...`. */
-const STAND_IN = /placeholder|example|dummy|redacted|changeme|(?:^|[_-])(?:fake|test|invalid|wrong|bogus)(?:[_-]|$)|(?:\.{3}|…)$/i;
+const STAND_IN = /placeholder|example|dummy|redacted|changeme|(?:^|[_-])(?:fake|test|invalid|wrong|bogus)(?:[_-]|$)|(?:\.{3}|…)$/i; // NOSONAR: '$' anchors only the trailing-ellipsis alternative, as intended
 /** A pattern, not a value: `(.+)`, `[^&]*`, `.*`, `\d+` (a grep or sed that looks for secrets). */
-const PATTERN = /^[()[\]|\\^]|\.[*+?{]|\[\^|\\[dswbDSW]|\(\?|\]\{\d/;
+const PATTERN = /^[()[\]|\\^]|\.[*+?{]|\[\^|\\[dswbDSW]|\(\?|\]\{\d/; // NOSONAR: '^' anchors only the leading-metacharacter alternative, as intended
 
 /**
  * …or a bracket with a range in it (`[a-z0-9]`). Only the first `[` after a
@@ -220,7 +220,7 @@ const LOCAL_HOST = /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\.docker\.
  */
 const SECRET_NAME = /(?<![A-Za-z0-9_.-])[A-Za-z0-9_.-]*(?:password|passwd|pwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|auth[_-]?key)[A-Za-z0-9_-]*/gi;
 /** …unless the name is about the secret rather than holding it: `MAX_TOKENS`, `TOKEN_TTL`, `API_KEY_ID`. */
-const ABOUT_A_SECRET = /tokens\b|tokeniz|(?:^|[_.-])(?:max|min|num)[_-]|[_.-](?:ttl|expiry|expires?|expiration|length|len|count|limit|max|min|size|timeout|url|uri|path|file|dir|name|type|header|endpoint|id|env|var|field|policy|rotation|days|hours|seconds)$/i;
+const ABOUT_A_SECRET = /tokens\b|tokeniz|(?:^|[_.-])(?:max|min|num)[_-]|[_.-](?:ttl|expiry|expires?|expiration|length|len|count|limit|max|min|size|timeout|url|uri|path|file|dir|name|type|header|endpoint|id|env|var|field|policy|rotation|days|hours|seconds)$/i; // NOSONAR: '^' and '$' anchor only their own alternatives, as intended
 /** …in camelCase: `APIKeyID`, `tokenUrl`, `secretName`. */
 const ABOUT_A_SECRET_CAMEL = /[a-z0-9](?:Id|ID|Ids|IDs|Name|Url|URL|Uri|URI|Path|File|Type|Header|Env|Length|Count|Ttl|TTL|Expiry|Field)$/;
 /** `= value` or `: value`, not `==`, `===` or `::`. The value ends where code or a query would go on. */

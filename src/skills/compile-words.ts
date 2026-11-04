@@ -33,7 +33,7 @@ export const RESERVED_ID = /^(?:ls-[0-9a-f]{6}|l-[0-9a-f]{6,16})$/;
 
 /** NAME_RE, not built in, not an id's shape, and a valid Agent Skills name (no `--`, no trailing `-`). */
 export function goodName(name: string): boolean {
-  return NAME_RE.test(name) && !/--|-$/.test(name) && !BUILT_IN_NAMES.has(name) && !RESERVED_ID.test(name);
+  return NAME_RE.test(name) && !/--|-$/.test(name) && !BUILT_IN_NAMES.has(name) && !RESERVED_ID.test(name); // NOSONAR: '--' anywhere or '-' at the end, as intended
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -13,7 +13,7 @@ import { compactBoundary, jsonl, said, toolResult, toolUse, typed } from "./trac
 
 export const SHOP = "github.com/acme/shop";
 
-const git = (dir: string, ...args: string[]) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8" });
+const git = (dir: string, ...args: string[]) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8" }); // NOSONAR: test fixture; runs the git on PATH on purpose
 
 /** A git checkout at `dir` whose origin is `remote`, with one commit. */
 export function checkout(dir: string, remote: string): string {

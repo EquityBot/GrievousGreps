@@ -286,13 +286,13 @@ function dropServer(path: string, names: string[]): void {
  */
 export function keepOutOfGit(dir: string, rel: string): void {
   try {
-    execFileSync('git', ['check-ignore', '-q', '--', rel], { cwd: dir, stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['check-ignore', '-q', '--', rel], { cwd: dir, stdio: 'ignore', windowsHide: true }); // NOSONAR: the person's own git, found through PATH on purpose
     return; // exit 0: already ignored
   } catch (e) {
     if ((e as { status?: number }).status !== 1) return; // 128: not a git checkout
   }
   try {
-    let exclude = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
+    let exclude = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim(); // NOSONAR: the person's own git, found through PATH on purpose
     if (!isAbsolute(exclude)) exclude = join(dir, exclude);
     const line = `/${rel.split('\\').join('/')}`;
     const text = existsSync(exclude) ? readFileSync(exclude, 'utf8') : '';

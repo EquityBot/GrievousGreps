@@ -73,7 +73,7 @@ function git(dir: string, args: string[], token?: string): { ok: boolean; out: s
       ]
     : [];
   const res = spawnSync(
-    "git",
+    "git", // NOSONAR: the person's own git, found through PATH on purpose
     ["-c", "core.hooksPath=/dev/null", "-c", "protocol.version=2", ...auth, ...args],
     {
       cwd: dir,

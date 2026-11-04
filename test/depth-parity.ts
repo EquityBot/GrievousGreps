@@ -59,7 +59,7 @@ function readGraphJson(contextDir: string): GraphV1 {
 /** The node minus the meaning layer, which a Tier-1 build leaves pending anyway. */
 function nodeKey(n: NodeV1): string {
   const { summary: _s, summary_state: _ss, crux: _c, ...rest } = n;
-  return JSON.stringify(rest, Object.keys(rest).sort());
+  return JSON.stringify(rest, Object.keys(rest).sort()); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 const edgeKey = (e: EdgeV1): string => JSON.stringify([e.source, e.relation, e.target, e.confidence]);
 

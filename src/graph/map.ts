@@ -135,7 +135,7 @@ function sortedLanguages(paths: string[]): string[] {
     const label = languageLabelOf(p);
     if (label) set.add(label);
   }
-  return [...set].sort();
+  return [...set].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 /**

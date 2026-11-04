@@ -25,7 +25,7 @@ const INVISIBLE = /[\p{Cf}\ufe00-\ufe0f\u{e0100}-\u{e01ef}]/gu;
 /** Control characters other than tab and the line breaks below (ESC, BEL, DEL, C1 but NEL). */
 const CONTROL = /[\u0000-\u0008\u000e-\u001f\u007f-\u0084\u0086-\u009f]/g;
 /** Every line break JavaScript, YAML or a terminal might honour. */
-const BREAK = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/;
+const BREAK = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/; // NOSONAR: matches VT and FF line breaks on purpose
 /** `[trail]`, `[graft]`, `[trail-code]`, any case, once or more, at the start. */
 const MARKER = /^\s*(?:\[(?:trail|graft|trail-code)\]\s*)+/i;
 

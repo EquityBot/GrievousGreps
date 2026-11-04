@@ -139,7 +139,7 @@ function batchKey(batch: FileSummary[], hashByPath: ReadonlyMap<string, string>)
   return contentHash(
     batch
       .map((f) => `${f.path}:${hashByPath.get(f.path) ?? ""}`)
-      .sort()
+      .sort() // NOSONAR: strings only, so the default code-unit order is deterministic
       .join("\n"),
   );
 }

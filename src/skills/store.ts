@@ -50,7 +50,7 @@ function personalEntries(env?: NodeJS.ProcessEnv): Entry[] {
     return [];
   }
   const out: Entry[] = [];
-  for (const name of names.sort()) {
+  for (const name of names.sort()) { // NOSONAR: strings only, so the default code-unit order is deterministic
     if (name.startsWith('.') || !safeName(name) || !statOrNull(join(skillsDir(env), name))?.isDirectory()) continue;
     const text = readCapped(join(skillsDir(env), name, 'SKILL.md'));
     const skill = text === null ? null : parseSkillMd(text, name);

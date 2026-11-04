@@ -85,7 +85,7 @@ function compile(module, pkg, file) {
     if (!text.includes(from)) throw new Error(`${module}: patch target not found in src/${name}: ${from}`);
     writeFileSync(p, text.replace(from, to));
   }
-  execFileSync("npx", ["--yes", `tree-sitter-cli@${CLI}`, "build", "--wasm", "-o", join(builtDir, file), "."], {
+  execFileSync("npx", ["--yes", `tree-sitter-cli@${CLI}`, "build", "--wasm", "-o", join(builtDir, file), "."], { // NOSONAR: developer script; runs the npx on PATH on purpose
     cwd: work,
     stdio: "inherit",
     shell: process.platform === "win32",

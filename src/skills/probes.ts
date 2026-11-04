@@ -100,7 +100,7 @@ function socketWords(path: string): { why: string; fix: string } {
 
 const defaultGit: ProbeGit = (args, cwd, timeoutMs) => {
   try {
-    const out = execFileSync('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', ...args], {
+    const out = execFileSync('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', ...args], { // NOSONAR: the person's own git, found through PATH on purpose
       cwd, timeout: timeoutMs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 1 << 20,
       env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
     });

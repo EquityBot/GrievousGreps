@@ -189,8 +189,8 @@ export function probeDrift(root: string, outDir: string): Drift | null {
     if (!seen.has(rel)) drift.removed.push(rel);
   }
 
-  drift.changed.sort();
-  drift.added.sort();
-  drift.removed.sort();
+  drift.changed.sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
+  drift.added.sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
+  drift.removed.sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   return drift;
 }

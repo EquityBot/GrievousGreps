@@ -108,7 +108,7 @@ function stem(w: string): string {
 /** Content words, stemmed, sorted, once each (4.4 step 2). */
 export function contentWords(text: string): string[] {
   const words = String(text ?? '').toLowerCase().split(/[^a-z0-9'+-]+/).map((w) => w.replace(/^['-]+|['-]+$/g, '')).filter((w) => w && !STOP.has(w));
-  return [...new Set(words.map(stem))].filter(Boolean).sort();
+  return [...new Set(words.map(stem))].filter(Boolean).sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
 }
 
 /** |a ∩ b| / |a ∪ b|; 0 when both are empty. */
@@ -129,7 +129,7 @@ export const NEAR_WORDS = 0.8;
 /** On this many local days or more. */
 export const NEAR_DAYS = 3;
 /** A request for something now, not a way of working: aimed at the person ("show me"), or tied to a time ("today"). */
-const NEAR_REQUEST = /^\S+\s+(?:me|us)\b|\b(?:today|tonight|yesterday|tomorrow|right now|this (?:morning|afternoon|evening|week))\b/i;
+const NEAR_REQUEST = /^\S+\s+(?:me|us)\b|\b(?:today|tonight|yesterday|tomorrow|right now|this (?:morning|afternoon|evening|week))\b/i; // NOSONAR: '^' anchors only the 'show me' alternative; time words match anywhere
 
 /**
  * D135 (2): a short imperative that 4.4's shape doesn't read ("add a changelog entry for each fix"): an imperative
@@ -177,7 +177,7 @@ function clusterLines(typed: Line[], shape: (text: string) => boolean, same: num
   }
   const out: PrefCluster[] = [];
   for (const c of clusters) {
-    const days = [...new Set(c.map((l) => l.day))].sort();
+    const days = [...new Set(c.map((l) => l.day))].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
     if (days.length < minDays) continue;
     const times = c.map((l) => l.time).filter((t) => !Number.isNaN(t));
     if (times.length === c.length && Math.max(...times) - Math.min(...times) < SITTING_MS) continue;
@@ -268,7 +268,7 @@ export function repoWordsOf(checkout: string, programs: Iterable<string> = []): 
       for (const m of (readPlain(join(checkout, file), REPO_FILE_MAX) ?? '').matchAll(/^([A-Za-z0-9][\w.-]*)\s*:(?!=)/gm)) add(m[1]);
     } catch { /* none */ }
   }
-  const r = spawnSync('git', ['-C', checkout, 'for-each-ref', '--format=%(refname:short)', '--count=200', 'refs/heads'], { encoding: 'utf8', timeout: 5000 });
+  const r = spawnSync('git', ['-C', checkout, 'for-each-ref', '--format=%(refname:short)', '--count=200', 'refs/heads'], { encoding: 'utf8', timeout: 5000 }); // NOSONAR: the person's own git, found through PATH on purpose
   if (r.status === 0) for (const b of r.stdout.split('\n')) add(b);
   // A program the sessions ran names the repo only when it is a script file of its own (`seed.sh`), never a program
   // every machine has (D102).

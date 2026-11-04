@@ -305,7 +305,7 @@ const shortDay = (d: string) => {
 export function lastTimeText(lessonText: string, workedOn: string[]): string {
   // Only real days count as epochs: junk in the list is no second epoch.
   const valid = (Array.isArray(workedOn) ? workedOn : []).filter((d) => typeof d === 'string' && DAY.test(d));
-  const days = [...new Set(valid)].sort();
+  const days = [...new Set(valid)].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   const text = flatLine(lessonText, 200);
   if (!text || valid.length < 2) return '';
   const [d1, d2] = days.slice(-2);

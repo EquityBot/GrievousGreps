@@ -264,7 +264,7 @@ function readTsImports(root: string, repoFiles: string[]): { tsPaths: TsPaths[];
     try {
       const text = readFileInside(root, join(root, rel)) ?? "";
       return JSON.parse(text
-        .replace(/"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|\/\/.*$/gm, (m) => (m.startsWith('"') ? m : ""))
+        .replace(/"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|\/\/.*$/gm, (m) => (m.startsWith('"') ? m : "")) // NOSONAR: '$' belongs to the line-comment alternative alone, as intended
         .replace(/,(\s*[}\]])/g, "$1"));
     } catch {
       return null; // a link out of the repo or an unreadable config states nothing
@@ -553,7 +553,7 @@ export async function buildGraph(
       version: 1,
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      languages: [...langs].sort(),
+      languages: [...langs].sort(), // NOSONAR: strings only, so the default code-unit order is deterministic
       scopes,
     },
     nodes,
@@ -655,9 +655,9 @@ export async function buildGraph(
     edges: edges.length,
     byKind,
     byRelation,
-    languages: [...langs].sort(),
+    languages: [...langs].sort(), // NOSONAR: strings only, so the default code-unit order is deterministic
     ...(fellBack.size > 0
-      ? { nativeFallback: { languages: [...fellBackLabels].sort(), packages: missingDepthPackages(fellBack) } }
+      ? { nativeFallback: { languages: [...fellBackLabels].sort(), packages: missingDepthPackages(fellBack) } } // NOSONAR: strings only, so the default code-unit order is deterministic
       : {}),
     meaning,
     errors,

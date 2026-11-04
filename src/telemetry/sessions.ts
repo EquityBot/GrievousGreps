@@ -98,7 +98,7 @@ export function flushClosedSessions(
     const dir = sessionDir(repo);
 
     let queued = 0;
-    for (const id of listSessionIds(repo).sort()) {
+    for (const id of listSessionIds(repo).sort()) { // NOSONAR: strings only, so the default code-unit order is deterministic
       if (queued >= MAX_PER_RUN) break;
       let mtime: number;
       try { mtime = statSync(join(dir, `${id}.json`)).mtimeMs; } catch { continue; }

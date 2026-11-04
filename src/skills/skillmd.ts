@@ -35,7 +35,7 @@ const META_ORDER: ReadonlyArray<keyof SkillMeta> = [
 /** Values that are commands or command lists: kept as typed, only made one line. */
 const COMMAND_KEYS = new Set<string>(['params', 'needs', 'ready', 'check-first', 'confirm-before', 'check']);
 
-const BREAKS = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/g;
+const BREAKS = /\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/g; // NOSONAR: matches VT and FF line breaks on purpose
 const HIDDEN = /[\p{Cf}\ufe00-\ufe0f\u{e0100}-\u{e01ef}\u0000-\u0008\u000e-\u001f\u007f-\u0084\u0086-\u009f]/gu;
 const MARKER = /^\s*(?:\[(?:trail|graft|trail-code)\]\s*)+/i;
 

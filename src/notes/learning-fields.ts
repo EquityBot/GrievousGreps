@@ -83,7 +83,7 @@ const SKILL_NAME = /^(?=[a-z0-9-]*[a-z])[a-z0-9][a-z0-9-]{1,47}$/;
 function skillName(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.trim().toLowerCase();
-  return SKILL_NAME.test(s) && !/--|-$/.test(s) ? s : undefined;
+  return SKILL_NAME.test(s) && !/--|-$/.test(s) ? s : undefined; // NOSONAR: '--' anywhere or '-' at the end, as intended
 }
 
 /** The file name in a path: after the last `/`, `\\` or a branch ref's `:`. */

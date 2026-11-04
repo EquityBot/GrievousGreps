@@ -84,7 +84,7 @@ function decisionsOf(repoKey: string, env: NodeJS.ProcessEnv): NonNullable<LookB
 
 /** An https origin with no credential helper: git-https-auth is still true here (4.5). */
 function httpsNoHelper(checkout: string): boolean {
-  const git = (...args: string[]) => spawnSync('git', ['-C', checkout, ...args], { encoding: 'utf8', timeout: 5000 });
+  const git = (...args: string[]) => spawnSync('git', ['-C', checkout, ...args], { encoding: 'utf8', timeout: 5000 }); // NOSONAR: the person's own git, found through PATH on purpose
   const url = git('remote', 'get-url', 'origin');
   if (url.status !== 0 || !/^https:\/\//.test(url.stdout.trim())) return false;
   const helper = git('config', '--get-all', 'credential.helper');
@@ -172,7 +172,7 @@ export function lookBack(dir: string, opts: LookBackOpts): LookBackResult {
       lb.sessions.push({ sh: r.sh, how: s.source ?? 'own', days: sDays.size });
     }
     if (done < total) lb.errors.push(`couldn't read ${total - done} of ${total} sessions this time (out of time)`);
-    const sorted = [...days].sort();
+    const sorted = [...days].sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
     lb.days = sorted.length;
     lb.from = sorted[0] ?? null;
     lb.to = sorted[sorted.length - 1] ?? null;

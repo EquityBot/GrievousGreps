@@ -104,7 +104,7 @@ function skillItems(i: CandidateInput, now: Date): InitCandidate[] {
     }
     const programs = [...new Set(made.compiled.steps.map((s) => s.cmd.trim().split(/\s+/)[0] ?? '').filter(Boolean))];
     const file = howtoDescribes(i.howtos, j.job, programs);
-    const dates = j.days.map(dateOf).sort();
+    const dates = j.days.map(dateOf).sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
     out.push({
       id, kind: 'skill', key, plainName: made.compiled.name, nameWords: [made.compiled.name],
       count: { days: j.days.length, from: dates[0]!, to: dates[dates.length - 1]!, costly: j.costly },

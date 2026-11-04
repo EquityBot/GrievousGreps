@@ -39,7 +39,7 @@ export const NOT_SAVE = /\b(?:don'?t|do not|never|no need to|not|shouldn'?t|shou
 /** Asked, then taken back ("... actually no", "... ? nah", "never mind"), or not now ("not yet, ... later"). */
 const TAKEN_BACK = /\b(?:actually,? no|no,? wait|wait,? no|never ?mind|on second thought|scratch that|forget (?:it|that)|just kidding)\b|\b(?:nah|nope|no|don'?t|later)\W*$|^\W*not (?:yet|now)\b/i;
 /** Wondering, asking why or how, not asking for it. */
-const WONDERING = /^\s*why\b|\bwhy (?:did|didn'?t|would|do|does|is|are)\b|\bwhat (?:happens|if)\b|(?<!remember )\bhow (?:do|does|would|can|could|should|to)\b|\bexplain (?:how|what|why)\b|\bshould (?:i|we)\b|\bwhether\b/i;
+const WONDERING = /^\s*why\b|\bwhy (?:did|didn'?t|would|do|does|is|are)\b|\bwhat (?:happens|if)\b|(?<!remember )\bhow (?:do|does|would|can|could|should|to)\b|\bexplain (?:how|what|why)\b|\bshould (?:i|we)\b|\bwhether\b/i; // NOSONAR: '^' anchors only the leading 'why' alternative, as intended
 /** Asking whether the agent recalls a past run: "do you remember how...", "remember how you did this last time?". */
 const RECALLING = /\b(?:do|did|can|could) (?:you|u) remember\b|\bremember how\b[^.?!\n]*\b(?:last time|before|yesterday|earlier)\b/i;
 
@@ -76,7 +76,7 @@ const NO = [
   /^(n|no|nope|nah|not now|no thanks|no thank you|don'?t|skip( it)?|never ?mind|pass)( thanks| thank you)?$/,
   /^(no )?(don'?t|do not)( (save|keep) (it|this|that|them)( as a skill)?)?( thanks| thank you)?$/,
 ];
-const TRAILING_EMOJI = /[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]+$/u;
+const TRAILING_EMOJI = /[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]+$/u; // NOSONAR: each code point stands alone; the + strips whole ZWJ and skin-tone sequences
 
 /**
  * The whole message as one answer: lowercased, outer punctuation and a trailing emoji gone, commas and

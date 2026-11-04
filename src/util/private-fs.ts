@@ -202,7 +202,7 @@ export function withLock<T>(path: string, fn: () => T, waitMs = 200): Locked<T> 
   let mine: Stats | null = null;
   // The pid, and a nonce: Linux hands a freed inode to the next file at once, so a lock that was taken over
   // can have our inode number; its text tells it apart.
-  const token = `${process.pid} ${Math.random().toString(16).slice(2, 10)}`;
+  const token = `${process.pid} ${Math.random().toString(16).slice(2, 10)}`; // NOSONAR: tells our lock from another's; it need not be unguessable
   let wrote = false;
   try {
     try { mine = fstatSync(fd); } catch { /* checked below */ }

@@ -322,8 +322,8 @@ function checkValues(cue: CueResult, np: NormPrompt, block: SkillInjection | nul
 }
 
 const sameValues = (a: Record<string, string>, b: Record<string, string>) => {
-  const ka = Object.keys(a).sort();
-  const kb = Object.keys(b).sort();
+  const ka = Object.keys(a).sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
+  const kb = Object.keys(b).sort(); // NOSONAR: strings only, so the default code-unit order is deterministic
   return ka.length === kb.length && ka.every((k, i) => k === kb[i] && a[k] === b[k]);
 };
 
