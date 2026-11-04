@@ -2,19 +2,23 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 use serde_json::Value;
 
-fn gg_docs(dir: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_gg-docs"))
+fn command(dir: &Path, args: &[&str]) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_gg-docs"));
+    command
         .arg("--root")
         .arg(dir.join("root"))
         .arg("--db")
         .arg(dir.join("index/docs.turso"))
-        .args(args)
-        .output()
-        .unwrap()
+        .args(args);
+    command
+}
+
+fn gg_docs(dir: &Path, args: &[&str]) -> Output {
+    command(dir, args).output().unwrap()
 }
 
 fn folder() -> tempfile::TempDir {
@@ -114,5 +118,56 @@ fn usage_errors_exit_2_and_domain_errors_exit_1() {
         String::from_utf8(missing.stderr)
             .unwrap()
             .starts_with("gg-docs: missing.md:")
+    );
+}
+
+#[test]
+fn concurrent_runs_on_one_index_all_answer() {
+    let dir = folder();
+    for i in 0..20 {
+        let note = format!(
+            "# Note {i}
+
+A claim lapses after {i} hours.
+"
+        );
+        fs::write(dir.path().join(format!("root/note{i}.md")), note).unwrap();
+    }
+    let race = |runs: &[&[&str]]| {
+        let children: Vec<_> = runs
+            .iter()
+            .map(|args| {
+                let mut command = command(dir.path(), args);
+                command.stdout(Stdio::piped()).stderr(Stdio::piped());
+                command.spawn().unwrap()
+            })
+            .collect();
+        for child in children {
+            let out = child.wait_with_output().unwrap();
+            assert!(out.status.success(), "{out:?}");
+        }
+    };
+    let search: &[&str] = &["search", "claim", "lapses"];
+    // The first runs find no index, so each tries to create it.
+    race(&[search; 8]);
+    fs::write(
+        dir.path().join("root/note0.md"),
+        "# Note 0
+
+Edited.
+",
+    )
+    .unwrap();
+    race(&[
+        search,
+        &["update"],
+        search,
+        &["update"],
+        search,
+        &["update"],
+    ]);
+    assert_eq!(
+        envelope(&gg_docs(dir.path(), &["status", "--json"]))["documents"],
+        21
     );
 }
