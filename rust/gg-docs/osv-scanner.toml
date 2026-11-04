@@ -1,0 +1,6 @@
+# OSV-Scanner reads this file next to Cargo.lock. Remove the entry when turso_core allows tantivy 0.27
+# or later, which takes lru 0.18.2.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+reason = "lru 0.16.4 via tantivy 0.26 <- turso_core, which pins ^0.26.2 up to 0.9.0-pre.2, so no fixed path exists. The bug needs a panicking key Drop; tantivy's only cache keys are usize (src/store/reader.rs)."
