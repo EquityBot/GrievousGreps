@@ -68,16 +68,16 @@ The map lives in `graft/`, a local cache to keep out of git.
 
 ## Docs search
 
-`trail docs` (or `graft docs`) searches a repository's Markdown and text files and ranks the sections that best match, so an agent finds the handoff, design note or README section it needs without reading whole files. It is separate from the code map: `ask` and the MCP tools do not use it.
+`trail docs` (or `graft docs`) searches a repository's Markdown and text files and ranks the files that best match, each at its best-matching section, so an agent finds the handoff, design note or README section it needs without reading whole files. It is separate from the code map: `ask` and the MCP tools do not use it.
 
 ```bash
-trail docs search claim lapse                  # best sections first: path:line, title, heading, snippet
+trail docs search claim lapse                  # best file first, one section each: path:line, title, heading, snippet
 trail docs get notes/claims.md --from 12 -l 20 # those lines of one file
 trail docs status                              # documents and sections indexed
 trail docs search claim lapse --json           # the same as JSON, for scripts
 ```
 
-It searches the enclosing git checkout unless you pass `--root`, skips what `.gitignore` ignores, and brings its index up to date before every answer, so it never answers from files that have since changed. The index is one file per folder under `~/.trail/docs`, or `$TRAIL_HOME/docs`. It makes no network request.
+It searches the enclosing git checkout unless you pass `--root`, skips what `.gitignore` ignores, and before every answer re-reads each file whose size or modification time has changed, so its answers follow your edits. `get` reads files up to 4 MiB, the index's limit. The index is one file per folder under `~/.trail/docs`, or `$TRAIL_HOME/docs`. It makes no network request.
 
 The search runs in `gg-docs`, a Rust program in `rust/gg-docs`. No release of it exists yet, so build it once in your checkout, which needs a Rust toolchain:
 
@@ -176,7 +176,7 @@ This table lists what the code changes from upstream 0.28.0. Only [the recall ta
 | Symlinks planted in a repository or output folder | Followed | Refuses to write through them. A link swapped in between the check and the write is out of scope ([SECURITY.md](SECURITY.md)) |
 | Writes outside the repository | `trail init` adds hooks to `~/.claude` and `~/.codex` unless you pass `--no-global`, and `trail login` adds MCP servers | Only with `--global`, on either command, or `trail init --connect` |
 | npm on Windows | The update check fails on the `npm.cmd` shim | Starts npm through the shell |
-| Markdown and text search | None | `trail docs`, ranked by section, through the `gg-docs` binary |
+| Markdown and text search | None | `trail docs`, files ranked by their best section, through the `gg-docs` binary |
 | Distribution | Published on npm, with `trail upgrade` | From source |
 
 Learnings (`trail note`, `check` and `team`), `blast`, the viewer, the MCP server and agent wiring are inherited from upstream. [docs/upstream-guide.md](docs/upstream-guide.md) has the commands, the supported languages and what a node holds.

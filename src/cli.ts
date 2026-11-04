@@ -2865,7 +2865,7 @@ if (TRAIL) {
     skeleton: "a file's whole API in ~200 tokens",
     callers: "who calls it, or what it calls with --direction out",
     map: "directory clusters, hubs and hotspots",
-    docs: "ranked sections of the repo's Markdown and text · search, get, status, update",
+    docs: "the repo's Markdown and text, best section of each file first · search, get, status, update",
     note: "save what this session worked out, as a learning in .trail/",
     skills: "the steps that worked, kept as skills when you say so · on, off, show, forget",
     init: "wire trail into your agents",

@@ -119,6 +119,16 @@ test("docsRoot: outside a checkout, the home folder or a drive's root needs --ro
   assert.deepEqual(docsRoot(home, home, home), { root: home }, "named, it is searched");
 });
 
+test("docsRoot: a git checkout at the home folder is refused too, from it or below it", (t) => {
+  const home = scratch(t, "docs-home-git-");
+  mkdirSync(join(home, ".git"));
+  mkdirSync(join(home, "projects", "loose"), { recursive: true });
+  for (const cwd of [home, join(home, "projects", "loose")]) {
+    const refused = docsRoot(undefined, cwd, home);
+    assert.ok("error" in refused && refused.error.includes(`${home} is the home folder`), JSON.stringify(refused));
+  }
+});
+
 test("docsArgs: the protocol and root first; words and paths after --", () => {
   const head = ["--protocol", String(DOCS_PROTOCOL), "--root", "/r"];
   assert.deepEqual(docsArgs({ sub: "search", query: ["-n", "claims"], limit: "3", json: true }, "/r"), [

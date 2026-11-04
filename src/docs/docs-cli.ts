@@ -72,8 +72,9 @@ export function findDocsBinary(
 
 /**
  * The folder to search: the one named, else the enclosing git checkout, else
- * here. Here is refused when it is the home folder or a drive's root, where
- * the index would take in everything beneath it; `--root` still allows it.
+ * here. Either is refused when it is the home folder or a drive's root (a
+ * dotfiles checkout can be either), where the index would take in everything
+ * beneath it; `--root` still allows it.
  */
 export function docsRoot(
   named: string | undefined,
@@ -83,12 +84,12 @@ export function docsRoot(
   if (named !== undefined) return { root: resolve(named) };
   const here = resolve(cwd);
   const repo = checkoutRoot(here);
-  if (repo === here) return { root: here };
-  if (repo !== null) return { root: repo, note: `${tag()} docs: searching the whole checkout at ${repo}` };
-  if (here === resolve(home) || dirname(here) === here) {
-    return { error: `✗ ${here} is not in a git checkout, and searching it would index everything under it.\n  cd into a repository, or name the folder with --root.` };
+  const root = repo ?? here;
+  if (root === resolve(home) || dirname(root) === root) {
+    return { error: `✗ ${root} is the home folder or a drive's root, and searching it would index everything under it.\n  cd into a repository, or name the folder with --root.` };
   }
-  return { root: here };
+  if (repo !== null && repo !== here) return { root, note: `${tag()} docs: searching the whole checkout at ${repo}` };
+  return { root };
 }
 
 /** Why a `--json` answer cannot be trusted, or undefined when it can. */

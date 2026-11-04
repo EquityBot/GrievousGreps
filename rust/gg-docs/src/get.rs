@@ -10,6 +10,14 @@ pub fn slice(root: &Path, rel: &str, from: usize, count: Option<usize>) -> Resul
     if !full.starts_with(&root) {
         return Err(format!("{rel}: outside {}", crate::index::shown(&root)));
     }
+    let size = fs::metadata(&full)
+        .map_err(|e| format!("{rel}: {e}"))?
+        .len();
+    if size > crate::index::MAX_BYTES {
+        return Err(format!(
+            "{rel}: over the index's 4 MiB limit ({size} bytes)"
+        ));
+    }
     let bytes = fs::read(&full).map_err(|e| format!("{rel}: {e}"))?;
     let text = String::from_utf8_lossy(&bytes);
     let lines = text.lines().skip(from.saturating_sub(1));
@@ -40,6 +48,18 @@ mod tests {
                 .contains("outside")
         );
         assert!(slice(&root, "missing.md", 1, None).is_err());
+    }
+
+    #[test]
+    fn refuses_a_file_over_the_index_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let big = vec![b'a'; crate::index::MAX_BYTES as usize + 1];
+        std::fs::write(dir.path().join("big.txt"), big).unwrap();
+        assert!(
+            slice(dir.path(), "big.txt", 1, Some(1))
+                .unwrap_err()
+                .contains("over the index's 4 MiB limit")
+        );
     }
 
     #[cfg(unix)]

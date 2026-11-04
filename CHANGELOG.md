@@ -8,7 +8,7 @@ Built on Trail-Code 0.28.0. Sections below this one are upstream's.
 
 - **Caller resolution** for Python, TypeScript and Rust, with fixes ported from upstream pull requests and other forks. The README's Credits section names their authors.
 - **`benchmark/`**, which measures `callers` recall on 21 pinned public repositories.
-- **`trail docs`** (`search`, `get`, `status` and `update`): ranked search over a repository's Markdown and text by section, refreshed before every answer. The new `gg-docs` Rust binary in `rust/gg-docs` answers it; build it with cargo, as no release exists yet. Its `--json` answers carry a protocol number the CLI checks.
+- **`trail docs`** (`search`, `get`, `status` and `update`): ranked search over a repository's Markdown and text, showing each file's best section, refreshed before every answer. The new `gg-docs` Rust binary in `rust/gg-docs` answers it; build it with cargo, as no release exists yet. Its `--json` answers carry a protocol number the CLI checks.
 
 ### Changed
 
