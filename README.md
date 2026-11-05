@@ -13,7 +13,7 @@
 [![OpenSSF Scorecard](https://raw.githubusercontent.com/ryanduguid/.github/badges/EquityBot/GrievousGreps.svg)](https://scorecard.dev/viewer/?uri=github.com/yungSNAT/GrievousGreps) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16136/badge)](https://www.bestpractices.dev/projects/16136)<br>
 [![node: 20.16+ | 22.3+](.github/assets/badges/node.svg)](https://nodejs.org/) [![licence: MIT](.github/assets/badges/licence.svg)](LICENSE) [![fork of: Trail-Code](.github/assets/badges/fork-of.svg)](https://github.com/trailhq/Trail-Code)
 
-[Install](#install) · [Quick start](#quick-start) · [Docs search](#docs-search) · [Measured recall](#measured-recall) · [Against the alternatives](#against-the-alternatives) · [Compared with upstream](#compared-with-upstream) · [Limits](#limits) · [Credits](#credits)
+[Install](#install) · [Use](#use) · [Docs search](#docs-search) · [Measured recall](#measured-recall) · [Against the alternatives](#against-the-alternatives) · [Compared with upstream](#compared-with-upstream) · [Limits](#limits) · [Development](#development) · [Credits](#credits)
 
 </div>
 
@@ -48,7 +48,7 @@ A repository already wired to upstream with `npx` keeps starting upstream's pack
 
 To update, run `git pull`, `npm ci` and `npm run build` in the folder. `trail upgrade` refuses on this build, because the package on npm is upstream's.
 
-## Quick start
+## Use
 
 In your repository:
 
@@ -199,6 +199,16 @@ These use the network when you run them:
 - `trail team` fetches `origin` to read teammates' branches.
 - `trail login` and `trail init --connect` go to upstream's hosted service, `team.trailhq.com`. After you connect a workspace, the learnings committed in the repositories you added go there too. `trail init --connect` also adds a server to `~/.claude.json`, unless you pass `--no-global`.
 - `GRAFT_UPDATE_CHECK=1` asks npm for this package's version once a day.
+
+## Development
+
+```bash
+npm ci
+npm run build
+npm test
+```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) lists the checks a pull request must pass.
 
 ## Credits
 
